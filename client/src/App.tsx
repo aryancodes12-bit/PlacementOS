@@ -1,13 +1,44 @@
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+import { LoginPage } from "./pages/LoginPage";
+import { RegisterPage } from "./pages/RegisterPage";
+import { DashboardPage } from "./pages/DashboardPage";
+import { ProfilePage } from "./pages/ProfilePage";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+
+const queryClient = new QueryClient();
+
 function App() {
   return (
-    <main className="min-h-screen bg-slate-100 flex items-center justify-center">
-      <div className="rounded-2xl bg-white p-8 shadow-lg">
-        <h1 className="text-4xl font-bold text-slate-900">PlacementOS</h1>
-        <p className="mt-3 text-slate-600">
-          AI-powered placement readiness platform.
-        </p>
-      </div>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }
 
