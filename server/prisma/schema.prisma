@@ -1,14 +1,10 @@
-// schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
-
 enum Role {
   STUDENT
   ADMIN
@@ -28,28 +24,29 @@ enum ProblemStatus {
 }
 
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
+  id            String    @id @default(uuid())
+  email         String    @unique
   name          String
   password      String?
-  googleId      String?  @unique
-  role          Role     @default(STUDENT)
+  googleId      String?   @unique
+  role          Role      @default(STUDENT)
   avatarUrl     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  profile       Profile?
-  dsaProblems   DSAProblem[]
-  resumes       Resume[]
-  interviews    InterviewSession[]
-  streaks       Streak[]
+  profile        Profile?
+  dsaProblems    DSAProblem[]
+  resumes        Resume[]
+  interviews     InterviewSession[]
+  streaks        Streak[]
   readinessScore ReadinessScore?
+  dailyPlans     DailyPlan[]
 }
 
 model Profile {
   id              String   @id @default(uuid())
   userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id])
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   skills          String[]
   targetCompanies String[]
   bio             String?
@@ -62,68 +59,79 @@ model Profile {
 model DSAProblem {
   id         String        @id @default(uuid())
   userId     String
-  user       User          @relation(fields: [userId], references: [id])
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   title      String
-  topic      String        // arrays, dp, graphs, trees, etc.
+  topic      String
   difficulty Difficulty
   status     ProblemStatus @default(UNSOLVED)
-  platform   String?       // leetcode, gfg, etc.
+  platform   String?
   notes      String?
   solvedAt   DateTime?
   createdAt  DateTime      @default(now())
 }
 
 model Resume {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  fileUrl     String   // Cloudinary URL
-  version     Int      @default(1)
-  atsScore    Float?
-  aiAnalysis  Json?    // { keywords: [], missing: [], suggestions: [] }
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileUrl    String
+  version    Int      @default(1)
+  atsScore   Float?
+  aiAnalysis Json?
+  createdAt  DateTime @default(now())
 }
 
 model InterviewSession {
-  id               String   @id @default(uuid())
-  userId           String
-  user             User     @relation(fields: [userId], references: [id])
-  company          String
-  role             String
-  date             DateTime
-  audioUrl         String?  // Cloudinary URL
-  notes            String?
-  questionsAsked   String[]
-  overallScore     Float?   // 0-10
-  confidenceScore  Float?
+  id                 String   @id @default(uuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company            String
+  role               String
+  date               DateTime
+  audioUrl           String?
+  notes              String?
+  questionsAsked     String[]
+  overallScore       Float?
+  confidenceScore    Float?
   communicationScore Float?
-  conceptsMissed   String[]
-  aiSummary        Json?    // full AI analysis object
-  actionPlan       String?
-  createdAt        DateTime @default(now())
+  conceptsMissed     String[]
+  aiSummary          Json?
+  actionPlan         String?
+  createdAt          DateTime @default(now())
 }
 
 model Streak {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   date      DateTime @db.Date
-  activity  String   // "dsa", "resume_upload", "mock_interview"
+  activity  String
   createdAt DateTime @default(now())
 
   @@unique([userId, date, activity])
 }
 
 model ReadinessScore {
-  id              String   @id @default(uuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id])
-  dsaScore        Float    @default(0)
-  resumeScore     Float    @default(0)
-  interviewScore  Float    @default(0)
-  aptitudeScore   Float    @default(0)
-  overallScore    Float    @default(0)
-  readyFor        String[] // ["TCS", "Accenture"]
-  improveFor      String[] // ["Amazon", "Atlassian"]
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dsaScore       Float    @default(0)
+  resumeScore    Float    @default(0)
+  interviewScore Float    @default(0)
+  aptitudeScore  Float    @default(0)
+  overallScore   Float    @default(0)
+  readyFor       String[]
+  improveFor     String[]
+  updatedAt      DateTime @updatedAt
+}
+
+model DailyPlan {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdDate String
+  plan        Json
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, createdDate])
 }
