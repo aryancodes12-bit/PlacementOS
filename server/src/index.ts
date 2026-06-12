@@ -5,7 +5,7 @@ import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import authRoutes from "./routes/auth.routes";
-
+import profileRoutes from "./routes/profile.routes";
 dotenv.config();
 
 const app = express();
@@ -47,10 +47,11 @@ app.get("/api/health", (_req, res) => {
         message: "PlacementOS backend running 🚀",
     });
 });
-
+import healthRoutes from "./routes/health.routes";
+app.use("/api", healthRoutes);
 // Auth routes
 app.use("/api/auth", authRoutes);
-
+app.use("/api/profile", profileRoutes);
 io.on("connection", (socket) => {
     console.log(`User connected: ${socket.id}`);
 
