@@ -1,43 +1,68 @@
-import express from 'express'
-import cors from 'cors'
-import dotenv from 'dotenv'
-import { createServer } from 'http'
-import { Server } from 'socket.io'
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
+import { createServer } from "http";
+import { Server } from "socket.io";
+import authRoutes from "./routes/auth.routes";
 
-dotenv.config()
+dotenv.config();
 
-const app = express()
-const httpServer = createServer(app)
+const app = express();
+const httpServer = createServer(app);
 
-// Socket.io setup
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+
 const io = new Server(httpServer, {
     cors: {
-        origin: process.env.CLIENT_URL || 'http://localhost:5173',
-        methods: ['GET', 'POST']
-    }
-})
+        origin: CLIENT_URL,
+        methods: ["GET", "POST"],
+        credentials: true,
+    },
+});
 
-// Middleware
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }))
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
-
-// Health check
-app.get('/health', (req, res) => {
-    res.json({ status: 'OK', message: 'PlacementOS backend running 🚀' })
-})
-
-// Socket connection
-io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.id}`)
-    socket.on('disconnect', () => {
-        console.log(`User disconnected: ${socket.id}`)
+app.use(
+    cors({
+        origin: CLIENT_URL,
+        credentials: true,
     })
-})
+);
 
-const PORT = process.env.PORT || 5000
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// Root route
+app.get("/", (_req, res) => {
+    res.status(200).json({
+        success: true,
+        message: "PlacementOS API is running",
+    });
+});
+
+// Health route
+app.get("/api/health", (_req, res) => {
+    res.status(200).json({
+        success: true,
+        message: "PlacementOS backend running 🚀",
+    });
+});
+
+// Auth routes
+app.use("/api/auth", authRoutes);
+
+io.on("connection", (socket) => {
+    console.log(`User connected: ${socket.id}`);
+
+    socket.on("disconnect", () => {
+        console.log(`User disconnected: ${socket.id}`);
+    });
+});
+
+const PORT = process.env.PORT || 5000;
+
 httpServer.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`)
-})
+    console.log(`Server running on http://localhost:${PORT}`);
+});
 
-export { io }
+export { io };
