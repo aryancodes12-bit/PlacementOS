@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../store/authStore";
+import { Code2, FileText, Flame, Mic, UserRound } from "lucide-react";
 
+import { useAuthStore } from "../store/authStore";
 import { AppLayout } from "../components/ui/AppLayout";
 import { ReadinessRing } from "../components/dashboard/ReadinessRing";
 import { StatCard } from "../components/dashboard/StatCard";
@@ -8,45 +10,7 @@ import { CompanyReadiness } from "../components/dashboard/CompanyReadiness";
 import { DailyActionPlan } from "../components/dashboard/DailyActionPlan";
 import { ProfileCompletionCard } from "../components/dashboard/ProfileCompletionCard";
 import { RecentActivity } from "../components/dashboard/RecentActivity";
-
-import { Code2, FileText, Flame, Mic, UserRound } from "lucide-react";
-import { useEffect, useState } from 'react'
-import { readinessService, dsaService } from '../services/dsa.service'
-
-// Component ke andar:
-const [readiness, setReadiness] = useState<any>(null)
-const [streak, setStreak] = useState(0)
-const [dsaStats, setDsaStats] = useState<any>(null)
-const [loadingData, setLoadingData] = useState(true)
-
-useEffect(() => {
-    const fetchAll = async () => {
-        try {
-            const [r, s, d] = await Promise.all([
-                readinessService.getMe(),
-                dsaService.getStreak(),
-                dsaService.getAll(),
-            ])
-            setReadiness(r.data)
-            setStreak(s.data.currentStreak)
-            setDsaStats(d.data.stats)
-        } catch (err) {
-            console.error(err)
-        } finally {
-            setLoadingData(false)
-        }
-    }
-    fetchAll()
-}, [])
-const DASHBOARD_STATE = {
-    overall: 18,
-    dsa: 0,
-    resume: 0,
-    interview: 0,
-    aptitude: 0,
-    readyFor: [] as string[],
-    improveFor: ["TCS", "Infosys", "Accenture", "JPMorgan"],
-};
+import { dsaService, readinessService } from "../services/dsa.service";
 
 const ACTIONS = [
     {
@@ -73,10 +37,49 @@ export const DashboardPage = () => {
     const { user } = useAuthStore();
     const navigate = useNavigate();
 
+    const [readiness, setReadiness] = useState<any>(null);
+    const [streak, setStreak] = useState(0);
+    const [dsaStats, setDsaStats] = useState<any>(null);
+    const [loadingData, setLoadingData] = useState(true);
+
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            try {
+                const [readinessResponse, streakResponse, dsaResponse] =
+                    await Promise.all([
+                        readinessService.getMe(),
+                        dsaService.getStreak(),
+                        dsaService.getAll(),
+                    ]);
+
+                setReadiness(readinessResponse.data);
+                setStreak(streakResponse.data.currentStreak);
+                setDsaStats(dsaResponse.data.stats);
+            } catch (error) {
+                console.error("Failed to fetch dashboard data:", error);
+            } finally {
+                setLoadingData(false);
+            }
+        };
+
+        fetchDashboardData();
+    }, []);
+
     const hour = new Date().getHours();
 
     const greeting =
         hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+    const overall = readiness?.overallScore ?? 0;
+    const dsaScore = readiness?.dsaScore ?? 0;
+    const resumeScore = readiness?.resumeScore ?? 0;
+    const interviewScore = readiness?.interviewScore ?? 0;
+    const aptitudeScore = readiness?.aptitudeScore ?? 0;
+    const readyFor = readiness?.readyFor ?? [];
+    const improveFor =
+        readiness?.improveFor ?? ["TCS", "Infosys", "Accenture", "JPMorgan"];
+
+    const hasDsaActivity = (dsaStats?.total ?? 0) > 0;
 
     return (
         <AppLayout
@@ -94,22 +97,14 @@ export const DashboardPage = () => {
         >
             <div className="grid grid-cols-12 gap-4 mb-4">
                 <div className="col-span-12 lg:col-span-3 bg-bg-secondary border border-border rounded-2xl p-6 flex flex-col items-center justify-center gap-4">
-                    <ReadinessRing score={DASHBOARD_STATE.overall} />
+                    <ReadinessRing score={overall} />
 
                     <div className="w-full space-y-2">
                         {[
-                            { label: "DSA", val: DASHBOARD_STATE.dsa, color: "#6366F1" },
-                            { label: "Resume", val: DASHBOARD_STATE.resume, color: "#22C55E" },
-                            {
-                                label: "Interview",
-                                val: DASHBOARD_STATE.interview,
-                                color: "#F59E0B",
-                            },
-                            {
-                                label: "Aptitude",
-                                val: DASHBOARD_STATE.aptitude,
-                                color: "#3B82F6",
-                            },
+                            { label: "DSA", val: dsaScore, color: "#6366F1" },
+                            { label: "Resume", val: resumeScore, color: "#22C55E" },
+                            { label: "Interview", val: interviewScore, color: "#F59E0B" },
+                            { label: "Aptitude", val: aptitudeScore, color: "#3B82F6" },
                         ].map(({ label, val, color }) => (
                             <div key={label} className="flex items-center gap-2">
                                 <span className="text-[11px] text-text-tertiary w-16">
@@ -123,8 +118,8 @@ export const DashboardPage = () => {
                                     />
                                 </div>
 
-                                <span className="text-[11px] text-text-secondary w-6 text-right">
-                                    {val}
+                                <span className="text-[11px] text-text-secondary w-8 text-right">
+                                    {Math.round(val)}
                                 </span>
                             </div>
                         ))}
@@ -134,8 +129,9 @@ export const DashboardPage = () => {
                 <div className="col-span-12 lg:col-span-9 grid grid-cols-1 md:grid-cols-3 gap-4">
                     <StatCard
                         title="DSA Problems"
-                        value="0"
-                        subtitle="Start tracking solved problems by topic"
+                        value={loadingData ? "..." : dsaStats?.solved ?? 0}
+                        subtitle={`${dsaStats?.total ?? 0} total · ${dsaStats?.unsolved ?? 0
+                            } unsolved`}
                         icon={Code2}
                         color="brand"
                         onClick={() => navigate("/dsa")}
@@ -143,7 +139,7 @@ export const DashboardPage = () => {
 
                     <StatCard
                         title="Resume Score"
-                        value="Pending"
+                        value={resumeScore > 0 ? `${Math.round(resumeScore)}%` : "Pending"}
                         subtitle="Upload resume to generate ATS score"
                         icon={FileText}
                         color="success"
@@ -166,18 +162,19 @@ export const DashboardPage = () => {
 
                         <div>
                             <p className="text-lg font-bold text-text-primary">
-                                Start your preparation streak
+                                🔥 {streak} day streak
                             </p>
                             <p className="text-xs text-text-tertiary">
-                                Complete one activity today: update profile, upload resume, or log interview.
+                                Complete one activity today: solve a DSA problem, update your
+                                profile, or log an interview.
                             </p>
                         </div>
 
                         <button
-                            onClick={() => navigate("/profile")}
+                            onClick={() => navigate("/dsa")}
                             className="ml-auto bg-bg-tertiary hover:bg-bg-hover border border-border hover:border-border-hover text-text-secondary hover:text-text-primary px-4 py-2 rounded-xl text-sm transition-all"
                         >
-                            Start now
+                            Add problem
                         </button>
                     </div>
                 </div>
@@ -189,21 +186,21 @@ export const DashboardPage = () => {
                 </div>
 
                 <div className="col-span-12 lg:col-span-5">
-                    <CompanyReadiness
-                        readyFor={DASHBOARD_STATE.readyFor}
-                        improveFor={DASHBOARD_STATE.improveFor}
-                    />
+                    <CompanyReadiness readyFor={readyFor} improveFor={improveFor} />
                 </div>
             </div>
 
             <div className="grid grid-cols-12 gap-4">
                 <div className="col-span-12 lg:col-span-5">
                     <ProfileCompletionCard
-                        completedItems={["Account created"]}
+                        completedItems={[
+                            "Account created",
+                            ...(hasDsaActivity ? ["DSA activity"] : []),
+                        ]}
                         missingItems={[
                             "Profile details",
                             "Resume upload",
-                            "DSA activity",
+                            ...(hasDsaActivity ? [] : ["DSA activity"]),
                             "Interview replay",
                         ]}
                     />

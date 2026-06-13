@@ -5,6 +5,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { DSATrackerPage } from "./pages/DSATrackerPage";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { ComingSoonPage } from "./components/ui/ComingSoonPage";
 
@@ -40,11 +41,7 @@ function App() {
             path="/dsa"
             element={
               <ProtectedRoute>
-                <ComingSoonPage
-                  title="DSA Tracker"
-                  description="Track solved problems, weak topics, difficulty distribution, and placement prep consistency."
-                  nextStep="Build DSA CRUD APIs and connect real dashboard stats."
-                />
+                <DSATrackerPage />
               </ProtectedRoute>
             }
           />
