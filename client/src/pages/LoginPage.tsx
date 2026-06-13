@@ -11,21 +11,26 @@ export const LoginPage = () => {
     const [loading, setLoading] = useState(false)
 
     const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setLoading(true)
-        setError('')
+        e.preventDefault();
+
+        setLoading(true);
+        setError("");
 
         try {
-            const { data } = await api.post("/auth/login", form);
+            const { data } = await api.post("/auth/login", {
+                email: form.email,
+                password: form.password,
+            });
 
             setAuth(data.user, data.accessToken);
             navigate("/dashboard");
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Login failed')
+            console.error("Login error:", err.response?.data || err);
+            setError(err.response?.data?.message || "Login failed");
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
+    };
 
     return (
         <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">

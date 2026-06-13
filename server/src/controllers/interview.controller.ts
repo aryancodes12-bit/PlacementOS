@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { prisma } from "../prisma/client";
 import { AuthRequest } from "../middlewares/auth.middleware";
-
+import { analyzeInterviewReplay } from "../services/openaiInterview.service";
 const normalizeEnum = (value: unknown, fallback: string) => {
     if (!value) return fallback;
     return String(value).trim().toUpperCase().replace(/\s+/g, "_");
@@ -483,7 +483,108 @@ export const deleteInterview = async (req: AuthRequest, res: Response) => {
         });
     }
 };
+export const analyzeInterviewWithAI = async (
+    req: AuthRequest,
+    res: Response
+) => {
+    try {
+        const userId = req.user!.id;
 
+        const idParam = req.params.id;
+        const id = Array.isArray(idParam) ? idParam[0] : idParam;
+
+        if (!id) {
+            return res.status(400).json({
+                message: "Interview id is required",
+            });
+        }
+
+        const interview = await prisma.interviewSession.findFirst({
+            where: {
+                id,
+                userId,
+            },
+        });
+
+        if (!interview) {
+            return res.status(404).json({
+                message: "Interview replay not found",
+            });
+        }
+
+        const previousInterviews = await prisma.interviewSession.findMany({
+            where: {
+                userId,
+                NOT: {
+                    id,
+                },
+            },
+            select: {
+                conceptsMissed: true,
+                topics: true,
+            },
+            take: 10,
+            orderBy: {
+                date: "desc",
+            },
+        });
+
+        const previousWeakTopics = previousInterviews.flatMap((item) => [
+            ...item.conceptsMissed,
+            ...item.topics,
+        ]);
+
+        const analysis = await analyzeInterviewReplay({
+            company: interview.company,
+            role: interview.role,
+            roundType: interview.roundType,
+            result: interview.result,
+            questionsAsked: interview.questionsAsked,
+            topics: interview.topics,
+            conceptsMissed: interview.conceptsMissed,
+            whatWentWell: interview.whatWentWell,
+            whatWentWrong: interview.whatWentWrong,
+            feedback: interview.feedback,
+            confidenceScore: interview.confidenceScore,
+            communicationScore: interview.communicationScore,
+            technicalScore: interview.technicalScore,
+            previousWeakTopics,
+        });
+
+        const mergedConceptsMissed = Array.from(
+            new Set([...interview.conceptsMissed, ...analysis.missedConcepts])
+        );
+
+        const updatedInterview = await prisma.interviewSession.update({
+            where: {
+                id,
+            },
+            data: {
+                aiSummary: analysis as any,
+                conceptsMissed: mergedConceptsMissed,
+                nextActions: analysis.nextActions,
+                actionPlan: analysis.nextActions.join("\n"),
+                overallScore: Math.round(analysis.estimatedReadinessScore / 10),
+                analysisStatus: "ANALYZED",
+            },
+        });
+
+        await updateInterviewReadiness(userId);
+
+        return res.status(200).json({
+            message: "Interview analyzed successfully",
+            analysis,
+            interview: updatedInterview,
+        });
+    } catch (error: any) {
+        console.error("analyzeInterviewWithAI error:", error);
+
+        return res.status(500).json({
+            message:
+                error.message || "Failed to analyze interview replay with OpenAI",
+        });
+    }
+};
 export const getInterviewStats = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user!.id;

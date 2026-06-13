@@ -8,7 +8,9 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { DSATrackerPage } from "./pages/DSATrackerPage";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { ComingSoonPage } from "./components/ui/ComingSoonPage";
-
+import { InterviewsPage } from "./pages/InterviewsPage";
+import { NewInterviewPage } from "./pages/NewInterviewPage";
+import { InterviewDetailPage } from "./pages/InterviewDetailPage";
 const queryClient = new QueryClient();
 
 function App() {
@@ -63,11 +65,7 @@ function App() {
             path="/interviews"
             element={
               <ProtectedRoute>
-                <ComingSoonPage
-                  title="Interview Replay"
-                  description="Log interview experiences, questions asked, weak areas, and recommended follow-up actions."
-                  nextStep="Build interview replay CRUD and analysis dashboard."
-                />
+                <InterviewsPage />
               </ProtectedRoute>
             }
           />
@@ -76,11 +74,16 @@ function App() {
             path="/interviews/new"
             element={
               <ProtectedRoute>
-                <ComingSoonPage
-                  title="Log Interview"
-                  description="Add your first mock or real interview experience."
-                  nextStep="Build interview creation form and connect it to the backend."
-                />
+                <NewInterviewPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/interviews/:id"
+            element={
+              <ProtectedRoute>
+                <InterviewDetailPage />
               </ProtectedRoute>
             }
           />
