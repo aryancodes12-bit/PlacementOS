@@ -5,6 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
 enum Role {
   STUDENT
   ADMIN
@@ -24,15 +25,15 @@ enum ProblemStatus {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  name          String
-  password      String?
-  googleId      String?   @unique
-  role          Role      @default(STUDENT)
-  avatarUrl     String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String?
+  googleId  String?  @unique
+  role      Role     @default(STUDENT)
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   profile        Profile?
   dsaProblems    DSAProblem[]
@@ -57,17 +58,27 @@ model Profile {
 }
 
 model DSAProblem {
-  id         String        @id @default(uuid())
-  userId     String
-  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   title      String
   topic      String
   difficulty Difficulty
   status     ProblemStatus @default(UNSOLVED)
+
   platform   String?
+  problemUrl String?
   notes      String?
-  solvedAt   DateTime?
-  createdAt  DateTime      @default(now())
+
+  solvedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([topic])
+  @@index([difficulty])
+  @@index([status])
 }
 
 model Resume {

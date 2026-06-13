@@ -10,7 +10,34 @@ import { ProfileCompletionCard } from "../components/dashboard/ProfileCompletion
 import { RecentActivity } from "../components/dashboard/RecentActivity";
 
 import { Code2, FileText, Flame, Mic, UserRound } from "lucide-react";
+import { useEffect, useState } from 'react'
+import { readinessService, dsaService } from '../services/dsa.service'
 
+// Component ke andar:
+const [readiness, setReadiness] = useState<any>(null)
+const [streak, setStreak] = useState(0)
+const [dsaStats, setDsaStats] = useState<any>(null)
+const [loadingData, setLoadingData] = useState(true)
+
+useEffect(() => {
+    const fetchAll = async () => {
+        try {
+            const [r, s, d] = await Promise.all([
+                readinessService.getMe(),
+                dsaService.getStreak(),
+                dsaService.getAll(),
+            ])
+            setReadiness(r.data)
+            setStreak(s.data.currentStreak)
+            setDsaStats(d.data.stats)
+        } catch (err) {
+            console.error(err)
+        } finally {
+            setLoadingData(false)
+        }
+    }
+    fetchAll()
+}, [])
 const DASHBOARD_STATE = {
     overall: 18,
     dsa: 0,

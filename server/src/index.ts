@@ -57,7 +57,10 @@ app.get("/", (_req, res) => {
 app.use("/api", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
-
+import dsaRoutes from './routes/dsa.routes'
+import readinessRoutes from './routes/readiness.routes'
+app.use('/api/dsa', dsaRoutes)
+app.use('/api/readiness', readinessRoutes)
 io.on("connection", (socket) => {
     console.log(`User connected: ${socket.id}`);
 
