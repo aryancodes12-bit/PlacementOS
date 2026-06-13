@@ -61,6 +61,8 @@ import dsaRoutes from './routes/dsa.routes'
 import readinessRoutes from './routes/readiness.routes'
 app.use('/api/dsa', dsaRoutes)
 app.use('/api/readiness', readinessRoutes)
+import interviewRoutes from "./routes/interview.routes";
+app.use("/api/interviews", interviewRoutes);
 io.on("connection", (socket) => {
     console.log(`User connected: ${socket.id}`);
 

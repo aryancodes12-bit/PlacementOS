@@ -24,6 +24,36 @@ enum ProblemStatus {
   SOLVED
 }
 
+enum InterviewRoundType {
+  HR
+  TECHNICAL
+  MANAGERIAL
+  APTITUDE
+  GROUP_DISCUSSION
+  SYSTEM_DESIGN
+  CODING
+  OTHER
+}
+
+enum InterviewResult {
+  PENDING
+  SELECTED
+  REJECTED
+  ON_HOLD
+  NO_RESPONSE
+}
+
+enum InterviewSourceType {
+  MANUAL
+  AUDIO
+  VIDEO
+}
+
+enum InterviewAnalysisStatus {
+  DRAFT
+  ANALYZED
+}
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -93,22 +123,48 @@ model Resume {
 }
 
 model InterviewSession {
-  id                 String   @id @default(uuid())
-  userId             String
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company            String
-  role               String
-  date               DateTime
-  audioUrl           String?
-  notes              String?
-  questionsAsked     String[]
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  company   String
+  role      String
+  roundType InterviewRoundType @default(TECHNICAL)
+  date      DateTime
+  result    InterviewResult    @default(PENDING)
+
+  sourceType InterviewSourceType @default(MANUAL)
+  audioUrl   String?
+  videoUrl   String?
+  transcript String?
+
+  notes          String?
+  questionsAsked String[] @default([])
+  topics         String[] @default([])
+  conceptsMissed String[] @default([])
+
+  whatWentWell  String?
+  whatWentWrong String?
+  feedback      String?
+
   overallScore       Float?
   confidenceScore    Float?
   communicationScore Float?
-  conceptsMissed     String[]
-  aiSummary          Json?
-  actionPlan         String?
-  createdAt          DateTime @default(now())
+  technicalScore     Float?
+
+  aiSummary      Json?
+  actionPlan     String?
+  nextActions    String[]                @default([])
+  analysisStatus InterviewAnalysisStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([company])
+  @@index([roundType])
+  @@index([result])
+  @@index([date])
 }
 
 model Streak {
