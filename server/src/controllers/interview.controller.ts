@@ -688,6 +688,12 @@ export const analyzeInterviewWithAI = async (
                 conceptsMissed: mergedConceptsMissed,
                 nextActions: analysis.nextActions,
                 actionPlan: analysis.nextActions.join("\n"),
+
+                confidenceScore: interview.confidenceScore ?? analysis.confidenceScore,
+                communicationScore:
+                    interview.communicationScore ?? analysis.communicationScore,
+                technicalScore: interview.technicalScore ?? analysis.technicalScore,
+
                 overallScore: Math.round(analysis.estimatedReadinessScore / 10),
                 analysisStatus: "ANALYZED",
             },

@@ -5,7 +5,7 @@ import {
     Building2,
     CalendarDays,
     CheckCircle2,
-    Clock,
+
     Mic,
     Plus,
     Search,
@@ -308,116 +308,131 @@ export const InterviewsPage = () => {
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {interviews.map((interview) => (
-                                <article
-                                    key={interview.id}
-                                    className="bg-bg-secondary border border-border hover:border-border-hover rounded-2xl p-5 transition"
-                                >
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-11 h-11 rounded-xl bg-brand-muted border border-brand/10 flex items-center justify-center text-brand font-bold">
-                                            {interview.company.charAt(0).toUpperCase()}
-                                        </div>
+                            {interviews.map((interview) => {
+                                const ai = interview.aiSummary as any;
 
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <h3 className="text-base font-semibold text-text-primary">
-                                                    {interview.company}
-                                                </h3>
-                                                <span className="text-xs text-text-tertiary">·</span>
-                                                <p className="text-sm text-text-secondary">
-                                                    {interview.role}
-                                                </p>
-                                                <span
-                                                    className={`text-[11px] px-2 py-0.5 rounded-full border ${getResultClass(
-                                                        interview.result
-                                                    )}`}
-                                                >
-                                                    {formatEnum(interview.result)}
-                                                </span>
+                                const scores = {
+                                    confidence: interview.confidenceScore ?? ai?.confidenceScore ?? null,
+                                    communication: interview.communicationScore ?? ai?.communicationScore ?? null,
+                                    technical: interview.technicalScore ?? ai?.technicalScore ?? null,
+                                };
+
+                                const displayTopics =
+                                    interview.topics?.length > 0
+                                        ? interview.topics
+                                        : ai?.repeatedRiskTopics ?? [];
+
+                                return (
+                                    <article
+                                        key={interview.id}
+                                        className="bg-bg-secondary border border-border hover:border-border-hover rounded-2xl p-5 transition"
+                                    >
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-11 h-11 rounded-xl bg-brand-muted border border-brand/10 flex items-center justify-center text-brand font-bold">
+                                                {interview.company.charAt(0).toUpperCase()}
                                             </div>
 
-                                            <div className="flex items-center gap-3 text-xs text-text-tertiary mt-1">
-                                                <span className="flex items-center gap-1">
-                                                    <CalendarDays size={12} />
-                                                    {new Date(interview.date).toLocaleDateString("en-IN", {
-                                                        day: "numeric",
-                                                        month: "short",
-                                                        year: "numeric",
-                                                    })}
-                                                </span>
-                                                <span>{formatEnum(interview.roundType)}</span>
-                                            </div>
-
-                                            <div className="flex flex-wrap gap-1.5 mt-3">
-                                                {interview.topics.slice(0, 5).map((topic) => (
-                                                    <span
-                                                        key={topic}
-                                                        className="bg-bg-tertiary border border-border text-text-secondary text-[11px] px-2.5 py-1 rounded-full"
-                                                    >
-                                                        {topic}
-                                                    </span>
-                                                ))}
-                                            </div>
-
-                                            {interview.conceptsMissed.length > 0 && (
-                                                <div className="mt-3">
-                                                    <p className="text-[11px] uppercase tracking-wide text-danger mb-1.5">
-                                                        Missed Concepts
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <h3 className="text-base font-semibold text-text-primary">
+                                                        {interview.company}
+                                                    </h3>
+                                                    <span className="text-xs text-text-tertiary">·</span>
+                                                    <p className="text-sm text-text-secondary">
+                                                        {interview.role}
                                                     </p>
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {interview.conceptsMissed.map((concept) => (
-                                                            <span
-                                                                key={concept}
-                                                                className="bg-danger-muted border border-danger/10 text-danger text-[11px] px-2.5 py-1 rounded-full"
-                                                            >
-                                                                {concept}
-                                                            </span>
-                                                        ))}
+                                                    <span
+                                                        className={`text-[11px] px-2 py-0.5 rounded-full border ${getResultClass(
+                                                            interview.result
+                                                        )}`}
+                                                    >
+                                                        {formatEnum(interview.result)}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex items-center gap-3 text-xs text-text-tertiary mt-1">
+                                                    <span className="flex items-center gap-1">
+                                                        <CalendarDays size={12} />
+                                                        {new Date(interview.date).toLocaleDateString("en-IN", {
+                                                            day: "numeric",
+                                                            month: "short",
+                                                            year: "numeric",
+                                                        })}
+                                                    </span>
+                                                    <span>{formatEnum(interview.roundType)}</span>
+                                                </div>
+
+                                                <div className="flex flex-wrap gap-1.5 mt-3">
+                                                    {displayTopics.slice(0, 5).map((topic: string) => (
+                                                        <span
+                                                            key={topic}
+                                                            className="bg-bg-tertiary border border-border text-text-secondary text-[11px] px-2.5 py-1 rounded-full"
+                                                        >
+                                                            {topic}
+                                                        </span>
+                                                    ))}
+                                                </div>
+
+                                                {interview.conceptsMissed.length > 0 && (
+                                                    <div className="mt-3">
+                                                        <p className="text-[11px] uppercase tracking-wide text-danger mb-1.5">
+                                                            Missed Concepts
+                                                        </p>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {interview.conceptsMissed.map((concept) => (
+                                                                <span
+                                                                    key={concept}
+                                                                    className="bg-danger-muted border border-danger/10 text-danger text-[11px] px-2.5 py-1 rounded-full"
+                                                                >
+                                                                    {concept}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="flex flex-col items-end gap-3">
+                                                <div className="grid grid-cols-3 gap-2 text-center">
+                                                    <div>
+                                                        <p className="text-sm font-bold text-text-primary">
+                                                            {scores.confidence ?? "-"}
+                                                        </p>
+                                                        <p className="text-[10px] text-text-tertiary">Conf</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-bold text-text-primary">
+                                                            {scores.communication ?? "-"}
+                                                        </p>
+                                                        <p className="text-[10px] text-text-tertiary">Comm</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-bold text-text-primary">
+                                                            {scores.technical ?? "-"}
+                                                        </p>
+                                                        <p className="text-[10px] text-text-tertiary">Tech</p>
                                                     </div>
                                                 </div>
-                                            )}
-                                        </div>
 
-                                        <div className="flex flex-col items-end gap-3">
-                                            <div className="grid grid-cols-3 gap-2 text-center">
-                                                <div>
-                                                    <p className="text-sm font-bold text-text-primary">
-                                                        {interview.confidenceScore ?? "-"}
-                                                    </p>
-                                                    <p className="text-[10px] text-text-tertiary">Conf</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-bold text-text-primary">
-                                                        {interview.communicationScore ?? "-"}
-                                                    </p>
-                                                    <p className="text-[10px] text-text-tertiary">Comm</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-bold text-text-primary">
-                                                        {interview.technicalScore ?? "-"}
-                                                    </p>
-                                                    <p className="text-[10px] text-text-tertiary">Tech</p>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => navigate(`/interviews/${interview.id}`)}
+                                                        className="bg-bg-tertiary hover:bg-bg-hover border border-border text-text-secondary hover:text-text-primary px-3 py-2 rounded-xl text-xs transition"
+                                                    >
+                                                        View
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(interview.id)}
+                                                        className="bg-bg-tertiary hover:bg-danger-muted border border-border hover:border-danger/10 text-text-tertiary hover:text-danger p-2 rounded-xl transition"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
                                                 </div>
                                             </div>
-
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => navigate(`/interviews/${interview.id}`)}
-                                                    className="bg-bg-tertiary hover:bg-bg-hover border border-border text-text-secondary hover:text-text-primary px-3 py-2 rounded-xl text-xs transition"
-                                                >
-                                                    View
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(interview.id)}
-                                                    className="bg-bg-tertiary hover:bg-danger-muted border border-border hover:border-danger/10 text-text-tertiary hover:text-danger p-2 rounded-xl transition"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </div>
                                         </div>
-                                    </div>
-                                </article>
-                            ))}
+                                    </article>
+                                );
+                            })}
                         </div>
                     )}
                 </section>

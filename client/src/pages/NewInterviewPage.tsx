@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 
 import { AppLayout } from "../components/ui/AppLayout";
 import { interviewService } from "../services/interview.service";
 
 import type {
     CreateInterviewInput,
+    InterviewQuestionReplay,
+    InterviewQuestionStatus,
     InterviewResult,
     InterviewRoundType,
 } from "../services/interview.service";
@@ -30,6 +32,13 @@ const results: InterviewResult[] = [
     "NO_RESPONSE",
 ];
 
+const questionStatuses: InterviewQuestionStatus[] = [
+    "SOLVED",
+    "PARTIAL",
+    "FAILED",
+    "SKIPPED",
+];
+
 const formatEnum = (value: string) => {
     return value
         .toLowerCase()
@@ -40,7 +49,7 @@ const formatEnum = (value: string) => {
 
 const toArray = (value: string) => {
     return value
-        .split("\n")
+        .split(/[\n,]/)
         .map((item) => item.trim())
         .filter(Boolean);
 };
@@ -55,6 +64,24 @@ const toScore = (value: string) => {
     return Math.max(0, Math.min(10, score));
 };
 
+type QuestionForm = {
+    question: string;
+    userAnswer: string;
+    missedPoints: string;
+    interviewerFeedback: string;
+    confidenceScore: string;
+    status: InterviewQuestionStatus;
+};
+
+const emptyQuestion = (): QuestionForm => ({
+    question: "",
+    userAnswer: "",
+    missedPoints: "",
+    interviewerFeedback: "",
+    confidenceScore: "",
+    status: "PARTIAL",
+});
+
 export const NewInterviewPage = () => {
     const navigate = useNavigate();
 
@@ -65,7 +92,6 @@ export const NewInterviewPage = () => {
         date: new Date().toISOString().split("T")[0],
         result: "PENDING" as InterviewResult,
 
-        questionsAsked: "",
         topics: "",
         conceptsMissed: "",
 
@@ -76,9 +102,11 @@ export const NewInterviewPage = () => {
         confidenceScore: "",
         communicationScore: "",
         technicalScore: "",
-
-
     });
+
+    const [questions, setQuestions] = useState<QuestionForm[]>([
+        emptyQuestion(),
+    ]);
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -90,6 +118,47 @@ export const NewInterviewPage = () => {
 
     const labelClass =
         "text-xs font-medium text-text-secondary mb-1.5 block uppercase tracking-wide";
+
+    const updateQuestion = (
+        index: number,
+        field: keyof QuestionForm,
+        value: string
+    ) => {
+        setQuestions((prev) =>
+            prev.map((question, questionIndex) =>
+                questionIndex === index
+                    ? {
+                        ...question,
+                        [field]: value,
+                    }
+                    : question
+            )
+        );
+    };
+
+    const addQuestion = () => {
+        setQuestions((prev) => [...prev, emptyQuestion()]);
+    };
+
+    const removeQuestion = (index: number) => {
+        setQuestions((prev) => {
+            if (prev.length === 1) return prev;
+            return prev.filter((_, questionIndex) => questionIndex !== index);
+        });
+    };
+
+    const buildQuestionReplays = (): InterviewQuestionReplay[] => {
+        return questions
+            .map((question) => ({
+                question: question.question.trim(),
+                userAnswer: question.userAnswer.trim() || null,
+                missedPoints: toArray(question.missedPoints),
+                interviewerFeedback: question.interviewerFeedback.trim() || null,
+                confidenceScore: toScore(question.confidenceScore),
+                status: question.status,
+            }))
+            .filter((question) => question.question.length > 0);
+    };
 
     const handleSubmit = async () => {
         if (!form.company.trim()) {
@@ -107,10 +176,21 @@ export const NewInterviewPage = () => {
             return;
         }
 
+        const questionReplays = buildQuestionReplays();
+
+        if (questionReplays.length === 0) {
+            setError("Add at least one interview question");
+            return;
+        }
+
         setLoading(true);
         setError("");
 
         try {
+            const questionLevelMissedPoints = questionReplays.flatMap(
+                (question) => question.missedPoints
+            );
+
             const payload: CreateInterviewInput = {
                 company: form.company.trim(),
                 role: form.role.trim(),
@@ -118,9 +198,13 @@ export const NewInterviewPage = () => {
                 date: form.date,
                 result: form.result,
 
-                questionsAsked: toArray(form.questionsAsked),
+                questionsAsked: questionReplays.map((question) => question.question),
+                questionReplays,
+
                 topics: toArray(form.topics),
-                conceptsMissed: toArray(form.conceptsMissed),
+                conceptsMissed: Array.from(
+                    new Set([...toArray(form.conceptsMissed), ...questionLevelMissedPoints])
+                ),
 
                 whatWentWell: form.whatWentWell.trim(),
                 whatWentWrong: form.whatWentWrong.trim(),
@@ -137,6 +221,7 @@ export const NewInterviewPage = () => {
 
             navigate("/interviews");
         } catch (err: any) {
+            console.error("Create interview error:", err.response?.data || err);
             setError(err.response?.data?.message || "Failed to log interview");
         } finally {
             setLoading(false);
@@ -146,7 +231,7 @@ export const NewInterviewPage = () => {
     return (
         <AppLayout
             title="Log Interview"
-            description="Capture questions, weak topics, feedback, scores, and next actions from a mock or real interview."
+            description="Capture question-wise answers, missed points, feedback, scores, and weak areas."
             action={
                 <button
                     onClick={() => navigate("/interviews")}
@@ -157,7 +242,7 @@ export const NewInterviewPage = () => {
                 </button>
             }
         >
-            <div className="max-w-5xl mx-auto">
+            <div className="max-w-6xl mx-auto">
                 {error && (
                     <div className="mb-4 bg-danger-muted border border-danger/10 text-danger text-sm rounded-xl px-4 py-3">
                         {error}
@@ -165,191 +250,327 @@ export const NewInterviewPage = () => {
                 )}
 
                 <div className="grid grid-cols-12 gap-4">
-                    <section className="col-span-12 lg:col-span-8 bg-bg-secondary border border-border rounded-2xl p-6 space-y-5">
-                        <div>
-                            <h3 className="text-lg font-semibold text-text-primary">
-                                Interview Details
-                            </h3>
-                            <p className="text-sm text-text-tertiary mt-1">
-                                Start with company, role, round, and result.
-                            </p>
+                    <section className="col-span-12 lg:col-span-8 space-y-4">
+                        <div className="bg-bg-secondary border border-border rounded-2xl p-6 space-y-5">
+                            <div>
+                                <h3 className="text-lg font-semibold text-text-primary">
+                                    Interview Details
+                                </h3>
+                                <p className="text-sm text-text-tertiary mt-1">
+                                    Start with company, role, round, and result.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className={labelClass}>Company</label>
+                                    <input
+                                        className={inputClass}
+                                        placeholder="TCS, Infosys, Amazon, JPMorgan"
+                                        value={form.company}
+                                        onChange={(e) =>
+                                            setForm({ ...form, company: e.target.value })
+                                        }
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className={labelClass}>Role</label>
+                                    <input
+                                        className={inputClass}
+                                        placeholder="Java Developer Intern, SDE Intern"
+                                        value={form.role}
+                                        onChange={(e) =>
+                                            setForm({ ...form, role: e.target.value })
+                                        }
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className={labelClass}>Round Type</label>
+                                    <select
+                                        className={inputClass}
+                                        value={form.roundType}
+                                        onChange={(e) =>
+                                            setForm({
+                                                ...form,
+                                                roundType: e.target.value as InterviewRoundType,
+                                            })
+                                        }
+                                    >
+                                        {roundTypes.map((round) => (
+                                            <option key={round} value={round}>
+                                                {formatEnum(round)}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className={labelClass}>Result</label>
+                                    <select
+                                        className={inputClass}
+                                        value={form.result}
+                                        onChange={(e) =>
+                                            setForm({
+                                                ...form,
+                                                result: e.target.value as InterviewResult,
+                                            })
+                                        }
+                                    >
+                                        {results.map((result) => (
+                                            <option key={result} value={result}>
+                                                {formatEnum(result)}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className={labelClass}>Date</label>
+                                    <input
+                                        type="date"
+                                        className={inputClass}
+                                        value={form.date}
+                                        onChange={(e) =>
+                                            setForm({ ...form, date: e.target.value })
+                                        }
+                                    />
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className={labelClass}>Company</label>
-                                <input
-                                    className={inputClass}
-                                    placeholder="TCS, Infosys, Amazon, JPMorgan"
-                                    value={form.company}
-                                    onChange={(e) =>
-                                        setForm({ ...form, company: e.target.value })
-                                    }
-                                />
-                            </div>
+                        <div className="bg-bg-secondary border border-border rounded-2xl p-6 space-y-5">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-text-primary">
+                                        Question-level Replay
+                                    </h3>
+                                    <p className="text-sm text-text-tertiary mt-1">
+                                        Add what you answered, what you missed, and what feedback you got.
+                                    </p>
+                                </div>
 
-                            <div>
-                                <label className={labelClass}>Role</label>
-                                <input
-                                    className={inputClass}
-                                    placeholder="Java Developer Intern, SDE Intern"
-                                    value={form.role}
-                                    onChange={(e) => setForm({ ...form, role: e.target.value })}
-                                />
-                            </div>
-
-                            <div>
-                                <label className={labelClass}>Round Type</label>
-                                <select
-                                    className={inputClass}
-                                    value={form.roundType}
-                                    onChange={(e) =>
-                                        setForm({
-                                            ...form,
-                                            roundType: e.target.value as InterviewRoundType,
-                                        })
-                                    }
+                                <button
+                                    onClick={addQuestion}
+                                    className="bg-brand hover:bg-brand-hover text-white px-4 py-2 rounded-xl text-sm transition flex items-center gap-2"
                                 >
-                                    {roundTypes.map((round) => (
-                                        <option key={round} value={round}>
-                                            {formatEnum(round)}
-                                        </option>
-                                    ))}
-                                </select>
+                                    <Plus size={15} />
+                                    Add Question
+                                </button>
                             </div>
 
-                            <div>
-                                <label className={labelClass}>Result</label>
-                                <select
-                                    className={inputClass}
-                                    value={form.result}
-                                    onChange={(e) =>
-                                        setForm({
-                                            ...form,
-                                            result: e.target.value as InterviewResult,
-                                        })
-                                    }
-                                >
-                                    {results.map((result) => (
-                                        <option key={result} value={result}>
-                                            {formatEnum(result)}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                            <div className="space-y-4">
+                                {questions.map((question, index) => (
+                                    <div
+                                        key={index}
+                                        className="bg-bg-tertiary border border-border rounded-2xl p-4 space-y-4"
+                                    >
+                                        <div className="flex items-center justify-between gap-4">
+                                            <p className="text-sm font-semibold text-text-primary">
+                                                Question {index + 1}
+                                            </p>
 
-                            <div>
-                                <label className={labelClass}>Date</label>
-                                <input
-                                    type="date"
-                                    className={inputClass}
-                                    value={form.date}
-                                    onChange={(e) => setForm({ ...form, date: e.target.value })}
-                                />
+                                            <button
+                                                onClick={() => removeQuestion(index)}
+                                                disabled={questions.length === 1}
+                                                className="disabled:opacity-30 disabled:cursor-not-allowed text-text-tertiary hover:text-danger transition"
+                                            >
+                                                <Trash2 size={15} />
+                                            </button>
+                                        </div>
+
+                                        <div>
+                                            <label className={labelClass}>Question Asked</label>
+                                            <textarea
+                                                className={`${inputClass} resize-none min-h-20`}
+                                                placeholder="What is SQL indexing and why is it used?"
+                                                value={question.question}
+                                                onChange={(e) =>
+                                                    updateQuestion(index, "question", e.target.value)
+                                                }
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className={labelClass}>My Answer</label>
+                                            <textarea
+                                                className={`${inputClass} resize-none min-h-24`}
+                                                placeholder="I said indexing makes search faster but could not explain B-tree or tradeoffs."
+                                                value={question.userAnswer}
+                                                onChange={(e) =>
+                                                    updateQuestion(index, "userAnswer", e.target.value)
+                                                }
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className={labelClass}>
+                                                    Missed Points
+                                                </label>
+                                                <textarea
+                                                    className={`${inputClass} resize-none min-h-24`}
+                                                    placeholder={`B-tree basics\nClustered vs non-clustered\nIndex tradeoffs`}
+                                                    value={question.missedPoints}
+                                                    onChange={(e) =>
+                                                        updateQuestion(
+                                                            index,
+                                                            "missedPoints",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className={labelClass}>
+                                                    Interviewer Feedback
+                                                </label>
+                                                <textarea
+                                                    className={`${inputClass} resize-none min-h-24`}
+                                                    placeholder="Revise indexing internals and when not to use indexes."
+                                                    value={question.interviewerFeedback}
+                                                    onChange={(e) =>
+                                                        updateQuestion(
+                                                            index,
+                                                            "interviewerFeedback",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className={labelClass}>
+                                                    Question Confidence
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="10"
+                                                    className={inputClass}
+                                                    placeholder="3"
+                                                    value={question.confidenceScore}
+                                                    onChange={(e) =>
+                                                        updateQuestion(
+                                                            index,
+                                                            "confidenceScore",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className={labelClass}>Status</label>
+                                                <select
+                                                    className={inputClass}
+                                                    value={question.status}
+                                                    onChange={(e) =>
+                                                        updateQuestion(
+                                                            index,
+                                                            "status",
+                                                            e.target.value as InterviewQuestionStatus
+                                                        )
+                                                    }
+                                                >
+                                                    {questionStatuses.map((status) => (
+                                                        <option key={status} value={status}>
+                                                            {formatEnum(status)}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
-                        <div className="border-t border-border pt-5">
-                            <h3 className="text-lg font-semibold text-text-primary">
-                                Replay Memory
-                            </h3>
-                            <p className="text-sm text-text-tertiary mt-1">
-                                Add one item per line. This powers repeated weak-topic detection.
-                            </p>
-                        </div>
-
-                        <div>
-                            <label className={labelClass}>Questions Asked</label>
-                            <textarea
-                                className={`${inputClass} resize-none min-h-28`}
-                                placeholder={`Explain OOP pillars\nDifference between SQL and NoSQL\nWrite logic for palindrome`}
-                                value={form.questionsAsked}
-                                onChange={(e) =>
-                                    setForm({ ...form, questionsAsked: e.target.value })
-                                }
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-bg-secondary border border-border rounded-2xl p-6 space-y-5">
                             <div>
-                                <label className={labelClass}>Topics Covered</label>
+                                <h3 className="text-lg font-semibold text-text-primary">
+                                    Overall Replay Context
+                                </h3>
+                                <p className="text-sm text-text-tertiary mt-1">
+                                    Add topics, overall reflection, and interviewer feedback.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className={labelClass}>Topics Covered</label>
+                                    <textarea
+                                        className={`${inputClass} resize-none min-h-24`}
+                                        placeholder={`Java\nOOP\nDBMS\nSQL`}
+                                        value={form.topics}
+                                        onChange={(e) =>
+                                            setForm({ ...form, topics: e.target.value })
+                                        }
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className={labelClass}>Overall Missed Concepts</label>
+                                    <textarea
+                                        className={`${inputClass} resize-none min-h-24`}
+                                        placeholder={`SQL Indexing\nTime Complexity Explanation`}
+                                        value={form.conceptsMissed}
+                                        onChange={(e) =>
+                                            setForm({ ...form, conceptsMissed: e.target.value })
+                                        }
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className={labelClass}>What Went Well</label>
                                 <textarea
                                     className={`${inputClass} resize-none min-h-24`}
-                                    placeholder={`Java\nOOP\nDBMS`}
-                                    value={form.topics}
+                                    placeholder="I stayed calm and explained basic OOP definitions."
+                                    value={form.whatWentWell}
                                     onChange={(e) =>
-                                        setForm({ ...form, topics: e.target.value })
+                                        setForm({ ...form, whatWentWell: e.target.value })
                                     }
                                 />
                             </div>
 
                             <div>
-                                <label className={labelClass}>Concepts Missed</label>
+                                <label className={labelClass}>What Went Wrong</label>
                                 <textarea
                                     className={`${inputClass} resize-none min-h-24`}
-                                    placeholder={`SQL Indexing\nNormalization\nTime Complexity`}
-                                    value={form.conceptsMissed}
+                                    placeholder="I struggled when asked for deeper DBMS indexing internals and complexity explanation."
+                                    value={form.whatWentWrong}
                                     onChange={(e) =>
-                                        setForm({ ...form, conceptsMissed: e.target.value })
+                                        setForm({ ...form, whatWentWrong: e.target.value })
+                                    }
+                                />
+                            </div>
+
+                            <div>
+                                <label className={labelClass}>Overall Feedback</label>
+                                <textarea
+                                    className={`${inputClass} resize-none min-h-24`}
+                                    placeholder="Move from definition-level preparation to example and tradeoff-level answers."
+                                    value={form.feedback}
+                                    onChange={(e) =>
+                                        setForm({ ...form, feedback: e.target.value })
                                     }
                                 />
                             </div>
                         </div>
-
-                        <div className="border-t border-border pt-5">
-                            <h3 className="text-lg font-semibold text-text-primary">
-                                Reflection
-                            </h3>
-                            <p className="text-sm text-text-tertiary mt-1">
-                                Capture what happened so the system can guide your next prep.
-                            </p>
-                        </div>
-
-                        <div>
-                            <label className={labelClass}>What Went Well</label>
-                            <textarea
-                                className={`${inputClass} resize-none min-h-24`}
-                                placeholder="Explained OOP concepts clearly. Good communication in HR intro."
-                                value={form.whatWentWell}
-                                onChange={(e) =>
-                                    setForm({ ...form, whatWentWell: e.target.value })
-                                }
-                            />
-                        </div>
-
-                        <div>
-                            <label className={labelClass}>What Went Wrong</label>
-                            <textarea
-                                className={`${inputClass} resize-none min-h-24`}
-                                placeholder="Could not explain indexing properly. Struggled in SQL examples."
-                                value={form.whatWentWrong}
-                                onChange={(e) =>
-                                    setForm({ ...form, whatWentWrong: e.target.value })
-                                }
-                            />
-                        </div>
-
-                        <div>
-                            <label className={labelClass}>Feedback</label>
-                            <textarea
-                                className={`${inputClass} resize-none min-h-24`}
-                                placeholder="Revise DBMS indexing and practice SQL examples before next interview."
-                                value={form.feedback}
-                                onChange={(e) =>
-                                    setForm({ ...form, feedback: e.target.value })
-                                }
-                            />
-                        </div>
-
                     </section>
 
                     <aside className="col-span-12 lg:col-span-4 space-y-4">
                         <div className="bg-bg-secondary border border-border rounded-2xl p-5">
                             <h3 className="text-base font-semibold text-text-primary">
-                                Self Scores
+                                Overall Self Scores
                             </h3>
                             <p className="text-sm text-text-tertiary mt-1 mb-4">
-                                Rate yourself from 0 to 10.
+                                Rate the overall interview from 0 to 10.
                             </p>
 
                             <div className="space-y-4">
@@ -396,7 +617,7 @@ export const NewInterviewPage = () => {
                                         min="0"
                                         max="10"
                                         className={inputClass}
-                                        placeholder="5"
+                                        placeholder="4"
                                         value={form.technicalScore}
                                         onChange={(e) =>
                                             setForm({
@@ -411,12 +632,11 @@ export const NewInterviewPage = () => {
 
                         <div className="bg-brand-muted border border-brand/10 rounded-2xl p-5">
                             <h3 className="text-base font-semibold text-text-primary">
-                                Why this matters
+                                Why question-level replay matters
                             </h3>
                             <p className="text-sm text-text-secondary mt-2 leading-6">
-                                PlacementOS will use your interview logs to detect repeated weak
-                                topics, average confidence, company-wise readiness, and next
-                                action plans.
+                                PlacementOS will use every answer, missed point, and feedback
+                                item to generate a sharper AI diagnosis and action plan.
                             </p>
                         </div>
 
@@ -426,7 +646,7 @@ export const NewInterviewPage = () => {
                             className="w-full bg-brand hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-4 py-3 rounded-xl transition-all duration-200 text-sm flex items-center justify-center gap-2"
                         >
                             <Save size={16} />
-                            {loading ? "Saving Interview..." : "Save Interview Replay"}
+                            {loading ? "Saving Interview..." : "Save Question Replay"}
                         </button>
                     </aside>
                 </div>

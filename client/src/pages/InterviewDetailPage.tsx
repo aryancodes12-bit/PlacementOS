@@ -137,7 +137,69 @@ export const InterviewDetailPage = () => {
             </AppLayout>
         );
     }
+    const ai = interview.aiSummary as any;
 
+    const questionReplays = interview.questionReplays ?? [];
+
+    const questionConfidenceScores = questionReplays
+        .map((question: any) => question.confidenceScore)
+        .filter((score: any): score is number => typeof score === "number");
+
+    const averageQuestionConfidence =
+        questionConfidenceScores.length > 0
+            ? Number(
+                (
+                    questionConfidenceScores.reduce((sum, score) => sum + score, 0) /
+                    questionConfidenceScores.length
+                ).toFixed(1)
+            )
+            : null;
+
+    const statusToScore: Record<string, number> = {
+        SOLVED: 9,
+        PARTIAL: 5,
+        FAILED: 2,
+        SKIPPED: 0,
+    };
+
+    const questionTechnicalScores = questionReplays.map(
+        (question: any) => statusToScore[question.status] ?? 0
+    );
+
+    const derivedTechnicalScore =
+        questionTechnicalScores.length > 0
+            ? Number(
+                (
+                    questionTechnicalScores.reduce((sum, score) => sum + score, 0) /
+                    questionTechnicalScores.length
+                ).toFixed(1)
+            )
+            : null;
+
+    const displayConfidence =
+        interview.confidenceScore ?? averageQuestionConfidence ?? null;
+    const displayConfidence =
+        interview.confidenceScore ??
+        ai?.confidenceScore ??
+        averageQuestionConfidence ??
+        null;
+
+    const displayCommunication =
+        interview.communicationScore ??
+        ai?.communicationScore ??
+        null;
+
+    const displayTechnical =
+        interview.technicalScore ??
+        ai?.technicalScore ??
+        derivedTechnicalScore ??
+        null;
+    const displayCommunication =
+        interview.communicationScore ??
+        (interview.aiSummary ? 6 : null);
+
+    const displayTechnical =
+        interview.technicalScore ?? derivedTechnicalScore ?? null;
     return (
         <AppLayout
             title={`${interview.company} Interview Replay`}
@@ -205,9 +267,9 @@ export const InterviewDetailPage = () => {
                 </section>
 
                 <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <ScoreBox label="Confidence" value={interview.confidenceScore} />
-                    <ScoreBox label="Communication" value={interview.communicationScore} />
-                    <ScoreBox label="Technical" value={interview.technicalScore} />
+                    <ScoreBox label="Confidence" value={displayConfidence} />
+                    <ScoreBox label="Communication" value={displayCommunication} />
+                    <ScoreBox label="Technical" value={displayTechnical} />
                 </section>
                 {analysisError && (
                     <div className="bg-danger-muted border border-danger/10 text-danger text-sm rounded-xl px-4 py-3">
@@ -235,7 +297,11 @@ export const InterviewDetailPage = () => {
 
                         {(() => {
                             const ai = interview.aiSummary as any;
-
+                            const scores = {
+                                confidence: interview.confidenceScore ?? ai?.confidenceScore ?? null,
+                                communication: interview.communicationScore ?? ai?.communicationScore ?? null,
+                                technical: interview.technicalScore ?? ai?.technicalScore ?? null,
+                            };
                             return (
                                 <div className="space-y-5">
                                     {ai.summary && (
@@ -386,10 +452,84 @@ export const InterviewDetailPage = () => {
                 <div className="grid grid-cols-12 gap-4">
                     <main className="col-span-12 lg:col-span-8 space-y-4">
                         <Section
-                            title="Questions Asked"
+                            title="Question-level Replay"
                             icon={<MessageSquare size={16} className="text-brand" />}
                         >
-                            {interview.questionsAsked.length ? (
+                            {questionReplays.length > 0 ? (
+                                <div className="space-y-4">
+                                    {questionReplays.map((question: any, index: number) => (
+                                        <div
+                                            key={question.id || `${question.question}-${index}`}
+                                            className="bg-bg-tertiary border border-border rounded-2xl p-4 space-y-4"
+                                        >
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div>
+                                                    <p className="text-xs uppercase tracking-wide text-text-tertiary mb-1">
+                                                        Question {index + 1}
+                                                    </p>
+                                                    <h4 className="text-sm font-semibold text-text-primary leading-6">
+                                                        {question.question}
+                                                    </h4>
+                                                </div>
+
+                                                <div className="flex items-center gap-2">
+                                                    <span className="bg-brand-muted border border-brand/10 text-brand text-[11px] px-2.5 py-1 rounded-full">
+                                                        {question.status
+                                                            ?.toLowerCase()
+                                                            .split("_")
+                                                            .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
+                                                            .join(" ")}
+                                                    </span>
+
+                                                    {question.confidenceScore !== null &&
+                                                        question.confidenceScore !== undefined && (
+                                                            <span className="bg-bg-secondary border border-border text-text-secondary text-[11px] px-2.5 py-1 rounded-full">
+                                                                {question.confidenceScore}/10 confidence
+                                                            </span>
+                                                        )}
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <p className="text-xs uppercase tracking-wide text-success mb-1.5">
+                                                    My Answer
+                                                </p>
+                                                <p className="text-sm text-text-secondary bg-bg-secondary border border-border rounded-xl px-4 py-3 leading-6">
+                                                    {question.userAnswer || "No answer added."}
+                                                </p>
+                                            </div>
+
+                                            {question.missedPoints?.length > 0 && (
+                                                <div>
+                                                    <p className="text-xs uppercase tracking-wide text-danger mb-2">
+                                                        Missed Points
+                                                    </p>
+
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {question.missedPoints.map((point: string) => (
+                                                            <span
+                                                                key={point}
+                                                                className="bg-danger-muted border border-danger/10 text-danger text-xs px-3 py-1.5 rounded-full"
+                                                            >
+                                                                {point}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div>
+                                                <p className="text-xs uppercase tracking-wide text-warning mb-1.5">
+                                                    Interviewer Feedback
+                                                </p>
+                                                <p className="text-sm text-text-secondary bg-bg-secondary border border-border rounded-xl px-4 py-3 leading-6">
+                                                    {question.interviewerFeedback || "No feedback added."}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : interview.questionsAsked.length ? (
                                 <ol className="space-y-2">
                                     {interview.questionsAsked.map((question, index) => (
                                         <li
@@ -404,45 +544,51 @@ export const InterviewDetailPage = () => {
                                     ))}
                                 </ol>
                             ) : (
-                                <p className="text-sm text-text-tertiary">
-                                    No questions added.
-                                </p>
+                                <p className="text-sm text-text-tertiary">No questions added.</p>
                             )}
                         </Section>
 
-                        <Section
-                            title="Reflection"
-                            icon={<TrendingUp size={16} className="text-success" />}
-                        >
-                            <div className="space-y-4">
-                                <div>
-                                    <p className="text-xs uppercase tracking-wide text-success mb-1.5">
-                                        What went well
-                                    </p>
-                                    <p className="text-sm text-text-secondary bg-bg-tertiary border border-border rounded-xl px-4 py-3">
-                                        {interview.whatWentWell || "Not added."}
-                                    </p>
-                                </div>
+                        {(interview.whatWentWell || interview.whatWentWrong || interview.feedback) && (
+                            <Section
+                                title="Reflection"
+                                icon={<TrendingUp size={16} className="text-success" />}
+                            >
+                                <div className="space-y-4">
+                                    {interview.whatWentWell && (
+                                        <div>
+                                            <p className="text-xs uppercase tracking-wide text-success mb-1.5">
+                                                What went well
+                                            </p>
+                                            <p className="text-sm text-text-secondary bg-bg-tertiary border border-border rounded-xl px-4 py-3">
+                                                {interview.whatWentWell}
+                                            </p>
+                                        </div>
+                                    )}
 
-                                <div>
-                                    <p className="text-xs uppercase tracking-wide text-danger mb-1.5">
-                                        What went wrong
-                                    </p>
-                                    <p className="text-sm text-text-secondary bg-bg-tertiary border border-border rounded-xl px-4 py-3">
-                                        {interview.whatWentWrong || "Not added."}
-                                    </p>
-                                </div>
+                                    {interview.whatWentWrong && (
+                                        <div>
+                                            <p className="text-xs uppercase tracking-wide text-danger mb-1.5">
+                                                What went wrong
+                                            </p>
+                                            <p className="text-sm text-text-secondary bg-bg-tertiary border border-border rounded-xl px-4 py-3">
+                                                {interview.whatWentWrong}
+                                            </p>
+                                        </div>
+                                    )}
 
-                                <div>
-                                    <p className="text-xs uppercase tracking-wide text-warning mb-1.5">
-                                        Feedback
-                                    </p>
-                                    <p className="text-sm text-text-secondary bg-bg-tertiary border border-border rounded-xl px-4 py-3">
-                                        {interview.feedback || "Not added."}
-                                    </p>
+                                    {interview.feedback && (
+                                        <div>
+                                            <p className="text-xs uppercase tracking-wide text-warning mb-1.5">
+                                                Feedback
+                                            </p>
+                                            <p className="text-sm text-text-secondary bg-bg-tertiary border border-border rounded-xl px-4 py-3">
+                                                {interview.feedback}
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                        </Section>
+                            </Section>
+                        )}
                     </main>
 
                     <aside className="col-span-12 lg:col-span-4 space-y-4">
@@ -450,20 +596,29 @@ export const InterviewDetailPage = () => {
                             title="Topics Covered"
                             icon={<Target size={16} className="text-brand" />}
                         >
-                            {interview.topics.length ? (
-                                <div className="flex flex-wrap gap-2">
-                                    {interview.topics.map((topic) => (
-                                        <span
-                                            key={topic}
-                                            className="bg-bg-tertiary border border-border text-text-secondary text-xs px-3 py-1.5 rounded-full"
-                                        >
-                                            {topic}
-                                        </span>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-sm text-text-tertiary">No topics added.</p>
-                            )}
+                            {(() => {
+                                const ai = interview.aiSummary as any;
+
+                                const displayTopics =
+                                    interview.topics?.length > 0
+                                        ? interview.topics
+                                        : ai?.repeatedRiskTopics ?? [];
+
+                                return displayTopics.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {displayTopics.map((topic: string) => (
+                                            <span
+                                                key={topic}
+                                                className="bg-bg-tertiary border border-border text-text-secondary text-xs px-3 py-1.5 rounded-full"
+                                            >
+                                                {topic}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-text-tertiary">No topics added.</p>
+                                );
+                            })()}
                         </Section>
 
                         <Section
@@ -492,25 +647,40 @@ export const InterviewDetailPage = () => {
                             title="Next Action Plan"
                             icon={<CheckCircle2 size={16} className="text-success" />}
                         >
-                            {interview.nextActions.length ? (
-                                <ol className="space-y-2">
-                                    {interview.nextActions.map((action, index) => (
-                                        <li
-                                            key={`${action}-${index}`}
-                                            className="flex gap-2 text-sm text-text-secondary"
-                                        >
-                                            <span className="text-brand font-semibold">
-                                                {index + 1}.
-                                            </span>
-                                            <span>{action}</span>
-                                        </li>
-                                    ))}
-                                </ol>
-                            ) : (
-                                <p className="text-sm text-text-tertiary">
-                                    No next actions added.
-                                </p>
-                            )}
+                            {(() => {
+                                const ai = interview.aiSummary as any;
+
+                                const questionPracticeTasks = Array.isArray(ai?.questionBreakdown)
+                                    ? ai.questionBreakdown
+                                        .map((item: any) => item.practiceTask)
+                                        .filter(Boolean)
+                                    : [];
+
+                                const nextActionItems =
+                                    questionPracticeTasks.length > 0
+                                        ? questionPracticeTasks
+                                        : interview.nextActions;
+
+                                return nextActionItems.length ? (
+                                    <ol className="space-y-2">
+                                        {nextActionItems.slice(0, 5).map((action: string, index: number) => (
+                                            <li
+                                                key={`${action}-${index}`}
+                                                className="flex gap-2 text-sm text-text-secondary"
+                                            >
+                                                <span className="text-brand font-semibold">
+                                                    {index + 1}.
+                                                </span>
+                                                <span>{action}</span>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                ) : (
+                                    <p className="text-sm text-text-tertiary">
+                                        Analyze this interview to generate next actions.
+                                    </p>
+                                );
+                            })()}
                         </Section>
                     </aside>
                 </div>

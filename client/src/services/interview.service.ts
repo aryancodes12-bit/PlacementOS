@@ -16,7 +16,21 @@ export type InterviewResult =
     | "REJECTED"
     | "ON_HOLD"
     | "NO_RESPONSE";
+export type InterviewQuestionStatus =
+    | "SOLVED"
+    | "PARTIAL"
+    | "FAILED"
+    | "SKIPPED";
 
+export interface InterviewQuestionReplay {
+    id?: string;
+    question: string;
+    userAnswer?: string | null;
+    missedPoints: string[];
+    interviewerFeedback?: string | null;
+    confidenceScore?: number | null;
+    status: InterviewQuestionStatus;
+}
 export type InterviewSourceType = "MANUAL" | "AUDIO" | "VIDEO";
 
 export interface InterviewReplay {
@@ -34,6 +48,7 @@ export interface InterviewReplay {
     notes?: string | null;
 
     questionsAsked: string[];
+    questionReplays?: InterviewQuestionReplay[];
     topics: string[];
     conceptsMissed: string[];
 
@@ -63,6 +78,8 @@ export interface CreateInterviewInput {
     result: InterviewResult;
 
     questionsAsked: string[];
+    questionReplays?: InterviewQuestionReplay[];
+
     topics: string[];
     conceptsMissed: string[];
 
