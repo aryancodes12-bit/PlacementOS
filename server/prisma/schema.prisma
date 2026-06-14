@@ -122,6 +122,13 @@ model Resume {
   createdAt  DateTime @default(now())
 }
 
+enum InterviewQuestionStatus {
+  SOLVED
+  PARTIAL
+  FAILED
+  SKIPPED
+}
+
 model InterviewSession {
   id     String @id @default(uuid())
   userId String
@@ -152,19 +159,39 @@ model InterviewSession {
   communicationScore Float?
   technicalScore     Float?
 
-  aiSummary      Json?
-  actionPlan     String?
-  nextActions    String[]                @default([])
-  analysisStatus InterviewAnalysisStatus @default(DRAFT)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  aiSummary       Json?
+  actionPlan      String?
+  nextActions     String[]                  @default([])
+  analysisStatus  InterviewAnalysisStatus   @default(DRAFT)
+  questionReplays InterviewQuestionReplay[]
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
 
   @@index([userId])
   @@index([company])
   @@index([roundType])
   @@index([result])
   @@index([date])
+}
+
+model InterviewQuestionReplay {
+  id String @id @default(uuid())
+
+  interviewId String
+  interview   InterviewSession @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+
+  question            String
+  userAnswer          String?
+  missedPoints        String[]                @default([])
+  interviewerFeedback String?
+  confidenceScore     Float?
+  status              InterviewQuestionStatus @default(PARTIAL)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([interviewId])
+  @@index([status])
 }
 
 model Streak {

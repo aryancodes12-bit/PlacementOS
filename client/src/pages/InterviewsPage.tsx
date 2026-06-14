@@ -507,7 +507,7 @@ export const InterviewsPage = () => {
                             </ul>
                         ) : (
                             <p className="text-sm text-text-tertiary">
-                                Add next actions while logging interviews.
+                                Analyze an interview with AI to generate your next action plan.
                             </p>
                         )}
                     </div>

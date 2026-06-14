@@ -135,6 +135,14 @@ export const analyzeInterviewReplay = async (input: {
     communicationScore?: number | null;
     technicalScore?: number | null;
     previousWeakTopics?: string[];
+    questionReplays?: {
+        question: string;
+        userAnswer?: string | null;
+        missedPoints: string[];
+        interviewerFeedback?: string | null;
+        confidenceScore?: number | null;
+        status: string;
+    }[];
 }) => {
     if (!process.env.GROQ_API_KEY) {
         throw new Error("GROQ_API_KEY is missing");

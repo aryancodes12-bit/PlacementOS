@@ -2,6 +2,7 @@ import { Response } from "express";
 import { prisma } from "../prisma/client";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { analyzeInterviewReplay } from "../services/openaiInterview.service";
+
 const normalizeEnum = (value: unknown, fallback: string) => {
     if (!value) return fallback;
     return String(value).trim().toUpperCase().replace(/\s+/g, "_");
@@ -11,14 +12,12 @@ const toStringArray = (value: unknown): string[] => {
     if (!value) return [];
 
     if (Array.isArray(value)) {
-        return value
-            .map((item) => String(item).trim())
-            .filter(Boolean);
+        return value.map((item) => String(item).trim()).filter(Boolean);
     }
 
     if (typeof value === "string") {
         return value
-            .split(",")
+            .split(/[\n,]/)
             .map((item) => item.trim())
             .filter(Boolean);
     }
@@ -55,6 +54,56 @@ const getTopItems = (items: string[], limit = 5) => {
         .map(([name, count]) => ({ name, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, limit);
+};
+
+const validQuestionStatuses = ["SOLVED", "PARTIAL", "FAILED", "SKIPPED"];
+
+type QuestionReplayCreateInput = {
+    question: string;
+    userAnswer: string | null;
+    missedPoints: string[];
+    interviewerFeedback: string | null;
+    confidenceScore: number | null;
+    status: any;
+};
+
+const toQuestionReplayArray = (value: unknown): QuestionReplayCreateInput[] => {
+    if (!value) return [];
+
+    let parsedValue = value;
+
+    if (typeof value === "string") {
+        try {
+            parsedValue = JSON.parse(value);
+        } catch {
+            return [];
+        }
+    }
+
+    if (!Array.isArray(parsedValue)) return [];
+
+    return parsedValue
+        .map((item: any): QuestionReplayCreateInput | null => {
+            const question = String(item.question || "").trim();
+
+            if (!question) return null;
+
+            const normalizedStatus = normalizeEnum(item.status, "PARTIAL");
+
+            return {
+                question,
+                userAnswer: item.userAnswer ? String(item.userAnswer).trim() : null,
+                missedPoints: toStringArray(item.missedPoints),
+                interviewerFeedback: item.interviewerFeedback
+                    ? String(item.interviewerFeedback).trim()
+                    : null,
+                confidenceScore: clampScore(item.confidenceScore),
+                status: validQuestionStatuses.includes(normalizedStatus)
+                    ? normalizedStatus
+                    : "PARTIAL",
+            };
+        })
+        .filter((item): item is QuestionReplayCreateInput => item !== null);
 };
 
 const updateInterviewReadiness = async (userId: string) => {
@@ -129,6 +178,7 @@ export const createInterview = async (req: AuthRequest, res: Response) => {
             sourceType,
             notes,
             questionsAsked,
+            questionReplays,
             topics,
             conceptsMissed,
             whatWentWell,
@@ -198,6 +248,13 @@ export const createInterview = async (req: AuthRequest, res: Response) => {
             });
         }
 
+        const parsedQuestionReplays = toQuestionReplayArray(questionReplays);
+
+        const finalQuestionsAsked =
+            parsedQuestionReplays.length > 0
+                ? parsedQuestionReplays.map((item) => item.question)
+                : toStringArray(questionsAsked);
+
         const interview = await prisma.interviewSession.create({
             data: {
                 userId,
@@ -209,7 +266,7 @@ export const createInterview = async (req: AuthRequest, res: Response) => {
                 sourceType: normalizedSourceType as any,
 
                 notes: notes || null,
-                questionsAsked: toStringArray(questionsAsked),
+                questionsAsked: finalQuestionsAsked,
                 topics: toStringArray(topics),
                 conceptsMissed: toStringArray(conceptsMissed),
 
@@ -224,6 +281,20 @@ export const createInterview = async (req: AuthRequest, res: Response) => {
 
                 nextActions: toStringArray(nextActions),
                 analysisStatus: "DRAFT",
+
+                questionReplays:
+                    parsedQuestionReplays.length > 0
+                        ? {
+                            create: parsedQuestionReplays,
+                        }
+                        : undefined,
+            },
+            include: {
+                questionReplays: {
+                    orderBy: {
+                        createdAt: "asc",
+                    },
+                },
             },
         });
 
@@ -279,6 +350,13 @@ export const getInterviews = async (req: AuthRequest, res: Response) => {
                     ],
                 }),
             },
+            include: {
+                questionReplays: {
+                    orderBy: {
+                        createdAt: "asc",
+                    },
+                },
+            },
             orderBy: {
                 date: "desc",
             },
@@ -313,6 +391,13 @@ export const getInterviewById = async (req: AuthRequest, res: Response) => {
             where: {
                 id,
                 userId,
+            },
+            include: {
+                questionReplays: {
+                    orderBy: {
+                        createdAt: "asc",
+                    },
+                },
             },
         });
 
@@ -368,6 +453,7 @@ export const updateInterview = async (req: AuthRequest, res: Response) => {
             result,
             notes,
             questionsAsked,
+            questionReplays,
             topics,
             conceptsMissed,
             whatWentWell,
@@ -379,6 +465,15 @@ export const updateInterview = async (req: AuthRequest, res: Response) => {
             overallScore,
             nextActions,
         } = req.body;
+
+        const parsedQuestionReplays = toQuestionReplayArray(questionReplays);
+
+        const finalQuestionsAsked =
+            parsedQuestionReplays.length > 0
+                ? parsedQuestionReplays.map((item) => item.question)
+                : questionsAsked !== undefined
+                    ? toStringArray(questionsAsked)
+                    : undefined;
 
         const updatedInterview = await prisma.interviewSession.update({
             where: {
@@ -395,8 +490,8 @@ export const updateInterview = async (req: AuthRequest, res: Response) => {
                     result: normalizeEnum(result, "PENDING") as any,
                 }),
                 ...(notes !== undefined && { notes }),
-                ...(questionsAsked !== undefined && {
-                    questionsAsked: toStringArray(questionsAsked),
+                ...(finalQuestionsAsked !== undefined && {
+                    questionsAsked: finalQuestionsAsked,
                 }),
                 ...(topics !== undefined && { topics: toStringArray(topics) }),
                 ...(conceptsMissed !== undefined && {
@@ -420,6 +515,19 @@ export const updateInterview = async (req: AuthRequest, res: Response) => {
                 ...(nextActions !== undefined && {
                     nextActions: toStringArray(nextActions),
                 }),
+                ...(questionReplays !== undefined && {
+                    questionReplays: {
+                        deleteMany: {},
+                        create: parsedQuestionReplays,
+                    },
+                }),
+            },
+            include: {
+                questionReplays: {
+                    orderBy: {
+                        createdAt: "asc",
+                    },
+                },
             },
         });
 
@@ -483,6 +591,7 @@ export const deleteInterview = async (req: AuthRequest, res: Response) => {
         });
     }
 };
+
 export const analyzeInterviewWithAI = async (
     req: AuthRequest,
     res: Response
@@ -503,6 +612,13 @@ export const analyzeInterviewWithAI = async (
             where: {
                 id,
                 userId,
+            },
+            include: {
+                questionReplays: {
+                    orderBy: {
+                        createdAt: "asc",
+                    },
+                },
             },
         });
 
@@ -549,6 +665,14 @@ export const analyzeInterviewWithAI = async (
             communicationScore: interview.communicationScore,
             technicalScore: interview.technicalScore,
             previousWeakTopics,
+            questionReplays: interview.questionReplays.map((item) => ({
+                question: item.question,
+                userAnswer: item.userAnswer,
+                missedPoints: item.missedPoints,
+                interviewerFeedback: item.interviewerFeedback,
+                confidenceScore: item.confidenceScore,
+                status: item.status,
+            })),
         });
 
         const mergedConceptsMissed = Array.from(
@@ -567,6 +691,13 @@ export const analyzeInterviewWithAI = async (
                 overallScore: Math.round(analysis.estimatedReadinessScore / 10),
                 analysisStatus: "ANALYZED",
             },
+            include: {
+                questionReplays: {
+                    orderBy: {
+                        createdAt: "asc",
+                    },
+                },
+            },
         });
 
         await updateInterviewReadiness(userId);
@@ -580,11 +711,11 @@ export const analyzeInterviewWithAI = async (
         console.error("analyzeInterviewWithAI error:", error);
 
         return res.status(500).json({
-            message:
-                error.message || "Failed to analyze interview replay with OpenAI",
+            message: error.message || "Failed to analyze interview replay with Groq",
         });
     }
 };
+
 export const getInterviewStats = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user!.id;
@@ -592,6 +723,9 @@ export const getInterviewStats = async (req: AuthRequest, res: Response) => {
         const interviews = await prisma.interviewSession.findMany({
             where: {
                 userId,
+            },
+            include: {
+                questionReplays: true,
             },
             orderBy: {
                 date: "desc",
@@ -613,9 +747,11 @@ export const getInterviewStats = async (req: AuthRequest, res: Response) => {
             .filter((score): score is number => typeof score === "number");
 
         const allTopics = interviews.flatMap((interview) => interview.topics);
-        const allMissedConcepts = interviews.flatMap(
-            (interview) => interview.conceptsMissed
-        );
+
+        const allMissedConcepts = interviews.flatMap((interview) => [
+            ...interview.conceptsMissed,
+            ...interview.questionReplays.flatMap((question) => question.missedPoints),
+        ]);
 
         const companyBreakdown = Object.entries(
             interviews.reduce((acc, interview) => {

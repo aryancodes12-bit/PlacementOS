@@ -77,7 +77,7 @@ export const NewInterviewPage = () => {
         communicationScore: "",
         technicalScore: "",
 
-        nextActions: "",
+
     });
 
     const [loading, setLoading] = useState(false);
@@ -130,7 +130,7 @@ export const NewInterviewPage = () => {
                 communicationScore: toScore(form.communicationScore),
                 technicalScore: toScore(form.technicalScore),
 
-                nextActions: toArray(form.nextActions),
+                nextActions: [],
             };
 
             await interviewService.create(payload);
@@ -341,17 +341,6 @@ export const NewInterviewPage = () => {
                             />
                         </div>
 
-                        <div>
-                            <label className={labelClass}>Next Actions</label>
-                            <textarea
-                                className={`${inputClass} resize-none min-h-28`}
-                                placeholder={`Revise SQL indexing\nPractice 3 DBMS interview questions\nSolve 2 Java OOP coding problems`}
-                                value={form.nextActions}
-                                onChange={(e) =>
-                                    setForm({ ...form, nextActions: e.target.value })
-                                }
-                            />
-                        </div>
                     </section>
 
                     <aside className="col-span-12 lg:col-span-4 space-y-4">
