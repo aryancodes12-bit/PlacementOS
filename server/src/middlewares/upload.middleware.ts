@@ -29,6 +29,6 @@ export const upload = multer({
             return;
         }
 
-        cb(new Error("Only audio files are allowed"));
+        cb(new Error("Only audio or video files are allowed"));
     },
 });

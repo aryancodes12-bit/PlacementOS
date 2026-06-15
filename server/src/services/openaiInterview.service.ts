@@ -216,13 +216,13 @@ export const analyzeInterviewReplay = async (input: {
         },
         scoringRules: {
             confidenceScore:
-                "0-10 inferred confidence score. Use manual score if provided, but adjust using question-level confidence and evidence.",
+                "0-10. 0-3 nervous/no clarity, 4-5 hesitant, 6-7 acceptable confidence, 8-10 strong confident delivery.",
             communicationScore:
-                "0-10 inferred communication score based on clarity, structure, interviewer feedback, and answer quality.",
+                "0-10. 0-3 unclear or broken explanation, 4-5 partially understandable but unstructured, 6-7 understandable with some structure, 8-10 crisp structured answers.",
             technicalScore:
-                "0-10 inferred technical score based on question status, missed concepts, answer depth, and technical correctness.",
+                "0-10. 0-3 mostly wrong or no depth, 4-5 basic but shallow/partly wrong, 6-7 correct basics with examples, 8-10 deep correct answers with edge cases/tradeoffs.",
             estimatedReadinessScore:
-                "0-100 realistic readiness estimate for this company and role, based only on available evidence.",
+                "0-100. Below 50 if selection is unlikely, 50-65 if borderline, 65-80 if decent, 80+ if strong interview-ready.",
         },
         outputRequirements: [
             "Return only valid JSON. No markdown. No text outside JSON.",
@@ -237,6 +237,11 @@ export const analyzeInterviewReplay = async (input: {
             "If confidence is low or average, include speaking drills.",
             "If communication is average, include structured answer framework.",
             "Make advice specific to the role and company where possible.",
+            "Score strictly. Do not give safe middle scores like 6 or 7 unless evidence clearly supports it.",
+            "Technical score should be below 5 if answers contain factual mistakes, confused definitions, or no working examples.",
+            "Communication score should be below 6 if answers are unstructured, unclear, grammatically broken, or hard to follow.",
+            "Estimated readiness should be below 60 if the candidate cannot explain concepts with examples and tradeoffs.",
+            "Use the full scoring range from 0 to 10. Avoid defaulting to 5, 6, or 7.",
         ],
         requiredJsonShape: {
             summary: "2 sentence summary, not copied from input",

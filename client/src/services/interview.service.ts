@@ -144,7 +144,7 @@ export const interviewService = {
     create: (data: CreateInterviewInput) => api.post("/interviews", data),
 
     uploadAudio: (data: FormData) => api.post("/interviews/audio", data),
-
+    uploadVideo: (data: FormData) => api.post("/interviews/video", data),
     update: (id: string, data: Partial<CreateInterviewInput>) =>
         api.put(`/interviews/${id}`, data),
 

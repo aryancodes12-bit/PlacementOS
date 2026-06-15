@@ -9,6 +9,7 @@ import {
     getInterviewStats,
     updateInterview,
     createAudioInterview,
+    createVideoInterview,
 } from "../controllers/interview.controller";
 import { upload } from "../middlewares/upload.middleware";
 const router = Router();
@@ -19,6 +20,7 @@ router.get("/stats", getInterviewStats);
 router.get("/", getInterviews);
 router.post("/", createInterview);
 router.post("/audio", upload.single("audio"), createAudioInterview);
+router.post("/video", upload.single("video"), createVideoInterview);
 router.post("/:id/analyze", analyzeInterviewWithAI);
 router.get("/:id", getInterviewById);
 router.put("/:id", updateInterview);

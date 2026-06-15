@@ -21,7 +21,7 @@ import type {
     InterviewResult,
     InterviewRoundType,
 } from "../services/interview.service";
-
+import { VideoInterviewUploader } from "../components/interviews/VideoInterviewUploader";
 const roundTypes: InterviewRoundType[] = [
     "HR",
     "TECHNICAL",
@@ -312,7 +312,7 @@ export const NewInterviewPage = () => {
                                 </span>
                             </div>
                             <p className="text-xs text-text-tertiary leading-5">
-                                Coming next: upload video interviews and extract transcript.
+                                Upload video, extract transcript, and generate AI replay.
                             </p>
                         </button>
                     </div>
@@ -320,20 +320,7 @@ export const NewInterviewPage = () => {
                 {mode === "audio" ? (
                     <AudioInterviewUploader />
                 ) : mode === "video" ? (
-                    <section className="bg-bg-secondary border border-border rounded-2xl p-8 text-center">
-                        <div className="w-14 h-14 mx-auto rounded-2xl bg-bg-tertiary border border-border flex items-center justify-center mb-4">
-                            <Video size={24} className="text-text-tertiary" />
-                        </div>
-
-                        <h3 className="text-lg font-semibold text-text-primary">
-                            Video upload is coming next
-                        </h3>
-
-                        <p className="text-sm text-text-secondary mt-2 max-w-md mx-auto">
-                            Audio upload is live now. Video replay will use the same pipeline with
-                            Cloudinary video upload and transcript extraction.
-                        </p>
-                    </section>
+                    <VideoInterviewUploader />
                 ) : (
                     <>
                         {error && (

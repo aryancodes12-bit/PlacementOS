@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+    Video,
     ArrowLeft,
     Building2,
     CalendarDays,
@@ -270,23 +271,41 @@ export const InterviewDetailPage = () => {
                     <ScoreBox label="Communication" value={displayCommunication} />
                     <ScoreBox label="Technical" value={displayTechnical} />
                 </section>
-                {(interview.audioUrl || interview.transcript) && (
+                {(interview.audioUrl || interview.videoUrl || interview.transcript) && (
                     <Section
-                        title="Audio Evidence"
-                        icon={<FileAudio size={16} className="text-brand" />}
+                        title="Replay Evidence"
+                        icon={
+                            interview.videoUrl ? (
+                                <Video size={16} className="text-brand" />
+                            ) : (
+                                <FileAudio size={16} className="text-brand" />
+                            )
+                        }
                     >
                         <div className="space-y-4">
-                            {interview.audioUrl && (
+                            {interview.videoUrl && (
+                                <div>
+                                    <p className="text-xs uppercase tracking-wide text-text-tertiary mb-2">
+                                        Uploaded Video
+                                    </p>
+
+                                    <video
+                                        controls
+                                        src={interview.videoUrl}
+                                        className="w-full rounded-xl border border-border bg-black"
+                                    >
+                                        Your browser does not support video playback.
+                                    </video>
+                                </div>
+                            )}
+
+                            {!interview.videoUrl && interview.audioUrl && (
                                 <div>
                                     <p className="text-xs uppercase tracking-wide text-text-tertiary mb-2">
                                         Uploaded Audio
                                     </p>
 
-                                    <audio
-                                        controls
-                                        src={interview.audioUrl}
-                                        className="w-full"
-                                    >
+                                    <audio controls src={interview.audioUrl} className="w-full">
                                         Your browser does not support audio playback.
                                     </audio>
                                 </div>
@@ -311,6 +330,7 @@ export const InterviewDetailPage = () => {
                         </div>
                     </Section>
                 )}
+
                 {analysisError && (
                     <div className="bg-danger-muted border border-danger/10 text-danger text-sm rounded-xl px-4 py-3">
                         {analysisError}

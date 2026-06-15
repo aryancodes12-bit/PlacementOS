@@ -802,17 +802,11 @@ export const createAudioInterview = async (
                 .filter(Boolean) ?? [];
 
         const finalTopics = Array.from(
-            new Set([
-                ...toStringArray(topics),
-                ...analysis.repeatedRiskTopics,
-            ])
+            new Set([...toStringArray(topics), ...analysis.repeatedRiskTopics])
         );
 
         const finalMissedConcepts = Array.from(
-            new Set([
-                ...toStringArray(conceptsMissed),
-                ...analysis.missedConcepts,
-            ])
+            new Set([...toStringArray(conceptsMissed), ...analysis.missedConcepts])
         );
 
         const interview = await prisma.interviewSession.create({
@@ -883,6 +877,161 @@ export const createAudioInterview = async (
             message:
                 error.message ||
                 "Failed to upload, transcribe, and analyze audio interview",
+        });
+    }
+};
+export const createVideoInterview = async (
+    req: AuthRequest,
+    res: Response
+) => {
+    try {
+        const userId = req.user!.id;
+
+        const {
+            company,
+            role,
+            roundType,
+            date,
+            result,
+            topics,
+            conceptsMissed,
+            notes,
+        } = req.body;
+
+        if (!company || !role || !date) {
+            return res.status(400).json({
+                message: "Company, role, and date are required",
+            });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({
+                message: "Video file is required",
+            });
+        }
+
+        const normalizedRoundType = normalizeEnum(roundType, "TECHNICAL");
+        const normalizedResult = normalizeEnum(result, "PENDING");
+
+        const parsedDate = new Date(date);
+
+        if (Number.isNaN(parsedDate.getTime())) {
+            return res.status(400).json({
+                message: "Invalid interview date",
+            });
+        }
+
+        const uploadedVideo = await uploadToCloudinary(
+            req.file.buffer,
+            "placementos/interviews/video",
+            "video"
+        );
+
+        const transcript = await transcribeInterviewAudio(
+            req.file.buffer,
+            req.file.originalname
+        );
+
+        const analysis = await analyzeInterviewReplay({
+            company: String(company).trim(),
+            role: String(role).trim(),
+            roundType: normalizedRoundType,
+            result: normalizedResult,
+            transcript,
+            questionsAsked: [],
+            topics: toStringArray(topics),
+            conceptsMissed: toStringArray(conceptsMissed),
+            whatWentWell: null,
+            whatWentWrong: null,
+            feedback: notes || null,
+            confidenceScore: null,
+            communicationScore: null,
+            technicalScore: null,
+            previousWeakTopics: [],
+            questionReplays: [],
+        });
+
+        const questionsAsked =
+            analysis.questionBreakdown
+                ?.map((item) => item.question)
+                .filter(Boolean) ?? [];
+
+        const finalTopics = Array.from(
+            new Set([...toStringArray(topics), ...analysis.repeatedRiskTopics])
+        );
+
+        const finalMissedConcepts = Array.from(
+            new Set([...toStringArray(conceptsMissed), ...analysis.missedConcepts])
+        );
+
+        const interview = await prisma.interviewSession.create({
+            data: {
+                userId,
+                company: String(company).trim(),
+                role: String(role).trim(),
+                roundType: normalizedRoundType as any,
+                date: parsedDate,
+                result: normalizedResult as any,
+
+                sourceType: "VIDEO",
+                videoUrl: uploadedVideo.url,
+                transcript,
+                notes: notes || null,
+
+                questionsAsked,
+                topics: finalTopics,
+                conceptsMissed: finalMissedConcepts,
+
+                questionReplays:
+                    analysis.questionBreakdown?.length > 0
+                        ? {
+                            create: analysis.questionBreakdown
+                                .filter((item) => item.question)
+                                .map((item) => ({
+                                    question: item.question,
+                                    userAnswer: null,
+                                    missedPoints: item.likelyGap ? [item.likelyGap] : [],
+                                    interviewerFeedback: null,
+                                    confidenceScore: analysis.confidenceScore,
+                                    status: "PARTIAL" as any,
+                                })),
+                        }
+                        : undefined,
+
+                confidenceScore: analysis.confidenceScore,
+                communicationScore: analysis.communicationScore,
+                technicalScore: analysis.technicalScore,
+                overallScore: Math.round(analysis.estimatedReadinessScore / 10),
+
+                aiSummary: analysis as any,
+                nextActions: analysis.nextActions,
+                actionPlan: analysis.nextActions.join("\n"),
+                analysisStatus: "ANALYZED",
+            },
+            include: {
+                questionReplays: {
+                    orderBy: {
+                        createdAt: "asc",
+                    },
+                },
+            },
+        });
+
+        await updateInterviewReadiness(userId);
+
+        return res.status(201).json({
+            message: "Video interview uploaded, transcribed, and analyzed successfully",
+            transcript,
+            analysis,
+            interview,
+        });
+    } catch (error: any) {
+        console.error("createVideoInterview error:", error);
+
+        return res.status(500).json({
+            message:
+                error.message ||
+                "Failed to upload, transcribe, and analyze video interview",
         });
     }
 };
