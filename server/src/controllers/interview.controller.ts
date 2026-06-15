@@ -833,6 +833,22 @@ export const createAudioInterview = async (
                 topics: finalTopics,
                 conceptsMissed: finalMissedConcepts,
 
+                questionReplays:
+                    analysis.questionBreakdown?.length > 0
+                        ? {
+                            create: analysis.questionBreakdown
+                                .filter((item) => item.question)
+                                .map((item) => ({
+                                    question: item.question,
+                                    userAnswer: null,
+                                    missedPoints: item.likelyGap ? [item.likelyGap] : [],
+                                    interviewerFeedback: null,
+                                    confidenceScore: analysis.confidenceScore,
+                                    status: "PARTIAL" as any,
+                                })),
+                        }
+                        : undefined,
+
                 confidenceScore: analysis.confidenceScore,
                 communicationScore: analysis.communicationScore,
                 technicalScore: analysis.technicalScore,
@@ -842,6 +858,13 @@ export const createAudioInterview = async (
                 nextActions: analysis.nextActions,
                 actionPlan: analysis.nextActions.join("\n"),
                 analysisStatus: "ANALYZED",
+            },
+            include: {
+                questionReplays: {
+                    orderBy: {
+                        createdAt: "asc",
+                    },
+                },
             },
         });
 
