@@ -6,6 +6,8 @@ import {
     Building2,
     CalendarDays,
     CheckCircle2,
+    FileAudio,
+    FileText,
     MessageSquare,
     RefreshCw,
     Sparkles,
@@ -237,6 +239,9 @@ export const InterviewDetailPage = () => {
                                 <span className="bg-brand-muted border border-brand/10 text-brand text-xs px-3 py-1 rounded-full">
                                     {formatEnum(interview.result)}
                                 </span>
+                                <span className="bg-bg-tertiary border border-border text-text-secondary text-xs px-3 py-1 rounded-full">
+                                    {formatEnum(interview.sourceType)} Replay
+                                </span>
                             </div>
 
                             <p className="text-text-secondary mt-1">{interview.role}</p>
@@ -265,6 +270,47 @@ export const InterviewDetailPage = () => {
                     <ScoreBox label="Communication" value={displayCommunication} />
                     <ScoreBox label="Technical" value={displayTechnical} />
                 </section>
+                {(interview.audioUrl || interview.transcript) && (
+                    <Section
+                        title="Audio Evidence"
+                        icon={<FileAudio size={16} className="text-brand" />}
+                    >
+                        <div className="space-y-4">
+                            {interview.audioUrl && (
+                                <div>
+                                    <p className="text-xs uppercase tracking-wide text-text-tertiary mb-2">
+                                        Uploaded Audio
+                                    </p>
+
+                                    <audio
+                                        controls
+                                        src={interview.audioUrl}
+                                        className="w-full"
+                                    >
+                                        Your browser does not support audio playback.
+                                    </audio>
+                                </div>
+                            )}
+
+                            {interview.transcript && (
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <FileText size={14} className="text-brand" />
+                                        <p className="text-xs uppercase tracking-wide text-text-tertiary">
+                                            Transcript
+                                        </p>
+                                    </div>
+
+                                    <div className="bg-bg-tertiary border border-border rounded-xl px-4 py-3 max-h-64 overflow-y-auto">
+                                        <p className="text-sm text-text-secondary leading-6 whitespace-pre-wrap">
+                                            {interview.transcript}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </Section>
+                )}
                 {analysisError && (
                     <div className="bg-danger-muted border border-danger/10 text-danger text-sm rounded-xl px-4 py-3">
                         {analysisError}
