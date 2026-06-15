@@ -8,7 +8,7 @@ import { Server } from "socket.io";
 import authRoutes from "./routes/auth.routes";
 import profileRoutes from "./routes/profile.routes";
 import healthRoutes from "./routes/health.routes";
-
+import resumeRoutes from "./routes/resume.routes";
 dotenv.config();
 
 const app = express();
@@ -53,7 +53,7 @@ app.get("/", (_req, res) => {
         message: "PlacementOS API is running",
     });
 });
-
+app.use("/api/resume", resumeRoutes);
 app.use("/api", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);

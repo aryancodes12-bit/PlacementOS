@@ -111,15 +111,40 @@ model DSAProblem {
   @@index([status])
 }
 
+enum ResumeAnalysisStatus {
+  PENDING
+  ANALYZED
+  FAILED
+}
+
 model Resume {
-  id         String   @id @default(uuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fileUrl    String
-  version    Int      @default(1)
-  atsScore   Float?
-  aiAnalysis Json?
-  createdAt  DateTime @default(now())
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fileUrl  String
+  fileName String?
+  fileSize Int?
+
+  targetRole String?
+  version    Int
+
+  atsScore         Int?
+  roleFitScore     Int?
+  keywordScore     Int?
+  projectScore     Int?
+  readabilityScore Int?
+
+  extractedText  String?
+  aiAnalysis     Json?
+  analysisStatus ResumeAnalysisStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([atsScore])
+  @@index([analysisStatus])
 }
 
 enum InterviewQuestionStatus {

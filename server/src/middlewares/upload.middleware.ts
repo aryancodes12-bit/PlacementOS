@@ -16,10 +16,12 @@ export const upload = multer({
             "audio/x-m4a",
             "video/mp4",
             "video/webm",
+            "video/quicktime",
+            "application/pdf",
             "application/octet-stream",
         ];
 
-        const allowedExtensions = /\.(mp3|mp4|wav|webm|ogg|m4a)$/i;
+        const allowedExtensions = /\.(mp3|mp4|wav|webm|ogg|m4a|mov|pdf)$/i;
 
         if (
             allowedMimeTypes.includes(file.mimetype) ||
@@ -29,6 +31,6 @@ export const upload = multer({
             return;
         }
 
-        cb(new Error("Only audio or video files are allowed"));
+        cb(new Error("Only audio, video, or PDF files are allowed"));
     },
 });

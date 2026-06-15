@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
+import { ResumePage } from "./pages/ResumePage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -48,19 +48,15 @@ function App() {
             }
           />
 
+
           <Route
             path="/resume"
             element={
               <ProtectedRoute>
-                <ComingSoonPage
-                  title="Resume Analyzer"
-                  description="Upload resumes, analyze ATS readiness, detect missing keywords, and track improvement."
-                  nextStep="Build resume upload, parsing, and analysis workflow."
-                />
+                <ResumePage />
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/interviews"
             element={
