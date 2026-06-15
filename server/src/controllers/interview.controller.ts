@@ -682,12 +682,39 @@ export const analyzeInterviewWithAI = async (
         const mergedConceptsMissed = Array.from(
             new Set([...interview.conceptsMissed, ...analysis.missedConcepts])
         );
+        const aiQuestionReplayCreateData =
+            analysis.questionBreakdown?.length > 0
+                ? analysis.questionBreakdown
+                    .filter((item) => item.question)
+                    .map((item) => ({
+                        question: item.question,
+                        userAnswer: item.candidateAnswer || null,
+                        missedPoints:
+                            item.missedPoints?.length > 0
+                                ? item.missedPoints
+                                : item.likelyGap
+                                    ? [item.likelyGap]
+                                    : [],
+                        interviewerFeedback: item.practiceTask || null,
+                        confidenceScore: analysis.confidenceScore,
+                        status: "PARTIAL" as any,
+                    }))
+                : [];
 
+        const shouldRefreshAiQuestionReplays =
+            interview.sourceType === "AUDIO" || interview.sourceType === "VIDEO";
         const updatedInterview = await prisma.interviewSession.update({
             where: {
                 id,
             },
             data: {
+                ...(shouldRefreshAiQuestionReplays &&
+                    aiQuestionReplayCreateData.length > 0 && {
+                    questionReplays: {
+                        deleteMany: {},
+                        create: aiQuestionReplayCreateData,
+                    },
+                }),
                 aiSummary: analysis as any,
                 conceptsMissed: mergedConceptsMissed,
                 nextActions: analysis.nextActions,
@@ -834,9 +861,14 @@ export const createAudioInterview = async (
                                 .filter((item) => item.question)
                                 .map((item) => ({
                                     question: item.question,
-                                    userAnswer: null,
-                                    missedPoints: item.likelyGap ? [item.likelyGap] : [],
-                                    interviewerFeedback: null,
+                                    userAnswer: item.candidateAnswer || null,
+                                    missedPoints:
+                                        item.missedPoints?.length > 0
+                                            ? item.missedPoints
+                                            : item.likelyGap
+                                                ? [item.likelyGap]
+                                                : [],
+                                    interviewerFeedback: item.practiceTask || null,
                                     confidenceScore: analysis.confidenceScore,
                                     status: "PARTIAL" as any,
                                 })),

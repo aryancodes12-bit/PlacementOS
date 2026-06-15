@@ -21,7 +21,9 @@ export interface InterviewAIAnalysis {
     rootCauses: string[];
     questionBreakdown: {
         question: string;
+        candidateAnswer: string;
         expectedAnswerChecklist: string[];
+        missedPoints: string[];
         likelyGap: string;
         practiceTask: string;
     }[];
@@ -84,9 +86,20 @@ const fallbackAnalysis = (): InterviewAIAnalysis => ({
 });
 
 const asStringArray = (value: unknown): string[] => {
-    if (!Array.isArray(value)) return [];
+    if (!value) return [];
 
-    return value.map((item) => String(item).trim()).filter(Boolean);
+    if (Array.isArray(value)) {
+        return value.map((item) => String(item).trim()).filter(Boolean);
+    }
+
+    if (typeof value === "string") {
+        return value
+            .split(/[\n,]/)
+            .map((item) => item.trim())
+            .filter(Boolean);
+    }
+
+    return [];
 };
 
 const parseQuestionBreakdown = (value: unknown) => {
@@ -94,7 +107,9 @@ const parseQuestionBreakdown = (value: unknown) => {
 
     return value.map((item: any) => ({
         question: String(item?.question || ""),
+        candidateAnswer: String(item?.candidateAnswer || ""),
         expectedAnswerChecklist: asStringArray(item?.expectedAnswerChecklist),
+        missedPoints: asStringArray(item?.missedPoints),
         likelyGap: String(item?.likelyGap || ""),
         practiceTask: String(item?.practiceTask || ""),
     }));
@@ -204,7 +219,7 @@ export const analyzeInterviewReplay = async (input: {
     const prompt = {
         task: "Do not merely summarize this interview. Act like a placement coach and generate a diagnostic improvement plan.",
         importantInstruction:
-            "Avoid repeating the input unless needed. Convert the interview log into deeper coaching: root causes, question-wise expected answer checklist, likely gaps, practice tasks, numeric scores, and a 3-day improvement plan.",
+            "Avoid repeating the input unless needed. Convert the interview log into deeper coaching: root causes, question-wise expected answer checklist, candidate's actual answer from transcript, missed points, likely gaps, practice tasks, numeric scores, and a 3-day improvement plan. Do not use personal names from the transcript.",
         interview: input,
         analysisMode: {
             studentContext:
@@ -213,6 +228,8 @@ export const analyzeInterviewReplay = async (input: {
                 "Help the student improve before the next interview, not just remember what happened.",
             limitation:
                 "If actual answer transcript is missing, infer likely gaps from whatWentWrong, missed concepts, questions, topics, scores, question status, user answer, and interviewer feedback. Clearly avoid pretending to know exact answers.",
+            privacyRule:
+                "Do not use any personal name found in the transcript. Refer to the person only as the candidate or the student.",
         },
         scoringRules: {
             confidenceScore:
@@ -237,6 +254,12 @@ export const analyzeInterviewReplay = async (input: {
             "If confidence is low or average, include speaking drills.",
             "If communication is average, include structured answer framework.",
             "Make advice specific to the role and company where possible.",
+            "Do not use the candidate's personal name in analysis even if it appears in the transcript.",
+            "Refer to the person only as 'the candidate' or 'the student'.",
+            "Do not assume the transcript speaker is the logged-in user.",
+            "Extract the candidate's actual answer for each question from transcript when available.",
+            "Each questionBreakdown item must include candidateAnswer and missedPoints.",
+            "candidateAnswer must be a short direct excerpt or concise paraphrase of what the candidate actually said for that question, not a model answer.",
             "Score strictly. Do not give safe middle scores like 6 or 7 unless evidence clearly supports it.",
             "Technical score should be below 5 if answers contain factual mistakes, confused definitions, or no working examples.",
             "Communication score should be below 6 if answers are unstructured, unclear, grammatically broken, or hard to follow.",
@@ -244,9 +267,10 @@ export const analyzeInterviewReplay = async (input: {
             "Use the full scoring range from 0 to 10. Avoid defaulting to 5, 6, or 7.",
         ],
         requiredJsonShape: {
-            summary: "2 sentence summary, not copied from input",
+            summary:
+                "2 sentence summary, not copied from input. Do not use personal names; say the candidate or student.",
             executiveDiagnosis:
-                "main diagnosis in one strong paragraph: what is blocking selection and what to fix first",
+                "main diagnosis in one strong paragraph: what is blocking selection and what to fix first. Do not use personal names; say the candidate or student.",
             strengths: ["specific strength 1", "specific strength 2"],
             weaknesses: ["specific weakness 1", "specific weakness 2"],
             missedConcepts: ["concept 1", "concept 2"],
@@ -262,13 +286,19 @@ export const analyzeInterviewReplay = async (input: {
             questionBreakdown: [
                 {
                     question: "question asked",
+                    candidateAnswer:
+                        "candidate's actual answer from transcript. If not available, return empty string",
                     expectedAnswerChecklist: [
                         "what a strong answer should include",
                         "important keyword or concept",
                         "example or edge case to mention",
                     ],
+                    missedPoints: [
+                        "specific thing candidate missed",
+                        "wrong or unclear concept",
+                    ],
                     likelyGap:
-                        "what the candidate likely missed based on notes and scores",
+                        "what the candidate likely missed based on transcript, notes, and scores",
                     practiceTask:
                         "one concrete practice task for this exact question",
                 },
@@ -297,7 +327,7 @@ export const analyzeInterviewReplay = async (input: {
             {
                 role: "system",
                 content:
-                    "You are PlacementOS Interview Coach. Your job is not to summarize. Your job is to diagnose why a student may fail or pass a placement interview and generate specific actions. Output only valid JSON.",
+                    "You are PlacementOS Interview Coach. Diagnose why a candidate may fail or pass a placement interview and generate specific actions. Do not use personal names from the transcript. Refer to the person as the candidate or the student. Extract the candidate's actual answer for each question when transcript evidence is available. Output only valid JSON.",
             },
             {
                 role: "user",
