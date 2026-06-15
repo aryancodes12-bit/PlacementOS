@@ -1,9 +1,18 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
+import {
+    ArrowLeft,
+    FileAudio,
+    PenLine,
+    Plus,
+    Save,
+    Trash2,
+    Video,
+} from "lucide-react";
 
 import { AppLayout } from "../components/ui/AppLayout";
 import { interviewService } from "../services/interview.service";
+import { AudioInterviewUploader } from "../components/interviews/AudioInterviewUploader";
 
 import type {
     CreateInterviewInput,
@@ -84,7 +93,7 @@ const emptyQuestion = (): QuestionForm => ({
 
 export const NewInterviewPage = () => {
     const navigate = useNavigate();
-
+    const [mode, setMode] = useState<"manual" | "audio" | "video">("manual");
     const [form, setForm] = useState({
         company: "",
         role: "",
@@ -228,6 +237,7 @@ export const NewInterviewPage = () => {
         }
     };
 
+
     return (
         <AppLayout
             title="Log Interview"
@@ -243,413 +253,499 @@ export const NewInterviewPage = () => {
             }
         >
             <div className="max-w-6xl mx-auto">
-                {error && (
-                    <div className="mb-4 bg-danger-muted border border-danger/10 text-danger text-sm rounded-xl px-4 py-3">
-                        {error}
+                <section className="bg-bg-secondary border border-border rounded-2xl p-4 mb-5">
+                    <p className="text-xs uppercase tracking-wide text-text-tertiary mb-3">
+                        Replay Source
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setMode("manual")}
+                            className={`border rounded-2xl p-4 text-left transition ${mode === "manual"
+                                ? "bg-brand-muted border-brand/20"
+                                : "bg-bg-tertiary border-border hover:border-border-hover"
+                                }`}
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <PenLine size={16} className="text-brand" />
+                                <span className="text-sm font-semibold text-text-primary">
+                                    Quick Log
+                                </span>
+                            </div>
+                            <p className="text-xs text-text-tertiary leading-5">
+                                Manually add questions, answers, missed points, and feedback.
+                            </p>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setMode("audio")}
+                            className={`border rounded-2xl p-4 text-left transition ${mode === "audio"
+                                ? "bg-brand-muted border-brand/20"
+                                : "bg-bg-tertiary border-border hover:border-border-hover"
+                                }`}
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <FileAudio size={16} className="text-brand" />
+                                <span className="text-sm font-semibold text-text-primary">
+                                    Upload Audio
+                                </span>
+                            </div>
+                            <p className="text-xs text-text-tertiary leading-5">
+                                Upload audio, auto-transcribe with Groq Whisper, and generate AI replay.
+                            </p>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setMode("video")}
+                            className={`border rounded-2xl p-4 text-left transition ${mode === "video"
+                                ? "bg-brand-muted border-brand/20"
+                                : "bg-bg-tertiary border-border hover:border-border-hover"
+                                }`}
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <Video size={16} className="text-text-tertiary" />
+                                <span className="text-sm font-semibold text-text-primary">
+                                    Upload Video
+                                </span>
+                            </div>
+                            <p className="text-xs text-text-tertiary leading-5">
+                                Coming next: upload video interviews and extract transcript.
+                            </p>
+                        </button>
                     </div>
-                )}
-
-                <div className="grid grid-cols-12 gap-4">
-                    <section className="col-span-12 lg:col-span-8 space-y-4">
-                        <div className="bg-bg-secondary border border-border rounded-2xl p-6 space-y-5">
-                            <div>
-                                <h3 className="text-lg font-semibold text-text-primary">
-                                    Interview Details
-                                </h3>
-                                <p className="text-sm text-text-tertiary mt-1">
-                                    Start with company, role, round, and result.
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className={labelClass}>Company</label>
-                                    <input
-                                        className={inputClass}
-                                        placeholder="TCS, Infosys, Amazon, JPMorgan"
-                                        value={form.company}
-                                        onChange={(e) =>
-                                            setForm({ ...form, company: e.target.value })
-                                        }
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className={labelClass}>Role</label>
-                                    <input
-                                        className={inputClass}
-                                        placeholder="Java Developer Intern, SDE Intern"
-                                        value={form.role}
-                                        onChange={(e) =>
-                                            setForm({ ...form, role: e.target.value })
-                                        }
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className={labelClass}>Round Type</label>
-                                    <select
-                                        className={inputClass}
-                                        value={form.roundType}
-                                        onChange={(e) =>
-                                            setForm({
-                                                ...form,
-                                                roundType: e.target.value as InterviewRoundType,
-                                            })
-                                        }
-                                    >
-                                        {roundTypes.map((round) => (
-                                            <option key={round} value={round}>
-                                                {formatEnum(round)}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className={labelClass}>Result</label>
-                                    <select
-                                        className={inputClass}
-                                        value={form.result}
-                                        onChange={(e) =>
-                                            setForm({
-                                                ...form,
-                                                result: e.target.value as InterviewResult,
-                                            })
-                                        }
-                                    >
-                                        {results.map((result) => (
-                                            <option key={result} value={result}>
-                                                {formatEnum(result)}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className={labelClass}>Date</label>
-                                    <input
-                                        type="date"
-                                        className={inputClass}
-                                        value={form.date}
-                                        onChange={(e) =>
-                                            setForm({ ...form, date: e.target.value })
-                                        }
-                                    />
-                                </div>
-                            </div>
+                </section>
+                {mode === "audio" ? (
+                    <AudioInterviewUploader />
+                ) : mode === "video" ? (
+                    <section className="bg-bg-secondary border border-border rounded-2xl p-8 text-center">
+                        <div className="w-14 h-14 mx-auto rounded-2xl bg-bg-tertiary border border-border flex items-center justify-center mb-4">
+                            <Video size={24} className="text-text-tertiary" />
                         </div>
 
-                        <div className="bg-bg-secondary border border-border rounded-2xl p-6 space-y-5">
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <h3 className="text-lg font-semibold text-text-primary">
-                                        Question-level Replay
+                        <h3 className="text-lg font-semibold text-text-primary">
+                            Video upload is coming next
+                        </h3>
+
+                        <p className="text-sm text-text-secondary mt-2 max-w-md mx-auto">
+                            Audio upload is live now. Video replay will use the same pipeline with
+                            Cloudinary video upload and transcript extraction.
+                        </p>
+                    </section>
+                ) : (
+                    <>
+                        {error && (
+                            <div className="mb-4 bg-danger-muted border border-danger/10 text-danger text-sm rounded-xl px-4 py-3">
+                                {error}
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-12 gap-4">
+                            <section className="col-span-12 lg:col-span-8 space-y-4">
+                                <div className="bg-bg-secondary border border-border rounded-2xl p-6 space-y-5">
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-text-primary">
+                                            Interview Details
+                                        </h3>
+                                        <p className="text-sm text-text-tertiary mt-1">
+                                            Start with company, role, round, and result.
+                                        </p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className={labelClass}>Company</label>
+                                            <input
+                                                className={inputClass}
+                                                placeholder="TCS, Infosys, Amazon, JPMorgan"
+                                                value={form.company}
+                                                onChange={(e) =>
+                                                    setForm({ ...form, company: e.target.value })
+                                                }
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className={labelClass}>Role</label>
+                                            <input
+                                                className={inputClass}
+                                                placeholder="Java Developer Intern, SDE Intern"
+                                                value={form.role}
+                                                onChange={(e) =>
+                                                    setForm({ ...form, role: e.target.value })
+                                                }
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className={labelClass}>Round Type</label>
+                                            <select
+                                                className={inputClass}
+                                                value={form.roundType}
+                                                onChange={(e) =>
+                                                    setForm({
+                                                        ...form,
+                                                        roundType: e.target.value as InterviewRoundType,
+                                                    })
+                                                }
+                                            >
+                                                {roundTypes.map((round) => (
+                                                    <option key={round} value={round}>
+                                                        {formatEnum(round)}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className={labelClass}>Result</label>
+                                            <select
+                                                className={inputClass}
+                                                value={form.result}
+                                                onChange={(e) =>
+                                                    setForm({
+                                                        ...form,
+                                                        result: e.target.value as InterviewResult,
+                                                    })
+                                                }
+                                            >
+                                                {results.map((result) => (
+                                                    <option key={result} value={result}>
+                                                        {formatEnum(result)}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className={labelClass}>Date</label>
+                                            <input
+                                                type="date"
+                                                className={inputClass}
+                                                value={form.date}
+                                                onChange={(e) =>
+                                                    setForm({ ...form, date: e.target.value })
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-bg-secondary border border-border rounded-2xl p-6 space-y-5">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-text-primary">
+                                                Question-level Replay
+                                            </h3>
+                                            <p className="text-sm text-text-tertiary mt-1">
+                                                Add what you answered, what you missed, and what feedback you got.
+                                            </p>
+                                        </div>
+
+                                        <button
+                                            onClick={addQuestion}
+                                            className="bg-brand hover:bg-brand-hover text-white px-4 py-2 rounded-xl text-sm transition flex items-center gap-2"
+                                        >
+                                            <Plus size={15} />
+                                            Add Question
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        {questions.map((question, index) => (
+                                            <div
+                                                key={index}
+                                                className="bg-bg-tertiary border border-border rounded-2xl p-4 space-y-4"
+                                            >
+                                                <div className="flex items-center justify-between gap-4">
+                                                    <p className="text-sm font-semibold text-text-primary">
+                                                        Question {index + 1}
+                                                    </p>
+
+                                                    <button
+                                                        onClick={() => removeQuestion(index)}
+                                                        disabled={questions.length === 1}
+                                                        className="disabled:opacity-30 disabled:cursor-not-allowed text-text-tertiary hover:text-danger transition"
+                                                    >
+                                                        <Trash2 size={15} />
+                                                    </button>
+                                                </div>
+
+                                                <div>
+                                                    <label className={labelClass}>Question Asked</label>
+                                                    <textarea
+                                                        className={`${inputClass} resize-none min-h-20`}
+                                                        placeholder="What is SQL indexing and why is it used?"
+                                                        value={question.question}
+                                                        onChange={(e) =>
+                                                            updateQuestion(index, "question", e.target.value)
+                                                        }
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className={labelClass}>My Answer</label>
+                                                    <textarea
+                                                        className={`${inputClass} resize-none min-h-24`}
+                                                        placeholder="I said indexing makes search faster but could not explain B-tree or tradeoffs."
+                                                        value={question.userAnswer}
+                                                        onChange={(e) =>
+                                                            updateQuestion(index, "userAnswer", e.target.value)
+                                                        }
+                                                    />
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className={labelClass}>
+                                                            Missed Points
+                                                        </label>
+                                                        <textarea
+                                                            className={`${inputClass} resize-none min-h-24`}
+                                                            placeholder={`B-tree basics\nClustered vs non-clustered\nIndex tradeoffs`}
+                                                            value={question.missedPoints}
+                                                            onChange={(e) =>
+                                                                updateQuestion(
+                                                                    index,
+                                                                    "missedPoints",
+                                                                    e.target.value
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
+
+                                                    <div>
+                                                        <label className={labelClass}>
+                                                            Interviewer Feedback
+                                                        </label>
+                                                        <textarea
+                                                            className={`${inputClass} resize-none min-h-24`}
+                                                            placeholder="Revise indexing internals and when not to use indexes."
+                                                            value={question.interviewerFeedback}
+                                                            onChange={(e) =>
+                                                                updateQuestion(
+                                                                    index,
+                                                                    "interviewerFeedback",
+                                                                    e.target.value
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className={labelClass}>
+                                                            Question Confidence
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max="10"
+                                                            className={inputClass}
+                                                            placeholder="3"
+                                                            value={question.confidenceScore}
+                                                            onChange={(e) =>
+                                                                updateQuestion(
+                                                                    index,
+                                                                    "confidenceScore",
+                                                                    e.target.value
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
+
+                                                    <div>
+                                                        <label className={labelClass}>Status</label>
+                                                        <select
+                                                            className={inputClass}
+                                                            value={question.status}
+                                                            onChange={(e) =>
+                                                                updateQuestion(
+                                                                    index,
+                                                                    "status",
+                                                                    e.target.value as InterviewQuestionStatus
+                                                                )
+                                                            }
+                                                        >
+                                                            {questionStatuses.map((status) => (
+                                                                <option key={status} value={status}>
+                                                                    {formatEnum(status)}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="bg-bg-secondary border border-border rounded-2xl p-6 space-y-5">
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-text-primary">
+                                            Overall Replay Context
+                                        </h3>
+                                        <p className="text-sm text-text-tertiary mt-1">
+                                            Add topics, overall reflection, and interviewer feedback.
+                                        </p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className={labelClass}>Topics Covered</label>
+                                            <textarea
+                                                className={`${inputClass} resize-none min-h-24`}
+                                                placeholder={`Java\nOOP\nDBMS\nSQL`}
+                                                value={form.topics}
+                                                onChange={(e) =>
+                                                    setForm({ ...form, topics: e.target.value })
+                                                }
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className={labelClass}>Overall Missed Concepts</label>
+                                            <textarea
+                                                className={`${inputClass} resize-none min-h-24`}
+                                                placeholder={`SQL Indexing\nTime Complexity Explanation`}
+                                                value={form.conceptsMissed}
+                                                onChange={(e) =>
+                                                    setForm({ ...form, conceptsMissed: e.target.value })
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className={labelClass}>What Went Well</label>
+                                        <textarea
+                                            className={`${inputClass} resize-none min-h-24`}
+                                            placeholder="I stayed calm and explained basic OOP definitions."
+                                            value={form.whatWentWell}
+                                            onChange={(e) =>
+                                                setForm({ ...form, whatWentWell: e.target.value })
+                                            }
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className={labelClass}>What Went Wrong</label>
+                                        <textarea
+                                            className={`${inputClass} resize-none min-h-24`}
+                                            placeholder="I struggled when asked for deeper DBMS indexing internals and complexity explanation."
+                                            value={form.whatWentWrong}
+                                            onChange={(e) =>
+                                                setForm({ ...form, whatWentWrong: e.target.value })
+                                            }
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className={labelClass}>Overall Feedback</label>
+                                        <textarea
+                                            className={`${inputClass} resize-none min-h-24`}
+                                            placeholder="Move from definition-level preparation to example and tradeoff-level answers."
+                                            value={form.feedback}
+                                            onChange={(e) =>
+                                                setForm({ ...form, feedback: e.target.value })
+                                            }
+                                        />
+                                    </div>
+                                </div>
+                            </section>
+
+                            <aside className="col-span-12 lg:col-span-4 space-y-4">
+                                <div className="bg-bg-secondary border border-border rounded-2xl p-5">
+                                    <h3 className="text-base font-semibold text-text-primary">
+                                        Overall Self Scores
                                     </h3>
-                                    <p className="text-sm text-text-tertiary mt-1">
-                                        Add what you answered, what you missed, and what feedback you got.
+                                    <p className="text-sm text-text-tertiary mt-1 mb-4">
+                                        Rate the overall interview from 0 to 10.
+                                    </p>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className={labelClass}>Confidence Score</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="10"
+                                                className={inputClass}
+                                                placeholder="6"
+                                                value={form.confidenceScore}
+                                                onChange={(e) =>
+                                                    setForm({
+                                                        ...form,
+                                                        confidenceScore: e.target.value,
+                                                    })
+                                                }
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className={labelClass}>Communication Score</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="10"
+                                                className={inputClass}
+                                                placeholder="7"
+                                                value={form.communicationScore}
+                                                onChange={(e) =>
+                                                    setForm({
+                                                        ...form,
+                                                        communicationScore: e.target.value,
+                                                    })
+                                                }
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className={labelClass}>Technical Score</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="10"
+                                                className={inputClass}
+                                                placeholder="4"
+                                                value={form.technicalScore}
+                                                onChange={(e) =>
+                                                    setForm({
+                                                        ...form,
+                                                        technicalScore: e.target.value,
+                                                    })
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-brand-muted border border-brand/10 rounded-2xl p-5">
+                                    <h3 className="text-base font-semibold text-text-primary">
+                                        Why question-level replay matters
+                                    </h3>
+                                    <p className="text-sm text-text-secondary mt-2 leading-6">
+                                        PlacementOS will use every answer, missed point, and feedback
+                                        item to generate a sharper AI diagnosis and action plan.
                                     </p>
                                 </div>
 
                                 <button
-                                    onClick={addQuestion}
-                                    className="bg-brand hover:bg-brand-hover text-white px-4 py-2 rounded-xl text-sm transition flex items-center gap-2"
+                                    onClick={handleSubmit}
+                                    disabled={loading}
+                                    className="w-full bg-brand hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-4 py-3 rounded-xl transition-all duration-200 text-sm flex items-center justify-center gap-2"
                                 >
-                                    <Plus size={15} />
-                                    Add Question
+                                    <Save size={16} />
+                                    {loading ? "Saving Interview..." : "Save Question Replay"}
                                 </button>
-                            </div>
-
-                            <div className="space-y-4">
-                                {questions.map((question, index) => (
-                                    <div
-                                        key={index}
-                                        className="bg-bg-tertiary border border-border rounded-2xl p-4 space-y-4"
-                                    >
-                                        <div className="flex items-center justify-between gap-4">
-                                            <p className="text-sm font-semibold text-text-primary">
-                                                Question {index + 1}
-                                            </p>
-
-                                            <button
-                                                onClick={() => removeQuestion(index)}
-                                                disabled={questions.length === 1}
-                                                className="disabled:opacity-30 disabled:cursor-not-allowed text-text-tertiary hover:text-danger transition"
-                                            >
-                                                <Trash2 size={15} />
-                                            </button>
-                                        </div>
-
-                                        <div>
-                                            <label className={labelClass}>Question Asked</label>
-                                            <textarea
-                                                className={`${inputClass} resize-none min-h-20`}
-                                                placeholder="What is SQL indexing and why is it used?"
-                                                value={question.question}
-                                                onChange={(e) =>
-                                                    updateQuestion(index, "question", e.target.value)
-                                                }
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className={labelClass}>My Answer</label>
-                                            <textarea
-                                                className={`${inputClass} resize-none min-h-24`}
-                                                placeholder="I said indexing makes search faster but could not explain B-tree or tradeoffs."
-                                                value={question.userAnswer}
-                                                onChange={(e) =>
-                                                    updateQuestion(index, "userAnswer", e.target.value)
-                                                }
-                                            />
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label className={labelClass}>
-                                                    Missed Points
-                                                </label>
-                                                <textarea
-                                                    className={`${inputClass} resize-none min-h-24`}
-                                                    placeholder={`B-tree basics\nClustered vs non-clustered\nIndex tradeoffs`}
-                                                    value={question.missedPoints}
-                                                    onChange={(e) =>
-                                                        updateQuestion(
-                                                            index,
-                                                            "missedPoints",
-                                                            e.target.value
-                                                        )
-                                                    }
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className={labelClass}>
-                                                    Interviewer Feedback
-                                                </label>
-                                                <textarea
-                                                    className={`${inputClass} resize-none min-h-24`}
-                                                    placeholder="Revise indexing internals and when not to use indexes."
-                                                    value={question.interviewerFeedback}
-                                                    onChange={(e) =>
-                                                        updateQuestion(
-                                                            index,
-                                                            "interviewerFeedback",
-                                                            e.target.value
-                                                        )
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label className={labelClass}>
-                                                    Question Confidence
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    max="10"
-                                                    className={inputClass}
-                                                    placeholder="3"
-                                                    value={question.confidenceScore}
-                                                    onChange={(e) =>
-                                                        updateQuestion(
-                                                            index,
-                                                            "confidenceScore",
-                                                            e.target.value
-                                                        )
-                                                    }
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className={labelClass}>Status</label>
-                                                <select
-                                                    className={inputClass}
-                                                    value={question.status}
-                                                    onChange={(e) =>
-                                                        updateQuestion(
-                                                            index,
-                                                            "status",
-                                                            e.target.value as InterviewQuestionStatus
-                                                        )
-                                                    }
-                                                >
-                                                    {questionStatuses.map((status) => (
-                                                        <option key={status} value={status}>
-                                                            {formatEnum(status)}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                            </aside>
                         </div>
 
-                        <div className="bg-bg-secondary border border-border rounded-2xl p-6 space-y-5">
-                            <div>
-                                <h3 className="text-lg font-semibold text-text-primary">
-                                    Overall Replay Context
-                                </h3>
-                                <p className="text-sm text-text-tertiary mt-1">
-                                    Add topics, overall reflection, and interviewer feedback.
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className={labelClass}>Topics Covered</label>
-                                    <textarea
-                                        className={`${inputClass} resize-none min-h-24`}
-                                        placeholder={`Java\nOOP\nDBMS\nSQL`}
-                                        value={form.topics}
-                                        onChange={(e) =>
-                                            setForm({ ...form, topics: e.target.value })
-                                        }
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className={labelClass}>Overall Missed Concepts</label>
-                                    <textarea
-                                        className={`${inputClass} resize-none min-h-24`}
-                                        placeholder={`SQL Indexing\nTime Complexity Explanation`}
-                                        value={form.conceptsMissed}
-                                        onChange={(e) =>
-                                            setForm({ ...form, conceptsMissed: e.target.value })
-                                        }
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className={labelClass}>What Went Well</label>
-                                <textarea
-                                    className={`${inputClass} resize-none min-h-24`}
-                                    placeholder="I stayed calm and explained basic OOP definitions."
-                                    value={form.whatWentWell}
-                                    onChange={(e) =>
-                                        setForm({ ...form, whatWentWell: e.target.value })
-                                    }
-                                />
-                            </div>
-
-                            <div>
-                                <label className={labelClass}>What Went Wrong</label>
-                                <textarea
-                                    className={`${inputClass} resize-none min-h-24`}
-                                    placeholder="I struggled when asked for deeper DBMS indexing internals and complexity explanation."
-                                    value={form.whatWentWrong}
-                                    onChange={(e) =>
-                                        setForm({ ...form, whatWentWrong: e.target.value })
-                                    }
-                                />
-                            </div>
-
-                            <div>
-                                <label className={labelClass}>Overall Feedback</label>
-                                <textarea
-                                    className={`${inputClass} resize-none min-h-24`}
-                                    placeholder="Move from definition-level preparation to example and tradeoff-level answers."
-                                    value={form.feedback}
-                                    onChange={(e) =>
-                                        setForm({ ...form, feedback: e.target.value })
-                                    }
-                                />
-                            </div>
-                        </div>
-                    </section>
-
-                    <aside className="col-span-12 lg:col-span-4 space-y-4">
-                        <div className="bg-bg-secondary border border-border rounded-2xl p-5">
-                            <h3 className="text-base font-semibold text-text-primary">
-                                Overall Self Scores
-                            </h3>
-                            <p className="text-sm text-text-tertiary mt-1 mb-4">
-                                Rate the overall interview from 0 to 10.
-                            </p>
-
-                            <div className="space-y-4">
-                                <div>
-                                    <label className={labelClass}>Confidence Score</label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        max="10"
-                                        className={inputClass}
-                                        placeholder="6"
-                                        value={form.confidenceScore}
-                                        onChange={(e) =>
-                                            setForm({
-                                                ...form,
-                                                confidenceScore: e.target.value,
-                                            })
-                                        }
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className={labelClass}>Communication Score</label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        max="10"
-                                        className={inputClass}
-                                        placeholder="7"
-                                        value={form.communicationScore}
-                                        onChange={(e) =>
-                                            setForm({
-                                                ...form,
-                                                communicationScore: e.target.value,
-                                            })
-                                        }
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className={labelClass}>Technical Score</label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        max="10"
-                                        className={inputClass}
-                                        placeholder="4"
-                                        value={form.technicalScore}
-                                        onChange={(e) =>
-                                            setForm({
-                                                ...form,
-                                                technicalScore: e.target.value,
-                                            })
-                                        }
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-brand-muted border border-brand/10 rounded-2xl p-5">
-                            <h3 className="text-base font-semibold text-text-primary">
-                                Why question-level replay matters
-                            </h3>
-                            <p className="text-sm text-text-secondary mt-2 leading-6">
-                                PlacementOS will use every answer, missed point, and feedback
-                                item to generate a sharper AI diagnosis and action plan.
-                            </p>
-                        </div>
-
-                        <button
-                            onClick={handleSubmit}
-                            disabled={loading}
-                            className="w-full bg-brand hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-4 py-3 rounded-xl transition-all duration-200 text-sm flex items-center justify-center gap-2"
-                        >
-                            <Save size={16} />
-                            {loading ? "Saving Interview..." : "Save Question Replay"}
-                        </button>
-                    </aside>
-                </div>
+                    </>
+                )}
             </div>
         </AppLayout>
     );

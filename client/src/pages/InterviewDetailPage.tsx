@@ -138,7 +138,9 @@ export const InterviewDetailPage = () => {
         );
     }
     const ai = interview.aiSummary as any;
-
+    const aiQuestionBreakdown = Array.isArray(ai?.questionBreakdown)
+        ? ai.questionBreakdown
+        : [];
     const questionReplays = interview.questionReplays ?? [];
 
     const questionConfidenceScores = questionReplays
@@ -177,8 +179,6 @@ export const InterviewDetailPage = () => {
             : null;
 
     const displayConfidence =
-        interview.confidenceScore ?? averageQuestionConfidence ?? null;
-    const displayConfidence =
         interview.confidenceScore ??
         ai?.confidenceScore ??
         averageQuestionConfidence ??
@@ -194,12 +194,6 @@ export const InterviewDetailPage = () => {
         ai?.technicalScore ??
         derivedTechnicalScore ??
         null;
-    const displayCommunication =
-        interview.communicationScore ??
-        (interview.aiSummary ? 6 : null);
-
-    const displayTechnical =
-        interview.technicalScore ?? derivedTechnicalScore ?? null;
     return (
         <AppLayout
             title={`${interview.company} Interview Replay`}
@@ -297,11 +291,7 @@ export const InterviewDetailPage = () => {
 
                         {(() => {
                             const ai = interview.aiSummary as any;
-                            const scores = {
-                                confidence: interview.confidenceScore ?? ai?.confidenceScore ?? null,
-                                communication: interview.communicationScore ?? ai?.communicationScore ?? null,
-                                technical: interview.technicalScore ?? ai?.technicalScore ?? null,
-                            };
+
                             return (
                                 <div className="space-y-5">
                                     {ai.summary && (
@@ -355,7 +345,7 @@ export const InterviewDetailPage = () => {
                                             )}
                                         </div>
                                     </div>
-
+                                    {ai.rootCauses?.length > 0 && (<div className="bg-bg-secondary border border-border rounded-xl p-4"> <p className="text-xs uppercase tracking-wide text-danger mb-3"> Root Causes </p> <ul className="space-y-2"> {ai.rootCauses.map((item: string, index: number) => (<li key={`${item}-${index}`} className="text-sm text-text-secondary flex gap-2" > <span className="text-danger">•</span> <span>{item}</span> </li>))} </ul> </div>)} {ai.answerFramework?.length > 0 && (<div className="bg-bg-secondary border border-border rounded-xl p-4"> <p className="text-xs uppercase tracking-wide text-brand mb-3"> Answer Framework </p> <ol className="space-y-2"> {ai.answerFramework.map((item: string, index: number) => (<li key={`${item}-${index}`} className="text-sm text-text-secondary flex gap-2" > <span className="text-brand font-semibold"> {index + 1}. </span> <span>{item}</span> </li>))} </ol> </div>)}
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                         <div className="bg-bg-secondary border border-border rounded-xl p-4">
                                             <p className="text-xs uppercase tracking-wide text-brand mb-2">
@@ -443,7 +433,11 @@ export const InterviewDetailPage = () => {
                                 disabled={analyzing}
                                 className="bg-brand hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-xl text-sm transition flex items-center gap-2"
                             >
-                                {analyzing ? <RefreshCw size={15} className="animate-spin" /> : <Sparkles size={15} />}
+                                {analyzing ? (
+                                    <RefreshCw size={15} className="animate-spin" />
+                                ) : (
+                                    <Sparkles size={15} />
+                                )}
                                 {analyzing ? "Analyzing..." : "Analyze"}
                             </button>
                         </div>
@@ -526,6 +520,66 @@ export const InterviewDetailPage = () => {
                                                     {question.interviewerFeedback || "No feedback added."}
                                                 </p>
                                             </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : aiQuestionBreakdown.length > 0 ? (
+                                <div className="space-y-4">
+                                    {aiQuestionBreakdown.map((item: any, index: number) => (
+                                        <div
+                                            key={`${item.question}-${index}`}
+                                            className="bg-bg-tertiary border border-border rounded-2xl p-4 space-y-4"
+                                        >
+                                            <div>
+                                                <p className="text-xs uppercase tracking-wide text-text-tertiary mb-1">
+                                                    AI Extracted Question {index + 1}
+                                                </p>
+                                                <h4 className="text-sm font-semibold text-text-primary leading-6">
+                                                    {item.question}
+                                                </h4>
+                                            </div>
+
+                                            {item.expectedAnswerChecklist?.length > 0 && (
+                                                <div>
+                                                    <p className="text-xs uppercase tracking-wide text-success mb-2">
+                                                        Strong Answer Should Include
+                                                    </p>
+
+                                                    <ul className="space-y-2">
+                                                        {item.expectedAnswerChecklist.map((point: string, pointIndex: number) => (
+                                                            <li
+                                                                key={`${point}-${pointIndex}`}
+                                                                className="text-sm text-text-secondary flex gap-2"
+                                                            >
+                                                                <span className="text-success">✓</span>
+                                                                <span>{point}</span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+
+                                            {item.likelyGap && (
+                                                <div>
+                                                    <p className="text-xs uppercase tracking-wide text-danger mb-1.5">
+                                                        Likely Gap
+                                                    </p>
+                                                    <p className="text-sm text-text-secondary bg-bg-secondary border border-border rounded-xl px-4 py-3 leading-6">
+                                                        {item.likelyGap}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {item.practiceTask && (
+                                                <div>
+                                                    <p className="text-xs uppercase tracking-wide text-warning mb-1.5">
+                                                        Practice Task
+                                                    </p>
+                                                    <p className="text-sm text-text-secondary bg-bg-secondary border border-border rounded-xl px-4 py-3 leading-6">
+                                                        {item.practiceTask}
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>

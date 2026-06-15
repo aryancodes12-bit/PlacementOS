@@ -1,5 +1,7 @@
 import Groq from "groq-sdk";
-
+import fs from "fs";
+import os from "os";
+import path from "path";
 const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY,
 });
@@ -140,12 +142,40 @@ const parseJsonSafely = (text: string): InterviewAIAnalysis => {
         return fallbackAnalysis();
     }
 };
+export const transcribeInterviewAudio = async (
+    audioBuffer: Buffer,
+    filename: string
+): Promise<string> => {
+    if (!process.env.GROQ_API_KEY) {
+        throw new Error("GROQ_API_KEY is missing");
+    }
 
+    const safeFilename = filename.replace(/[^\w.-]/g, "_");
+    const tempPath = path.join(os.tmpdir(), `${Date.now()}-${safeFilename}`);
+
+    fs.writeFileSync(tempPath, audioBuffer);
+
+    try {
+        const transcription = await groq.audio.transcriptions.create({
+            file: fs.createReadStream(tempPath),
+            model: "whisper-large-v3",
+        });
+
+        return transcription.text || "";
+    } finally {
+        if (fs.existsSync(tempPath)) {
+            fs.unlinkSync(tempPath);
+        }
+    }
+};
 export const analyzeInterviewReplay = async (input: {
     company: string;
     role: string;
     roundType: string;
     result: string;
+
+    transcript?: string | null;
+
     questionsAsked: string[];
     topics: string[];
     conceptsMissed: string[];

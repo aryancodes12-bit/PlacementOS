@@ -1,7 +1,11 @@
 import { Response } from "express";
 import { prisma } from "../prisma/client";
 import { AuthRequest } from "../middlewares/auth.middleware";
-import { analyzeInterviewReplay } from "../services/openaiInterview.service";
+import { uploadToCloudinary } from "../services/cloudinary.service";
+import {
+    analyzeInterviewReplay,
+    transcribeInterviewAudio,
+} from "../services/openaiInterview.service";
 
 const normalizeEnum = (value: unknown, fallback: string) => {
     if (!value) return fallback;
@@ -721,7 +725,144 @@ export const analyzeInterviewWithAI = async (
         });
     }
 };
+export const createAudioInterview = async (
+    req: AuthRequest,
+    res: Response
+) => {
+    try {
+        const userId = req.user!.id;
 
+        const {
+            company,
+            role,
+            roundType,
+            date,
+            result,
+            topics,
+            conceptsMissed,
+            notes,
+        } = req.body;
+
+        if (!company || !role || !date) {
+            return res.status(400).json({
+                message: "Company, role, and date are required",
+            });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({
+                message: "Audio file is required",
+            });
+        }
+
+        const normalizedRoundType = normalizeEnum(roundType, "TECHNICAL");
+        const normalizedResult = normalizeEnum(result, "PENDING");
+
+        const parsedDate = new Date(date);
+
+        if (Number.isNaN(parsedDate.getTime())) {
+            return res.status(400).json({
+                message: "Invalid interview date",
+            });
+        }
+
+        const uploadedAudio = await uploadToCloudinary(
+            req.file.buffer,
+            "placementos/interviews/audio",
+            "video"
+        );
+
+        const transcript = await transcribeInterviewAudio(
+            req.file.buffer,
+            req.file.originalname
+        );
+
+        const analysis = await analyzeInterviewReplay({
+            company: String(company).trim(),
+            role: String(role).trim(),
+            roundType: normalizedRoundType,
+            result: normalizedResult,
+            transcript,
+            questionsAsked: [],
+            topics: toStringArray(topics),
+            conceptsMissed: toStringArray(conceptsMissed),
+            whatWentWell: null,
+            whatWentWrong: null,
+            feedback: notes || null,
+            confidenceScore: null,
+            communicationScore: null,
+            technicalScore: null,
+            previousWeakTopics: [],
+            questionReplays: [],
+        });
+
+        const questionsAsked =
+            analysis.questionBreakdown
+                ?.map((item) => item.question)
+                .filter(Boolean) ?? [];
+
+        const finalTopics = Array.from(
+            new Set([
+                ...toStringArray(topics),
+                ...analysis.repeatedRiskTopics,
+            ])
+        );
+
+        const finalMissedConcepts = Array.from(
+            new Set([
+                ...toStringArray(conceptsMissed),
+                ...analysis.missedConcepts,
+            ])
+        );
+
+        const interview = await prisma.interviewSession.create({
+            data: {
+                userId,
+                company: String(company).trim(),
+                role: String(role).trim(),
+                roundType: normalizedRoundType as any,
+                date: parsedDate,
+                result: normalizedResult as any,
+
+                sourceType: "AUDIO",
+                audioUrl: uploadedAudio.url,
+                transcript,
+                notes: notes || null,
+
+                questionsAsked,
+                topics: finalTopics,
+                conceptsMissed: finalMissedConcepts,
+
+                confidenceScore: analysis.confidenceScore,
+                communicationScore: analysis.communicationScore,
+                technicalScore: analysis.technicalScore,
+                overallScore: Math.round(analysis.estimatedReadinessScore / 10),
+
+                aiSummary: analysis as any,
+                nextActions: analysis.nextActions,
+                actionPlan: analysis.nextActions.join("\n"),
+                analysisStatus: "ANALYZED",
+            },
+        });
+
+        await updateInterviewReadiness(userId);
+
+        return res.status(201).json({
+            message: "Audio interview uploaded, transcribed, and analyzed successfully",
+            transcript,
+            analysis,
+            interview,
+        });
+    } catch (error: any) {
+        console.error("createAudioInterview error:", error);
+
+        return res.status(500).json({
+            message:
+                error.message ||
+                "Failed to upload, transcribe, and analyze audio interview",
+        });
+    }
+};
 export const getInterviewStats = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user!.id;
