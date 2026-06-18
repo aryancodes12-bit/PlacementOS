@@ -9,6 +9,7 @@ import authRoutes from "./routes/auth.routes";
 import profileRoutes from "./routes/profile.routes";
 import healthRoutes from "./routes/health.routes";
 import resumeRoutes from "./routes/resume.routes";
+import paymentRoutes from "./routes/payment.routes";
 dotenv.config();
 
 const app = express();
@@ -63,6 +64,7 @@ app.use('/api/dsa', dsaRoutes)
 app.use('/api/readiness', readinessRoutes)
 import interviewRoutes from "./routes/interview.routes";
 app.use("/api/interviews", interviewRoutes);
+app.use("/api/payments", paymentRoutes);
 io.on("connection", (socket) => {
     console.log(`User connected: ${socket.id}`);
 

@@ -12,6 +12,7 @@ import { InterviewsPage } from "./pages/InterviewsPage";
 import { NewInterviewPage } from "./pages/NewInterviewPage";
 import { InterviewDetailPage } from "./pages/InterviewDetailPage";
 import { DailyPlanPage } from "./pages/DailyPlanPage";
+import { PricingPage } from "./pages/PricingPage";
 const queryClient = new QueryClient();
 
 function App() {
@@ -102,6 +103,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <DailyPlanPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/pricing"
+            element={
+              <ProtectedRoute>
+                <PricingPage />
               </ProtectedRoute>
             }
           />

@@ -9,15 +9,18 @@ import {
     User,
     Settings,
     Sparkles,
+    Crown,
 } from "lucide-react";
 
 const navItems = [
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { to: "/daily-plan", icon: Sparkles, label: "Daily Plan" },
+    { to: "/pricing", icon: Crown, label: "Premium" },
     { to: "/dsa", icon: Code2, label: "DSA Tracker" },
     { to: "/resume", icon: FileText, label: "Resume" },
     { to: "/interviews", icon: Mic, label: "Interviews" },
     { to: "/profile", icon: User, label: "Profile" },
+
 ];
 
 export const Sidebar = () => {

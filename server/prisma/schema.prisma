@@ -73,6 +73,8 @@ model User {
   readinessScore   ReadinessScore?
   dailyPlans       DailyPlan[]
   readinessHistory ReadinessHistory[]
+  plan             Plan               @default(FREE)
+  payments         Payment[]
 }
 
 model Profile {
@@ -277,4 +279,36 @@ model DailyPlan {
 
   @@unique([userId, createdDate])
   @@index([userId])
+}
+
+enum Plan {
+  FREE
+  PREMIUM
+}
+
+enum PaymentStatus {
+  CREATED
+  PAID
+  FAILED
+}
+
+model Payment {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  plan     Plan          @default(PREMIUM)
+  status   PaymentStatus @default(CREATED)
+  amount   Int
+  currency String        @default("INR")
+
+  razorpayOrderId   String  @unique
+  razorpayPaymentId String?
+  razorpaySignature String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }
