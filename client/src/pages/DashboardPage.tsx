@@ -13,6 +13,8 @@ import { ProfileCompletionCard } from "../components/dashboard/ProfileCompletion
 import { dsaService, readinessService } from "../services/dsa.service";
 import { interviewService } from "../services/interview.service";
 import { profileService } from "../services/profile.service";
+import { resumeService } from "../services/resume.service";
+import type { Resume } from "../services/resume.service";
 
 export const DashboardPage = () => {
     const { user } = useAuthStore();
@@ -23,6 +25,7 @@ export const DashboardPage = () => {
     const [dsaStats, setDsaStats] = useState<any>(null);
     const [interviewStats, setInterviewStats] = useState<any>(null);
     const [profile, setProfile] = useState<any>(null);
+    const [latestResume, setLatestResume] = useState<Resume | null>(null);
     const [loadingData, setLoadingData] = useState(true);
 
     useEffect(() => {
@@ -34,12 +37,18 @@ export const DashboardPage = () => {
                     dsaResponse,
                     interviewStatsResponse,
                     profileResponse,
+                    resumeResponse,
                 ] = await Promise.all([
                     readinessService.getMe(),
                     dsaService.getStreak(),
                     dsaService.getAll(),
                     interviewService.getStats(),
                     profileService.getMe(),
+                    resumeService.getLatest().catch(() => ({
+                        data: {
+                            resume: null,
+                        },
+                    })),
                 ]);
 
                 setReadiness(readinessResponse.data);
@@ -47,6 +56,7 @@ export const DashboardPage = () => {
                 setDsaStats(dsaResponse.data.stats);
                 setInterviewStats(interviewStatsResponse.data);
                 setProfile(profileResponse.data.data?.profile ?? profileResponse.data.profile);
+                setLatestResume(resumeResponse.data.resume);
             } catch (error) {
                 console.error("Failed to fetch dashboard data:", error);
             } finally {
@@ -64,9 +74,19 @@ export const DashboardPage = () => {
 
     const overall = readiness?.overallScore ?? 0;
     const dsaScore = readiness?.dsaScore ?? 0;
-    const resumeScore = readiness?.resumeScore ?? 0;
+    const resumeScore = readiness?.resumeScore ?? latestResume?.atsScore ?? 0;
     const interviewScore = readiness?.interviewScore ?? 0;
     const aptitudeScore = readiness?.aptitudeScore ?? 0;
+
+    const hasResumeAnalysis = resumeScore > 0 || Boolean(latestResume);
+
+    const resumeScoreLabel = hasResumeAnalysis
+        ? `${Math.round(resumeScore)}%`
+        : "Pending";
+
+    const resumeScoreDescription = hasResumeAnalysis
+        ? "Latest ATS score from Resume Intelligence"
+        : "Upload resume to generate ATS score";
 
     const totalInterviews = interviewStats?.totalInterviews ?? 0;
     const averageConfidence = interviewStats?.averageConfidenceScore ?? 0;
@@ -83,15 +103,16 @@ export const DashboardPage = () => {
 
     const hasDsaActivity = (dsaStats?.total ?? 0) > 0;
     const hasInterviewActivity = totalInterviews > 0;
+    const hasResumeActivity = hasResumeAnalysis;
+
     const profileSkills = profile?.skills ?? [];
     const profileTargetCompanies = profile?.targetCompanies ?? [];
+
     const interviewCompanies =
         interviewStats?.companyBreakdown?.map((item: any) => item.company) ?? [];
 
     const targetCompanies =
-        profileTargetCompanies.length > 0
-            ? profileTargetCompanies
-            : interviewCompanies;
+        profileTargetCompanies.length > 0 ? profileTargetCompanies : interviewCompanies;
 
     const readyFor = (readiness?.readyFor ?? []).filter((company: string) =>
         targetCompanies.includes(company)
@@ -100,6 +121,7 @@ export const DashboardPage = () => {
     const improveFor = targetCompanies.filter(
         (company: string) => !readyFor.includes(company)
     );
+
     const hasProfileDetails =
         profileSkills.length > 0 ||
         profileTargetCompanies.length > 0 ||
@@ -107,20 +129,35 @@ export const DashboardPage = () => {
         Boolean(profile?.college) ||
         Boolean(profile?.graduationYear);
 
-    const hasResumeActivity = resumeScore > 0;
     const actions = [
-        {
-            type: "info" as const,
-            title: "Complete your profile",
-            message:
-                "Add skills and target companies to personalize your placement dashboard.",
-        },
-        {
-            type: "warning" as const,
-            title: "Resume analysis pending",
-            message:
-                "Upload your latest resume to identify missing keywords and improve ATS readiness.",
-        },
+        hasProfileDetails
+            ? {
+                type: "info" as const,
+                title: "Profile looks active",
+                message:
+                    "Keep your skills and target companies updated for better company readiness.",
+            }
+            : {
+                type: "info" as const,
+                title: "Complete your profile",
+                message:
+                    "Add skills and target companies to personalize your placement dashboard.",
+            },
+
+        hasResumeAnalysis
+            ? {
+                type: "info" as const,
+                title: "Resume improvement available",
+                message:
+                    "Review missing keywords and project bullet suggestions from Resume Intelligence.",
+            }
+            : {
+                type: "warning" as const,
+                title: "Resume analysis pending",
+                message:
+                    "Upload your latest resume to identify missing keywords and improve ATS readiness.",
+            },
+
         hasInterviewActivity
             ? {
                 type: "info" as const,
@@ -134,6 +171,8 @@ export const DashboardPage = () => {
                     "Add one mock or real interview to start tracking weak topics, confidence, and next actions.",
             },
     ];
+
+    const recentInterviews = interviewStats?.recentInterviews ?? [];
 
     return (
         <AppLayout
@@ -168,7 +207,10 @@ export const DashboardPage = () => {
                                 <div className="flex-1 h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
                                     <div
                                         className="h-full rounded-full transition-all duration-700"
-                                        style={{ width: `${val}%`, backgroundColor: color }}
+                                        style={{
+                                            width: `${Math.min(100, Math.max(0, val))}%`,
+                                            backgroundColor: color,
+                                        }}
                                     />
                                 </div>
 
@@ -193,8 +235,8 @@ export const DashboardPage = () => {
 
                     <StatCard
                         title="Resume Score"
-                        value={resumeScore > 0 ? `${Math.round(resumeScore)}%` : "Pending"}
-                        subtitle="Upload resume to generate ATS score"
+                        value={loadingData ? "..." : resumeScoreLabel}
+                        subtitle={resumeScoreDescription}
                         icon={FileText}
                         color="success"
                         onClick={() => navigate("/resume")}
@@ -316,15 +358,15 @@ export const DashboardPage = () => {
                         completedItems={[
                             "Account created",
                             ...(hasProfileDetails ? ["Profile details"] : []),
-                            ...(hasDsaActivity ? ["DSA activity"] : []),
-                            ...(hasInterviewActivity ? ["Interview replay"] : []),
                             ...(hasResumeActivity ? ["Resume upload"] : []),
+                            ...(hasInterviewActivity ? ["Interview replay"] : []),
+                            ...(hasDsaActivity ? ["DSA activity"] : []),
                         ]}
                         missingItems={[
                             ...(hasProfileDetails ? [] : ["Profile details"]),
                             ...(hasResumeActivity ? [] : ["Resume upload"]),
-                            ...(hasDsaActivity ? [] : ["DSA activity"]),
                             ...(hasInterviewActivity ? [] : ["Interview replay"]),
+                            ...(hasDsaActivity ? [] : ["DSA activity"]),
                         ]}
                     />
                 </div>
@@ -335,12 +377,28 @@ export const DashboardPage = () => {
                             Recent Activity
                         </h3>
 
-                        {hasInterviewActivity ? (
-                            <div className="space-y-3">
-                                {interviewStats.recentInterviews.slice(0, 3).map((interview: any) => (
+                        <div className="space-y-3">
+                            {latestResume && (
+                                <div
+                                    onClick={() => navigate("/resume")}
+                                    className="bg-bg-tertiary border border-border rounded-xl px-4 py-3 cursor-pointer transition hover:bg-bg-hover"
+                                >
+                                    <p className="text-sm font-medium text-text-primary">
+                                        Resume analyzed
+                                    </p>
+                                    <p className="text-xs text-text-tertiary mt-1">
+                                        ATS Score: {latestResume.atsScore ?? "--"} ·{" "}
+                                        {latestResume.targetRole || "General role"}
+                                    </p>
+                                </div>
+                            )}
+
+                            {hasInterviewActivity &&
+                                recentInterviews.slice(0, latestResume ? 2 : 3).map((interview: any) => (
                                     <div
                                         key={interview.id}
-                                        className="bg-bg-tertiary border border-border rounded-xl px-4 py-3"
+                                        onClick={() => navigate(`/interviews/${interview.id}`)}
+                                        className="bg-bg-tertiary border border-border rounded-xl px-4 py-3 cursor-pointer transition hover:bg-bg-hover"
                                     >
                                         <p className="text-sm font-medium text-text-primary">
                                             Interview replay logged
@@ -350,24 +408,33 @@ export const DashboardPage = () => {
                                         </p>
                                     </div>
                                 ))}
-                            </div>
-                        ) : hasDsaActivity ? (
-                            <div className="bg-bg-tertiary border border-border rounded-xl px-4 py-3">
-                                <p className="text-sm font-medium text-text-primary">
-                                    DSA activity found
-                                </p>
-                                <p className="text-xs text-text-tertiary mt-1">
-                                    {dsaStats?.total ?? 0} problems tracked.
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="bg-bg-tertiary border border-border rounded-xl px-4 py-3">
-                                <p className="text-sm font-medium text-text-primary">No activity yet</p>
-                                <p className="text-xs text-text-tertiary mt-1">
-                                    Start by completing your profile, solving DSA, or logging an interview.
-                                </p>
-                            </div>
-                        )}
+
+                            {!latestResume && !hasInterviewActivity && hasDsaActivity && (
+                                <div
+                                    onClick={() => navigate("/dsa")}
+                                    className="bg-bg-tertiary border border-border rounded-xl px-4 py-3 cursor-pointer transition hover:bg-bg-hover"
+                                >
+                                    <p className="text-sm font-medium text-text-primary">
+                                        DSA activity found
+                                    </p>
+                                    <p className="text-xs text-text-tertiary mt-1">
+                                        {dsaStats?.total ?? 0} problems tracked.
+                                    </p>
+                                </div>
+                            )}
+
+                            {!latestResume && !hasInterviewActivity && !hasDsaActivity && (
+                                <div className="bg-bg-tertiary border border-border rounded-xl px-4 py-3">
+                                    <p className="text-sm font-medium text-text-primary">
+                                        No activity yet
+                                    </p>
+                                    <p className="text-xs text-text-tertiary mt-1">
+                                        Start by completing your profile, solving DSA, or logging an
+                                        interview.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
