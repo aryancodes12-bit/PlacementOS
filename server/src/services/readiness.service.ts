@@ -122,22 +122,25 @@ const normalizeCompanyName = (company: string) => {
 };
 
 const uniqueStrings = (items: string[]) => {
-    return Array.from(
-        new Set(items.map((item) => item.trim()).filter(Boolean))
-    );
+    return Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)));
+};
+
+const normalizeScores = (scores: ReadinessScores): ReadinessScores => {
+    return {
+        dsaScore: clampScore(scores.dsaScore),
+        resumeScore: clampScore(scores.resumeScore),
+        interviewScore: clampScore(scores.interviewScore),
+        aptitudeScore: clampScore(scores.aptitudeScore),
+    };
 };
 
 export const calculateWeightedReadiness = (scores: ReadinessScores) => {
-    const dsaScore = clampScore(scores.dsaScore);
-    const resumeScore = clampScore(scores.resumeScore);
-    const interviewScore = clampScore(scores.interviewScore);
-    const aptitudeScore = clampScore(scores.aptitudeScore);
+    const normalizedScores = normalizeScores(scores);
 
     return Math.round(
-        dsaScore * 0.4 +
-        interviewScore * 0.3 +
-        resumeScore * 0.2 +
-        aptitudeScore * 0.1
+        normalizedScores.dsaScore * 0.45 +
+        normalizedScores.interviewScore * 0.3 +
+        normalizedScores.resumeScore * 0.25
     );
 };
 
@@ -145,14 +148,16 @@ export const matchCompanies = (
     scores: ReadinessScores,
     customCompanies: string[] = []
 ) => {
-    const overallScore = calculateWeightedReadiness(scores);
+    const normalizedScores = normalizeScores(scores);
+    const overallScore = calculateWeightedReadiness(normalizedScores);
 
     const customRules: CompanyRule[] = uniqueStrings(customCompanies)
         .filter(
             (company) =>
                 !DEFAULT_COMPANY_RULES.some(
                     (rule) =>
-                        rule.name.toLowerCase() === normalizeCompanyName(company).toLowerCase()
+                        rule.name.toLowerCase() ===
+                        normalizeCompanyName(company).toLowerCase()
                 )
         )
         .map((company) => ({
@@ -171,9 +176,9 @@ export const matchCompanies = (
     allRules.forEach((rule) => {
         const isReady =
             overallScore >= rule.minOverall &&
-            scores.dsaScore >= (rule.minDsa ?? 0) &&
-            scores.interviewScore >= (rule.minInterview ?? 0) &&
-            scores.resumeScore >= (rule.minResume ?? 0);
+            normalizedScores.dsaScore >= (rule.minDsa ?? 0) &&
+            normalizedScores.interviewScore >= (rule.minInterview ?? 0) &&
+            normalizedScores.resumeScore >= (rule.minResume ?? 0);
 
         if (isReady) {
             readyFor.push(rule.name);
@@ -189,53 +194,48 @@ export const matchCompanies = (
 };
 
 export const generateImprovementTips = (scores: ReadinessScores) => {
+    const normalizedScores = normalizeScores(scores);
     const tips: string[] = [];
 
-    if (scores.dsaScore < 30) {
+    if (normalizedScores.dsaScore < 30) {
         tips.push(
             "Start DSA consistency: solve 2 easy-to-medium problems daily from Arrays, Strings, HashMap, and Two Pointers."
         );
-    } else if (scores.dsaScore < 60) {
+    } else if (normalizedScores.dsaScore < 60) {
         tips.push(
             "Increase DSA depth: add medium problems and revise patterns where you repeatedly get stuck."
         );
-    } else if (scores.dsaScore < 80) {
+    } else if (normalizedScores.dsaScore < 80) {
         tips.push(
             "Move toward interview-level DSA: practice timed medium problems and explain time-space complexity out loud."
         );
     }
 
-    if (scores.resumeScore <= 0) {
+    if (normalizedScores.resumeScore <= 0) {
         tips.push(
             "Upload your resume to generate ATS score, missing keywords, and project improvement suggestions."
         );
-    } else if (scores.resumeScore < 70) {
+    } else if (normalizedScores.resumeScore < 70) {
         tips.push(
             "Improve resume shortlist chances: fix missing keywords and rewrite weak project bullets from Resume Intelligence."
         );
-    } else if (scores.resumeScore < 85) {
+    } else if (normalizedScores.resumeScore < 85) {
         tips.push(
             "Polish your resume: add stronger quantified outcomes and align skills with target companies."
         );
     }
 
-    if (scores.interviewScore <= 0) {
+    if (normalizedScores.interviewScore <= 0) {
         tips.push(
             "Log your first mock interview replay to identify communication, confidence, and technical gaps."
         );
-    } else if (scores.interviewScore < 60) {
+    } else if (normalizedScores.interviewScore < 60) {
         tips.push(
             "Improve interview conversion: practice structured answers using STAR and explain one project end-to-end daily."
         );
-    } else if (scores.interviewScore < 80) {
+    } else if (normalizedScores.interviewScore < 80) {
         tips.push(
             "Sharpen interview performance: target recurring missed concepts from your Interview Replay reports."
-        );
-    }
-
-    if (scores.aptitudeScore < 40) {
-        tips.push(
-            "Start aptitude basics: spend 15 minutes daily on percentages, ratios, averages, and logical reasoning."
         );
     }
 
@@ -264,12 +264,13 @@ const shouldCreateHistorySnapshot = async (
     if (!latestSnapshot) return true;
 
     return (
-        Math.round(latestSnapshot.overallScore) !== Math.round(scores.overallScore) ||
+        Math.round(latestSnapshot.overallScore) !==
+        Math.round(scores.overallScore) ||
         Math.round(latestSnapshot.dsaScore) !== Math.round(scores.dsaScore) ||
-        Math.round(latestSnapshot.resumeScore) !== Math.round(scores.resumeScore) ||
+        Math.round(latestSnapshot.resumeScore) !==
+        Math.round(scores.resumeScore) ||
         Math.round(latestSnapshot.interviewScore) !==
-        Math.round(scores.interviewScore) ||
-        Math.round(latestSnapshot.aptitudeScore) !== Math.round(scores.aptitudeScore)
+        Math.round(scores.interviewScore)
     );
 };
 
@@ -295,12 +296,12 @@ export const ensureReadinessScore = async (userId: string) => {
 export const updateReadiness = async (userId: string) => {
     const current = await ensureReadinessScore(userId);
 
-    const scores: ReadinessScores = {
-        dsaScore: clampScore(current.dsaScore),
-        resumeScore: clampScore(current.resumeScore),
-        interviewScore: clampScore(current.interviewScore),
-        aptitudeScore: clampScore(current.aptitudeScore),
-    };
+    const scores: ReadinessScores = normalizeScores({
+        dsaScore: current.dsaScore,
+        resumeScore: current.resumeScore,
+        interviewScore: current.interviewScore,
+        aptitudeScore: current.aptitudeScore,
+    });
 
     const overallScore = calculateWeightedReadiness(scores);
 

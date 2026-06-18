@@ -265,7 +265,7 @@ export const generateDailyPlan = async (
             dsaScore: readiness?.dsaScore ?? 0,
             resumeScore: readiness?.resumeScore ?? 0,
             interviewScore: readiness?.interviewScore ?? 0,
-            aptitudeScore: readiness?.aptitudeScore ?? 0,
+
             improvementTips: readiness
                 ? []
                 : ["Readiness score is not available yet."],

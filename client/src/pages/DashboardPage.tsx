@@ -77,7 +77,7 @@ export const DashboardPage = () => {
     const dsaScore = readiness?.dsaScore ?? 0;
     const resumeScore = readiness?.resumeScore ?? latestResume?.atsScore ?? 0;
     const interviewScore = readiness?.interviewScore ?? 0;
-    const aptitudeScore = readiness?.aptitudeScore ?? 0;
+
 
     const hasResumeAnalysis = resumeScore > 0 || Boolean(latestResume);
 
@@ -158,7 +158,6 @@ export const DashboardPage = () => {
                                 { label: "DSA", val: dsaScore, color: "#6366F1" },
                                 { label: "Resume", val: resumeScore, color: "#22C55E" },
                                 { label: "Interview", val: interviewScore, color: "#F59E0B" },
-                                { label: "Aptitude", val: aptitudeScore, color: "#3B82F6" },
                             ].map(({ label, val, color }) => (
                                 <div key={label} className="flex items-center gap-2">
                                     <span className="text-[11px] text-text-tertiary w-16">
