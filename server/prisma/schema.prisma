@@ -65,13 +65,14 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  profile        Profile?
-  dsaProblems    DSAProblem[]
-  resumes        Resume[]
-  interviews     InterviewSession[]
-  streaks        Streak[]
-  readinessScore ReadinessScore?
-  dailyPlans     DailyPlan[]
+  profile          Profile?
+  dsaProblems      DSAProblem[]
+  resumes          Resume[]
+  interviews       InterviewSession[]
+  streaks          Streak[]
+  readinessScore   ReadinessScore?
+  dailyPlans       DailyPlan[]
+  readinessHistory ReadinessHistory[]
 }
 
 model Profile {
@@ -244,13 +245,36 @@ model ReadinessScore {
   updatedAt      DateTime @updatedAt
 }
 
+model ReadinessHistory {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  overallScore   Float
+  dsaScore       Float
+  resumeScore    Float
+  interviewScore Float
+  aptitudeScore  Float
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
 model DailyPlan {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   createdDate String
   plan        Json
-  createdAt   DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, createdDate])
+  @@index([userId])
 }

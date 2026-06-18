@@ -7,6 +7,7 @@ import {
     extractTextFromPDF,
 } from "../services/resume.service";
 import axios from "axios";
+import { updateReadiness } from "../services/readiness.service";
 const updateResumeReadiness = async (userId: string, resumeScore: number) => {
     const current = await prisma.readinessScore.findUnique({
         where: {
@@ -173,7 +174,26 @@ export const uploadResume = async (req: AuthRequest, res: Response) => {
             },
         });
 
-        await updateResumeReadiness(userId, analysis.atsScore);
+        await prisma.readinessScore.upsert({
+            where: {
+                userId,
+            },
+            update: {
+                resumeScore: analysis.atsScore,
+            },
+            create: {
+                userId,
+                dsaScore: 0,
+                resumeScore: analysis.atsScore,
+                interviewScore: 0,
+                aptitudeScore: 0,
+                overallScore: 0,
+                readyFor: [],
+                improveFor: [],
+            },
+        });
+
+        await updateReadiness(userId);
 
         return res.status(201).json({
             message: "Resume uploaded and analyzed successfully",
@@ -264,7 +284,26 @@ export const deleteResume = async (req: AuthRequest, res: Response) => {
             },
         });
 
-        await updateResumeReadiness(userId, latestResume?.atsScore ?? 0);
+        await prisma.readinessScore.upsert({
+            where: {
+                userId,
+            },
+            update: {
+                resumeScore: latestResume?.atsScore ?? 0,
+            },
+            create: {
+                userId,
+                dsaScore: 0,
+                resumeScore: latestResume?.atsScore ?? 0,
+                interviewScore: 0,
+                aptitudeScore: 0,
+                overallScore: 0,
+                readyFor: [],
+                improveFor: [],
+            },
+        });
+
+        await updateReadiness(userId);
 
         return res.status(200).json({
             message: "Resume version deleted successfully",

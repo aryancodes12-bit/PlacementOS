@@ -11,6 +11,7 @@ import { ComingSoonPage } from "./components/ui/ComingSoonPage";
 import { InterviewsPage } from "./pages/InterviewsPage";
 import { NewInterviewPage } from "./pages/NewInterviewPage";
 import { InterviewDetailPage } from "./pages/InterviewDetailPage";
+import { DailyPlanPage } from "./pages/DailyPlanPage";
 const queryClient = new QueryClient();
 
 function App() {
@@ -96,7 +97,14 @@ function App() {
               </ProtectedRoute>
             }
           />
-
+          <Route
+            path="/daily-plan"
+            element={
+              <ProtectedRoute>
+                <DailyPlanPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>

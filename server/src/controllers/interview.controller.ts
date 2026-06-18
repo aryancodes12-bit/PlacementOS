@@ -6,7 +6,7 @@ import {
     analyzeInterviewReplay,
     transcribeInterviewAudio,
 } from "../services/openaiInterview.service";
-
+import { updateReadiness } from "../services/readiness.service";
 const normalizeEnum = (value: unknown, fallback: string) => {
     if (!value) return fallback;
     return String(value).trim().toUpperCase().replace(/\s+/g, "_");
@@ -38,7 +38,91 @@ const clampScore = (score: unknown): number | null => {
 
     return Math.max(0, Math.min(10, numericScore));
 };
+const clampReadinessScore = (value: number) => {
+    return Math.max(0, Math.min(100, Math.round(value)));
+};
 
+const recalculateInterviewReadiness = async (userId: string) => {
+    const interviews = await prisma.interviewSession.findMany({
+        where: {
+            userId,
+        },
+        select: {
+            overallScore: true,
+            confidenceScore: true,
+            communicationScore: true,
+            technicalScore: true,
+        },
+    });
+
+    if (interviews.length === 0) {
+        await prisma.readinessScore.upsert({
+            where: {
+                userId,
+            },
+            update: {
+                interviewScore: 0,
+            },
+            create: {
+                userId,
+                dsaScore: 0,
+                resumeScore: 0,
+                interviewScore: 0,
+                aptitudeScore: 0,
+                overallScore: 0,
+                readyFor: [],
+                improveFor: [],
+            },
+        });
+
+        await updateReadiness(userId);
+        return;
+    }
+
+    const scores = interviews.map((interview) => {
+        if (typeof interview.overallScore === "number") {
+            return interview.overallScore * 10;
+        }
+
+        const availableScores = [
+            interview.confidenceScore,
+            interview.communicationScore,
+            interview.technicalScore,
+        ].filter((score): score is number => typeof score === "number");
+
+        if (availableScores.length === 0) return 0;
+
+        const average =
+            availableScores.reduce((sum, score) => sum + score, 0) /
+            availableScores.length;
+
+        return average * 10;
+    });
+
+    const interviewScore =
+        scores.reduce((sum, score) => sum + score, 0) / scores.length;
+
+    await prisma.readinessScore.upsert({
+        where: {
+            userId,
+        },
+        update: {
+            interviewScore: clampReadinessScore(interviewScore),
+        },
+        create: {
+            userId,
+            dsaScore: 0,
+            resumeScore: 0,
+            interviewScore: clampReadinessScore(interviewScore),
+            aptitudeScore: 0,
+            overallScore: 0,
+            readyFor: [],
+            improveFor: [],
+        },
+    });
+
+    await updateReadiness(userId);
+};
 const average = (values: number[]) => {
     if (values.length === 0) return 0;
 
@@ -302,7 +386,7 @@ export const createInterview = async (req: AuthRequest, res: Response) => {
             },
         });
 
-        await updateInterviewReadiness(userId);
+        await recalculateInterviewReadiness(userId);
 
         return res.status(201).json({
             message: "Interview replay created successfully",
@@ -535,7 +619,7 @@ export const updateInterview = async (req: AuthRequest, res: Response) => {
             },
         });
 
-        await updateInterviewReadiness(userId);
+        await recalculateInterviewReadiness(userId);
 
         return res.status(200).json({
             message: "Interview replay updated successfully",
@@ -582,7 +666,7 @@ export const deleteInterview = async (req: AuthRequest, res: Response) => {
             },
         });
 
-        await updateInterviewReadiness(userId);
+        await recalculateInterviewReadiness(userId);
 
         return res.status(200).json({
             message: "Interview replay deleted successfully",
@@ -737,7 +821,7 @@ export const analyzeInterviewWithAI = async (
             },
         });
 
-        await updateInterviewReadiness(userId);
+        await recalculateInterviewReadiness(userId);
 
         return res.status(200).json({
             message: "Interview analyzed successfully",
@@ -894,7 +978,7 @@ export const createAudioInterview = async (
             },
         });
 
-        await updateInterviewReadiness(userId);
+        await recalculateInterviewReadiness(userId);
 
         return res.status(201).json({
             message: "Audio interview uploaded, transcribed, and analyzed successfully",
@@ -1049,7 +1133,7 @@ export const createVideoInterview = async (
             },
         });
 
-        await updateInterviewReadiness(userId);
+        await recalculateInterviewReadiness(userId);
 
         return res.status(201).json({
             message: "Video interview uploaded, transcribed, and analyzed successfully",

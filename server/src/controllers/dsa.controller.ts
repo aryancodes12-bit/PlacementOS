@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { prisma } from "../prisma/client";
 import { AuthRequest } from "../middlewares/auth.middleware";
-
+import { updateReadiness } from "../services/readiness.service";
 const groupBy = <T extends Record<string, any>>(items: T[], key: keyof T) => {
     return items.reduce((acc, item) => {
         const value = item[key] as string;
@@ -211,6 +211,7 @@ export const addProblem = async (req: AuthRequest, res: Response) => {
 
         await updateStreak(userId, "dsa");
         await updateDSAReadiness(userId);
+        await updateReadiness(userId);
 
         return res.status(201).json({
             message: "Problem added successfully",
@@ -283,6 +284,7 @@ export const updateProblem = async (req: AuthRequest, res: Response) => {
 
         await updateStreak(userId, "dsa");
         await updateDSAReadiness(userId);
+        await updateReadiness(userId);
 
         return res.status(200).json({
             message: "Problem updated successfully",
@@ -329,7 +331,7 @@ export const deleteProblem = async (req: AuthRequest, res: Response) => {
         });
 
         await updateDSAReadiness(userId);
-
+        await updateReadiness(userId);
         return res.status(200).json({
             message: "Problem deleted successfully",
         });

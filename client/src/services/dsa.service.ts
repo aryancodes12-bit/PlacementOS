@@ -60,4 +60,13 @@ export const dsaService = {
 
 export const readinessService = {
     getMe: () => api.get("/readiness/me"),
+
+    getHistory: () => api.get("/readiness/history"),
+
+    updateCompanies: (companies: string[]) =>
+        api.patch("/readiness/companies", { companies }),
+}; export const dailyPlanService = {
+    get: () => api.get("/daily-plan"),
+
+    regenerate: () => api.post("/daily-plan/regenerate"),
 };

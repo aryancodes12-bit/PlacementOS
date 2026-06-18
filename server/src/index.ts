@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import { Server } from "socket.io";
-
+import dailyPlanRoutes from "./routes/dailyplan.routes";
 import authRoutes from "./routes/auth.routes";
 import profileRoutes from "./routes/profile.routes";
 import healthRoutes from "./routes/health.routes";
@@ -46,7 +46,7 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-
+app.use("/api/daily-plan", dailyPlanRoutes);
 app.get("/", (_req, res) => {
     res.status(200).json({
         success: true,
