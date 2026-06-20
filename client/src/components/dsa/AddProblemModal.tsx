@@ -1,5 +1,6 @@
+
 import { useState } from "react";
-import { X } from "lucide-react";
+import { Save, X } from "lucide-react";
 
 import { dsaService } from "../../services/dsa.service";
 
@@ -9,6 +10,7 @@ import type {
     DSADifficulty,
     DSAStatus,
 } from "../../services/dsa.service";
+
 const TOPICS = [
     "Arrays",
     "Strings",
@@ -23,43 +25,126 @@ const TOPICS = [
     "Sorting",
     "Hashing",
     "Greedy",
+    "Backtracking",
+    "Heap",
+    "Trie",
     "Math",
+];
+
+const PATTERNS = [
+    "HashMap",
+    "Two Pointers",
+    "Sliding Window",
+    "Binary Search",
+    "Prefix Sum",
+    "Stack",
+    "Queue",
+    "Linked List",
+    "Trees",
+    "Graphs",
+    "Dynamic Programming",
+    "Backtracking",
 ];
 
 interface AddProblemModalProps {
     onClose: () => void;
-    onAdded: (problem: DSAProblem) => void;
+
+    /**
+     * Retained for compatibility with the current page.
+     */
+    onAdded?: (problem: DSAProblem) => void;
+
+    /**
+     * Used by the upgraded page for both add and edit.
+     */
+    onSaved?: (problem: DSAProblem) => void;
+
+    /**
+     * When provided, the modal works in edit mode.
+     */
+    problem?: DSAProblem | null;
 }
 
-export const AddProblemModal = ({ onClose, onAdded }: AddProblemModalProps) => {
-    const [form, setForm] = useState<CreateDSAProblemInput>({
-        title: "",
-        topic: "Arrays",
-        difficulty: "MEDIUM",
-        status: "UNSOLVED",
-        platform: "",
-        problemUrl: "",
-        notes: "",
-    });
+const uniqueCompanies = (value: string) => {
+    return Array.from(
+        new Set(
+            value
+                .split(",")
+                .map((company) => company.trim())
+                .filter(Boolean)
+        )
+    );
+};
 
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
+export const AddProblemModal = ({
+    onClose,
+    onAdded,
+    onSaved,
+    problem = null,
+}: AddProblemModalProps) => {
+    const isEditing = Boolean(problem);
+
+    const [form, setForm] =
+        useState<CreateDSAProblemInput>({
+            title: problem?.title ?? "",
+            topic: problem?.topic ?? "Arrays",
+            pattern: problem?.pattern ?? "",
+            difficulty:
+                problem?.difficulty ?? "MEDIUM",
+            status:
+                problem?.status ?? "UNSOLVED",
+            platform: problem?.platform ?? "",
+            problemUrl: problem?.problemUrl ?? "",
+            companies: problem?.companies ?? [],
+            notes: problem?.notes ?? "",
+        });
+
+    const [companiesText, setCompaniesText] =
+        useState(
+            problem?.companies?.join(", ") ?? ""
+        );
+
+    const [loading, setLoading] =
+        useState(false);
+
+    const [error, setError] =
+        useState("");
 
     const inputClass =
-        "w-full bg-bg-tertiary border border-border rounded-xl px-4 py-2.5 " +
-        "text-text-primary placeholder-text-tertiary text-sm " +
-        "focus:outline-none focus:border-brand transition";
+        "w-full rounded-xl border border-border bg-bg-tertiary px-4 py-2.5 " +
+        "text-sm text-text-primary placeholder-text-tertiary " +
+        "transition focus:border-brand focus:outline-none";
 
     const labelClass =
-        "text-xs font-medium text-text-secondary mb-1.5 block uppercase tracking-wide";
+        "mb-1.5 block text-xs font-medium uppercase tracking-wide text-text-secondary";
+
+    const updateForm = <
+        Key extends keyof CreateDSAProblemInput
+    >(
+        key: Key,
+        value: CreateDSAProblemInput[Key]
+    ) => {
+        setForm((current) => ({
+            ...current,
+            [key]: value,
+        }));
+    };
 
     const handleSubmit = async () => {
-        if (!form.title.trim()) {
-            setError("Problem title is required");
+        const normalizedTitle =
+            form.title.trim();
+
+        const normalizedTopic =
+            form.topic.trim();
+
+        if (!normalizedTitle) {
+            setError(
+                "Problem title is required"
+            );
             return;
         }
 
-        if (!form.topic.trim()) {
+        if (!normalizedTopic) {
             setError("Topic is required");
             return;
         }
@@ -67,73 +152,123 @@ export const AddProblemModal = ({ onClose, onAdded }: AddProblemModalProps) => {
         setLoading(true);
         setError("");
 
-        try {
-            const { data } = await dsaService.add({
-                ...form,
-                title: form.title.trim(),
-                topic: form.topic.trim(),
-                platform: form.platform?.trim(),
-                problemUrl: form.problemUrl?.trim(),
-                notes: form.notes?.trim(),
-            });
+        const payload: CreateDSAProblemInput = {
+            title: normalizedTitle,
+            topic: normalizedTopic,
+            pattern: form.pattern?.trim() || "",
+            difficulty: form.difficulty,
+            status: form.status,
+            platform:
+                form.platform?.trim() || "",
+            problemUrl:
+                form.problemUrl?.trim() || "",
+            companies:
+                uniqueCompanies(companiesText),
+            notes: form.notes?.trim() || "",
+        };
 
-            onAdded(data.problem);
+        try {
+            const response =
+                problem
+                    ? await dsaService.update(
+                        problem.id,
+                        payload
+                    )
+                    : await dsaService.add(
+                        payload
+                    );
+
+            const savedProblem =
+                response.data.problem;
+
+            onAdded?.(savedProblem);
+            onSaved?.(savedProblem);
+
             onClose();
         } catch (err: any) {
-            setError(err.response?.data?.message || "Failed to add problem");
+            setError(
+                err.response?.data?.message ||
+                `Failed to ${isEditing ? "update" : "add"
+                } problem`
+            );
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-bg-secondary border border-border rounded-2xl w-full max-w-lg shadow-2xl">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-bg-secondary shadow-2xl">
+                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-bg-secondary px-6 py-4">
                     <div>
                         <h3 className="text-base font-semibold text-text-primary">
-                            Add DSA Problem
+                            {isEditing
+                                ? "Edit DSA Problem"
+                                : "Add DSA Problem"}
                         </h3>
-                        <p className="text-xs text-text-tertiary mt-0.5">
-                            Track one problem with topic, difficulty, status, and link.
+
+                        <p className="mt-0.5 text-xs text-text-tertiary">
+                            Track topic, pattern, companies,
+                            status and revision readiness.
                         </p>
                     </div>
 
                     <button
+                        type="button"
                         onClick={onClose}
-                        className="text-text-tertiary hover:text-text-primary transition"
+                        className="text-text-tertiary transition hover:text-text-primary"
+                        aria-label="Close problem form"
                     >
                         <X size={18} />
                     </button>
                 </div>
 
-                <div className="px-6 py-5 space-y-4">
+                <div className="space-y-4 px-6 py-5">
                     {error && (
-                        <div className="bg-danger-muted border border-danger/10 text-danger text-sm rounded-xl px-4 py-2.5">
+                        <div className="rounded-xl border border-danger/10 bg-danger-muted px-4 py-2.5 text-sm text-danger">
                             {error}
                         </div>
                     )}
 
                     <div>
-                        <label className={labelClass}>Problem Title</label>
+                        <label className={labelClass}>
+                            Problem title
+                        </label>
+
                         <input
                             className={inputClass}
                             placeholder="Two Sum, LRU Cache, Number of Islands"
                             value={form.title}
-                            onChange={(e) => setForm({ ...form, title: e.target.value })}
+                            onChange={(event) =>
+                                updateForm(
+                                    "title",
+                                    event.target.value
+                                )
+                            }
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                         <div>
-                            <label className={labelClass}>Topic</label>
+                            <label className={labelClass}>
+                                Topic
+                            </label>
+
                             <select
                                 className={inputClass}
                                 value={form.topic}
-                                onChange={(e) => setForm({ ...form, topic: e.target.value })}
+                                onChange={(event) =>
+                                    updateForm(
+                                        "topic",
+                                        event.target.value
+                                    )
+                                }
                             >
                                 {TOPICS.map((topic) => (
-                                    <option key={topic} value={topic}>
+                                    <option
+                                        key={topic}
+                                        value={topic}
+                                    >
                                         {topic}
                                     </option>
                                 ))}
@@ -141,96 +276,207 @@ export const AddProblemModal = ({ onClose, onAdded }: AddProblemModalProps) => {
                         </div>
 
                         <div>
-                            <label className={labelClass}>Difficulty</label>
+                            <label className={labelClass}>
+                                Pattern
+                            </label>
+
+                            <input
+                                list="dsa-pattern-options"
+                                className={inputClass}
+                                placeholder="HashMap, Sliding Window..."
+                                value={form.pattern ?? ""}
+                                onChange={(event) =>
+                                    updateForm(
+                                        "pattern",
+                                        event.target.value
+                                    )
+                                }
+                            />
+
+                            <datalist id="dsa-pattern-options">
+                                {PATTERNS.map((pattern) => (
+                                    <option
+                                        key={pattern}
+                                        value={pattern}
+                                    />
+                                ))}
+                            </datalist>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div>
+                            <label className={labelClass}>
+                                Difficulty
+                            </label>
+
                             <select
                                 className={inputClass}
                                 value={form.difficulty}
-                                onChange={(e) =>
-                                    setForm({
-                                        ...form,
-                                        difficulty: e.target.value as DSADifficulty,
-                                    })
+                                onChange={(event) =>
+                                    updateForm(
+                                        "difficulty",
+                                        event.target
+                                            .value as DSADifficulty
+                                    )
                                 }
                             >
-                                <option value="EASY">Easy</option>
-                                <option value="MEDIUM">Medium</option>
-                                <option value="HARD">Hard</option>
+                                <option value="EASY">
+                                    Easy
+                                </option>
+                                <option value="MEDIUM">
+                                    Medium
+                                </option>
+                                <option value="HARD">
+                                    Hard
+                                </option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className={labelClass}>
+                                Status
+                            </label>
+
+                            <select
+                                className={inputClass}
+                                value={form.status}
+                                onChange={(event) =>
+                                    updateForm(
+                                        "status",
+                                        event.target
+                                            .value as DSAStatus
+                                    )
+                                }
+                            >
+                                <option value="UNSOLVED">
+                                    Unsolved
+                                </option>
+                                <option value="ATTEMPTED">
+                                    Attempted
+                                </option>
+                                <option value="SOLVED">
+                                    Solved
+                                </option>
                             </select>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                         <div>
-                            <label className={labelClass}>Status</label>
-                            <select
-                                className={inputClass}
-                                value={form.status}
-                                onChange={(e) =>
-                                    setForm({
-                                        ...form,
-                                        status: e.target.value as DSAStatus,
-                                    })
-                                }
-                            >
-                                <option value="UNSOLVED">Unsolved</option>
-                                <option value="ATTEMPTED">Attempted</option>
-                                <option value="SOLVED">Solved</option>
-                            </select>
-                        </div>
+                            <label className={labelClass}>
+                                Platform
+                            </label>
 
-                        <div>
-                            <label className={labelClass}>Platform</label>
                             <input
                                 className={inputClass}
                                 placeholder="LeetCode, GFG, CodeStudio"
-                                value={form.platform}
-                                onChange={(e) =>
-                                    setForm({ ...form, platform: e.target.value })
+                                value={form.platform ?? ""}
+                                onChange={(event) =>
+                                    updateForm(
+                                        "platform",
+                                        event.target.value
+                                    )
+                                }
+                            />
+                        </div>
+
+                        <div>
+                            <label className={labelClass}>
+                                Problem link
+                            </label>
+
+                            <input
+                                className={inputClass}
+                                placeholder="https://leetcode.com/problems/two-sum/"
+                                value={form.problemUrl ?? ""}
+                                onChange={(event) =>
+                                    updateForm(
+                                        "problemUrl",
+                                        event.target.value
+                                    )
                                 }
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className={labelClass}>Problem Link</label>
+                        <label className={labelClass}>
+                            Company tags
+                        </label>
+
                         <input
                             className={inputClass}
-                            placeholder="https://leetcode.com/problems/two-sum/"
-                            value={form.problemUrl}
-                            onChange={(e) =>
-                                setForm({ ...form, problemUrl: e.target.value })
+                            placeholder="Amazon, Google, Microsoft"
+                            value={companiesText}
+                            onChange={(event) =>
+                                setCompaniesText(
+                                    event.target.value
+                                )
+                            }
+                        />
+
+                        <p className="mt-1.5 text-xs text-text-tertiary">
+                            Separate multiple companies using
+                            commas.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className={labelClass}>
+                            Notes
+                        </label>
+
+                        <textarea
+                            className={`${inputClass} min-h-24 resize-none`}
+                            placeholder="Approach, mistakes, complexity, revision notes..."
+                            value={form.notes ?? ""}
+                            onChange={(event) =>
+                                updateForm(
+                                    "notes",
+                                    event.target.value
+                                )
                             }
                         />
                     </div>
 
-                    <div>
-                        <label className={labelClass}>Notes</label>
-                        <textarea
-                            className={`${inputClass} resize-none min-h-20`}
-                            placeholder="Approach, mistakes, time complexity..."
-                            value={form.notes}
-                            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                        />
-                    </div>
+                    {problem?.source === "LEETCODE" && (
+                        <div className="rounded-xl border border-brand/20 bg-brand-muted px-4 py-3 text-xs text-brand">
+                            Imported from LeetCode. Your pattern,
+                            company tags and notes remain editable.
+                        </div>
+                    )}
                 </div>
 
-                <div className="px-6 py-4 border-t border-border flex gap-3">
+                <div className="sticky bottom-0 flex gap-3 border-t border-border bg-bg-secondary px-6 py-4">
                     <button
+                        type="button"
                         onClick={onClose}
-                        className="flex-1 bg-transparent border border-border hover:border-border-hover text-text-secondary hover:text-text-primary rounded-xl py-2.5 text-sm font-medium transition"
+                        disabled={loading}
+                        className="flex-1 rounded-xl border border-border bg-transparent py-2.5 text-sm font-medium text-text-secondary transition hover:border-border-hover hover:text-text-primary disabled:opacity-50"
                     >
                         Cancel
                     </button>
 
                     <button
+                        type="button"
                         onClick={handleSubmit}
                         disabled={loading}
-                        className="flex-1 bg-brand hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl py-2.5 text-sm font-medium transition"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand py-2.5 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                        {loading ? "Adding..." : "Add Problem"}
+                        <Save size={15} />
+
+                        {loading
+                            ? isEditing
+                                ? "Saving..."
+                                : "Adding..."
+                            : isEditing
+                                ? "Save Changes"
+                                : "Add Problem"}
                     </button>
                 </div>
             </div>
         </div>
     );
 };
+

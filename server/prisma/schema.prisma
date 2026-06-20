@@ -24,6 +24,11 @@ enum ProblemStatus {
   SOLVED
 }
 
+enum DSAProblemSource {
+  MANUAL
+  LEETCODE
+}
+
 enum InterviewRoundType {
   HR
   TECHNICAL
@@ -95,23 +100,65 @@ model DSAProblem {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Core problem details
   title      String
   topic      String
+  pattern    String?
   difficulty Difficulty
   status     ProblemStatus @default(UNSOLVED)
 
+  // Platform and source
   platform   String?
   problemUrl String?
-  notes      String?
+  source     DSAProblemSource @default(MANUAL)
+  externalId String?
+  importedAt DateTime?
 
-  solvedAt  DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  // Placement metadata
+  companies String[] @default([])
+  notes     String?
 
+  // Solving progress
+  solveCount Int       @default(0)
+  solvedAt   DateTime?
+
+  // Revision engine
+  revisionCount  Int       @default(0)
+  lastRevisedAt  DateTime?
+  nextRevisionAt DateTime?
+
+  revisions DSARevision[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, source, externalId])
   @@index([userId])
-  @@index([topic])
-  @@index([difficulty])
-  @@index([status])
+  @@index([userId, status])
+  @@index([userId, topic])
+  @@index([userId, pattern])
+  @@index([userId, difficulty])
+  @@index([userId, nextRevisionAt])
+  @@index([source])
+}
+
+model DSARevision {
+  id String @id @default(uuid())
+
+  problemId String
+  problem   DSAProblem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  scheduledFor DateTime?
+  completedAt  DateTime  @default(now())
+
+  intervalDays Int
+  wasOverdue   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([problemId])
+  @@index([completedAt])
+  @@index([wasOverdue])
 }
 
 enum ResumeAnalysisStatus {
