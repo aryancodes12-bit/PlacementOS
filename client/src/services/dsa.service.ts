@@ -248,7 +248,82 @@ export interface DSAReviseResponse {
     problem: DSAProblem;
     revision: DSARevision;
 }
+export interface LeetCodeSolvedStats {
+    total: number;
+    easy: number;
+    medium: number;
+    hard: number;
+}
 
+export interface LeetCodePreviewSubmission {
+    externalId: string;
+    submissionId: string;
+    title: string;
+    titleSlug: string;
+    problemUrl: string;
+
+    difficulty: DSADifficulty | null;
+    suggestedTopic: string;
+    suggestedPattern: string | null;
+
+    tags: string[];
+    acceptedAt: string | null;
+
+    alreadyImported: boolean;
+    metadataAvailable: boolean;
+}
+
+export interface LeetCodePreview {
+    username: string;
+    solvedStats: LeetCodeSolvedStats;
+    submissions: LeetCodePreviewSubmission[];
+    previewLimit: number;
+    importableCount: number;
+
+    integration: {
+        provider: string;
+        mode: string;
+    };
+}
+
+export interface LeetCodePreviewResponse {
+    preview: LeetCodePreview;
+}
+
+export interface LeetCodeImportItem {
+    externalId: string;
+    topic?: string;
+    pattern?: string | null;
+    difficulty?: DSADifficulty;
+    companies?: string[];
+    notes?: string;
+}
+
+export interface LeetCodeImportResult {
+    message: string;
+    username: string;
+    imported: DSAProblem[];
+
+    skipped: Array<{
+        externalId: string;
+        title: string;
+        reason:
+        | "ALREADY_IMPORTED"
+        | "ALREADY_TRACKED"
+        | "DIFFICULTY_UNAVAILABLE";
+    }>;
+
+    summary: {
+        requested: number;
+        imported: number;
+        skipped: number;
+    };
+
+    readiness: {
+        dsaScore: number;
+        overallScore: number;
+    } | null;
+}
 export const dsaService = {
     getAll: (filters?: DSAFilters) =>
         api.get<DSAProblemsResponse>("/dsa", {
@@ -297,6 +372,23 @@ export const dsaService = {
                 activity: string;
             }>;
         }>("/dsa/streak"),
+    previewLeetCode: (data: {
+        username: string;
+        limit?: number;
+    }) =>
+        api.post<LeetCodePreviewResponse>(
+            "/dsa/leetcode/preview",
+            data
+        ),
+
+    importLeetCode: (data: {
+        username: string;
+        items: LeetCodeImportItem[];
+    }) =>
+        api.post<LeetCodeImportResult>(
+            "/dsa/leetcode/import",
+            data
+        ),
 };
 
 export const readinessService = {

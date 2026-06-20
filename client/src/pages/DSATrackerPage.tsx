@@ -11,6 +11,7 @@ import {
     RotateCcw,
     Search,
     Trash2,
+    Download,
 } from "lucide-react";
 
 import { AppLayout } from "../components/ui/AppLayout";
@@ -19,7 +20,7 @@ import { DSAScoreOverview } from "../components/dsa/DSAScoreOverview";
 import { TopicProgressCard } from "../components/dsa/TopicProgressCard";
 import { PatternCoverageGrid } from "../components/dsa/PatternCoverageGrid";
 import { RevisionQueueCard } from "../components/dsa/RevisionQueueCard";
-
+import { LeetCodeImportModal } from "../components/dsa/LeetCodeImportModal";
 import { dsaService } from "../services/dsa.service";
 
 import type {
@@ -260,7 +261,10 @@ export const DSATrackerPage = () => {
         setShowModal(false);
         setEditingProblem(null);
     };
-
+    const [
+        showLeetCodeModal,
+        setShowLeetCodeModal,
+    ] = useState(false);
     const clearFilters = () => {
         setSearch("");
         setDebouncedSearch("");
@@ -316,13 +320,27 @@ export const DSATrackerPage = () => {
             title="DSA Tracker"
             description="Track patterns, revision discipline, weak topics, and placement-focused DSA readiness."
             action={
-                <button
-                    onClick={openCreateModal}
-                    className="flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-hover"
-                >
-                    <Plus size={15} />
-                    Add Problem
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setShowLeetCodeModal(true)
+                        }
+                        className="flex items-center gap-2 rounded-xl border border-border bg-bg-secondary px-4 py-2.5 text-sm font-medium text-text-secondary transition hover:border-brand/40 hover:text-brand"
+                    >
+                        <Download size={15} />
+                        Import LeetCode
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={openCreateModal}
+                        className="flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-hover"
+                    >
+                        <Plus size={15} />
+                        Add Problem
+                    </button>
+                </div>
             }
         >
             <div className="space-y-4">
@@ -482,8 +500,8 @@ export const DSATrackerPage = () => {
                             type="button"
                             onClick={() => setRevisionDueOnly((current) => !current)}
                             className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition ${revisionDueOnly
-                                    ? "border-brand bg-brand-muted text-brand"
-                                    : "border-border bg-bg-tertiary text-text-secondary hover:border-border-hover"
+                                ? "border-brand bg-brand-muted text-brand"
+                                : "border-border bg-bg-tertiary text-text-secondary hover:border-border-hover"
                                 }`}
                         >
                             Revision due
@@ -539,8 +557,8 @@ export const DSATrackerPage = () => {
                                     <div
                                         key={problem.id}
                                         className={`grid grid-cols-12 items-center px-4 py-3.5 transition hover:bg-bg-tertiary ${index !== problems.length - 1
-                                                ? "border-b border-border"
-                                                : ""
+                                            ? "border-b border-border"
+                                            : ""
                                             }`}
                                     >
                                         <div className="col-span-2 pr-3">
@@ -689,6 +707,13 @@ export const DSATrackerPage = () => {
                     onSaved={async () => {
                         await refreshAll();
                     }}
+                />
+            )}{showLeetCodeModal && (
+                <LeetCodeImportModal
+                    onClose={() =>
+                        setShowLeetCodeModal(false)
+                    }
+                    onImported={refreshAll}
                 />
             )}
         </AppLayout>
