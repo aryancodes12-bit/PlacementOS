@@ -21,7 +21,7 @@ import type {
     InterviewReplay,
     InterviewStats,
     InterviewResult,
-    InterviewRoundType,
+
 } from "../services/interview.service";
 
 const formatEnum = (value: string) => {

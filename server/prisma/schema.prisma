@@ -59,6 +59,20 @@ enum InterviewAnalysisStatus {
   ANALYZED
 }
 
+enum FeedbackType {
+  BUG_REPORT
+  FEATURE_REQUEST
+  SUGGESTION
+  CONTACT_OWNER
+  OTHER
+}
+
+enum FeedbackStatus {
+  OPEN
+  REVIEWED
+  RESOLVED
+}
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -80,6 +94,7 @@ model User {
   readinessHistory ReadinessHistory[]
   plan             Plan               @default(FREE)
   payments         Payment[]
+  feedback         Feedback[]
 }
 
 model Profile {
@@ -358,4 +373,28 @@ model Payment {
 
   @@index([userId])
   @@index([status])
+}
+
+model Feedback {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type    FeedbackType
+  status  FeedbackStatus @default(OPEN)
+  subject String
+  message String
+  rating  Int?
+
+  pageUrl   String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
 }

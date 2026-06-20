@@ -56,7 +56,9 @@ export const DashboardPage = () => {
                 setStreak(streakResponse.data.currentStreak);
                 setDsaStats(dsaResponse.data.stats);
                 setInterviewStats(interviewStatsResponse.data);
-                setProfile(profileResponse.data.data?.profile ?? profileResponse.data.profile);
+                setProfile(
+                    profileResponse.data.data.profile
+                );
                 setLatestResume(resumeResponse.data.resume);
             } catch (error) {
                 console.error("Failed to fetch dashboard data:", error);

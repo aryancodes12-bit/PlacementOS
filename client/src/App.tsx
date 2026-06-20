@@ -7,7 +7,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { DSATrackerPage } from "./pages/DSATrackerPage";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
-import { ComingSoonPage } from "./components/ui/ComingSoonPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { InterviewsPage } from "./pages/InterviewsPage";
 import { NewInterviewPage } from "./pages/NewInterviewPage";
 import { InterviewDetailPage } from "./pages/InterviewDetailPage";
@@ -86,18 +86,17 @@ function App() {
             }
           />
 
+
           <Route
             path="/settings"
             element={
               <ProtectedRoute>
-                <ComingSoonPage
-                  title="Settings"
-                  description="Manage account preferences and application settings."
-                  nextStep="Add account and preference controls later."
-                />
+                <SettingsPage />
               </ProtectedRoute>
             }
           />
+
+
           <Route
             path="/daily-plan"
             element={
