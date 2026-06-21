@@ -1,19 +1,93 @@
-import { Router } from 'express'
 import {
-    register,
+    Router,
+} from "express";
+
+import {
+    rateLimit,
+} from "express-rate-limit";
+
+import {
+    firebaseGoogleAuth,
+    getMe,
     login,
-    googleAuth,
     refreshToken,
+    register,
+    resendVerification,
+    verifyEmail,
+} from "../controllers/auth.controller";
+
+import {
+    protect,
+} from "../middlewares/auth.middleware";
+
+const router = Router();
+
+const credentialsLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+
+    message: {
+        success: false,
+        message:
+            "Too many authentication attempts. Please try again later.",
+    },
+});
+
+const verificationLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 8,
+    standardHeaders: true,
+    legacyHeaders: false,
+
+    message: {
+        success: false,
+        message:
+            "Too many verification requests. Please try again later.",
+    },
+});
+
+router.post(
+    "/register",
+    credentialsLimiter,
+    register
+);
+
+router.post(
+    "/login",
+    credentialsLimiter,
+    login
+);
+
+router.post(
+    "/firebase/google",
+    credentialsLimiter,
+    firebaseGoogleAuth
+);
+
+router.post(
+    "/verify-email",
+    verificationLimiter,
+    verifyEmail
+);
+
+router.post(
+    "/resend-verification",
+    verificationLimiter,
+    resendVerification
+);
+
+router.post(
+    "/refresh",
+    credentialsLimiter,
+    refreshToken
+);
+
+router.get(
+    "/me",
+    protect,
     getMe
-} from '../controllers/auth.controller'
-import { protect } from '../middlewares/auth.middleware'
+);
 
-const router = Router()
-
-router.post('/register', register)
-router.post('/login', login)
-router.post('/google', googleAuth)
-router.post('/refresh', refreshToken)
-router.get('/me', protect, getMe)       // protected route
-
-export default router
+export default router;

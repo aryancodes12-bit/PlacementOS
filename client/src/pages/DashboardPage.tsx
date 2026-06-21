@@ -10,7 +10,7 @@ import { CompanyReadiness } from "../components/dashboard/CompanyReadiness";
 import { ProfileCompletionCard } from "../components/dashboard/ProfileCompletionCard";
 import { ReadinessGraph } from "../components/dashboard/ReadinessGraph";
 import { DailyPlanCard } from "../components/dashboard/DailyPlanCard";
-
+import { StarterPlanCard } from "../components/dashboard/StarterPlanCard";
 import { dsaService, readinessService } from "../services/dsa.service";
 import { interviewService } from "../services/interview.service";
 import { profileService } from "../services/profile.service";
@@ -103,7 +103,14 @@ export const DashboardPage = () => {
     const hasDsaActivity = (dsaStats?.total ?? 0) > 0;
     const hasInterviewActivity = totalInterviews > 0;
     const hasResumeActivity = hasResumeAnalysis;
+    const hasPreparationEvidence =
+        hasDsaActivity ||
+        hasResumeActivity ||
+        hasInterviewActivity;
 
+    const showStarterPlan =
+        !loadingData &&
+        !hasPreparationEvidence;
     const profileSkills = profile?.skills ?? [];
     const profileTargetCompanies = profile?.targetCompanies ?? [];
 
@@ -146,7 +153,9 @@ export const DashboardPage = () => {
                     className="bg-brand hover:bg-brand-hover text-white font-medium px-4 py-2 rounded-xl transition-all duration-200 text-sm flex items-center gap-2"
                 >
                     <UserRound size={14} />
-                    Complete Profile
+                    {hasProfileDetails
+                        ? "Edit Profile"
+                        : "Complete Profile"}
                 </button>
             }
         >
@@ -306,7 +315,26 @@ export const DashboardPage = () => {
 
                 <div className="grid grid-cols-12 gap-4">
                     <div className="col-span-12 xl:col-span-7">
-                        <DailyPlanCard />
+                        {loadingData ? (
+                            <div className="h-[420px] animate-pulse rounded-2xl border border-border bg-bg-secondary" />
+                        ) : showStarterPlan ? (
+                            <StarterPlanCard
+                                hasProfileDetails={
+                                    hasProfileDetails
+                                }
+                                hasDsaActivity={
+                                    hasDsaActivity
+                                }
+                                hasResumeActivity={
+                                    hasResumeActivity
+                                }
+                                hasInterviewActivity={
+                                    hasInterviewActivity
+                                }
+                            />
+                        ) : (
+                            <DailyPlanCard />
+                        )}
                     </div>
 
                     <div className="col-span-12 xl:col-span-5">

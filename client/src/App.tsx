@@ -26,7 +26,14 @@ const OnboardingPage = lazy(() =>
     })
   )
 );
-
+const VerifyEmailPage = lazy(() =>
+  import("./pages/VerifyEmailPage").then(
+    (module) => ({
+      default:
+        module.VerifyEmailPage,
+    })
+  )
+);
 const LoginPage = lazy(() =>
   import("./pages/LoginPage").then(
     (module) => ({
@@ -178,7 +185,10 @@ function App() {
               path="/register"
               element={<RegisterPage />}
             />
-
+            <Route
+              path="/verify-email"
+              element={<VerifyEmailPage />}
+            />
             <Route
               path="/terms"
               element={

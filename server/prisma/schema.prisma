@@ -74,13 +74,20 @@ enum FeedbackStatus {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  password  String?
-  googleId  String?  @unique
-  role      Role     @default(STUDENT)
-  avatarUrl String?
+  id          String  @id @default(uuid())
+  email       String  @unique
+  name        String
+  password    String?
+  googleId    String? @unique
+  firebaseUid String? @unique
+  role        Role    @default(STUDENT)
+  avatarUrl   String?
+
+  emailVerified              Boolean   @default(false)
+  emailVerificationTokenHash String?
+  emailVerificationExpiresAt DateTime?
+  emailVerificationSentAt    DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -95,6 +102,8 @@ model User {
   plan             Plan               @default(FREE)
   payments         Payment[]
   feedback         Feedback[]
+
+  @@index([emailVerificationTokenHash])
 }
 
 model Profile {

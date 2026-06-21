@@ -56,19 +56,83 @@ const asStringArray = (value: unknown): string[] => {
         .map((item) => String(item).trim())
         .filter(Boolean);
 };
+const buildStarterDailyPlan =
+    (): DailyPlanAIResponse => {
+        return {
+            greeting:
+                "Welcome to PlacementOS. Build your preparation baseline so future plans can use your real progress data.",
 
-const buildFallbackDailyPlan = (
-    dsaAnalytics?: DSAAnalyticsResult
-): DailyPlanAIResponse => {
+            categories: [
+                {
+                    name: "DSA",
+                    icon: "code",
+                    color: "brand",
+                    items: [
+                        {
+                            task:
+                                "Add or import your first DSA problem.",
+                            reason:
+                                "PlacementOS needs your own problem history before it can identify weak topics, patterns, and revision priorities.",
+                            duration: "15 min",
+                        },
+                    ],
+                },
+                {
+                    name: "Resume",
+                    icon: "file",
+                    color: "success",
+                    items: [
+                        {
+                            task:
+                                "Upload your current resume for analysis.",
+                            reason:
+                                "Your first resume analysis establishes an ATS, keyword, project, and role-fit baseline.",
+                            duration: "15 min",
+                        },
+                    ],
+                },
+                {
+                    name: "Interview",
+                    icon: "mic",
+                    color: "warning",
+                    items: [
+                        {
+                            task:
+                                "Log one mock or past interview experience.",
+                            reason:
+                                "An interview replay gives PlacementOS evidence about communication, confidence, technical performance, and missed concepts.",
+                            duration: "20 min",
+                        },
+                    ],
+                },
+            ],
+
+            totalTime: "50 min",
+
+            focusMessage:
+                "Create your preparation baseline today; personalised AI recommendations will begin after you add real activity.",
+        };
+    };
+interface FallbackPlanContext {
+    dsaAnalytics: DSAAnalyticsResult;
+    hasResume: boolean;
+    hasInterview: boolean;
+}
+
+const buildFallbackDailyPlan = ({
+    dsaAnalytics,
+    hasResume,
+    hasInterview,
+}: FallbackPlanContext): DailyPlanAIResponse => {
     const dsaItems: DailyPlanItem[] = [];
 
     const firstRevision =
-        dsaAnalytics?.revisionQueue?.[0];
+        dsaAnalytics.revisionQueue?.[0];
 
     const focusPattern =
-        dsaAnalytics?.dailyTarget?.focusPatterns?.[0] ||
-        dsaAnalytics?.patternGaps?.[0] ||
-        "HashMap";
+        dsaAnalytics.dailyTarget?.focusPatterns?.[0] ||
+        dsaAnalytics.patternGaps?.[0] ||
+        "Arrays";
 
     if (firstRevision) {
         dsaItems.push({
@@ -91,7 +155,7 @@ const buildFallbackDailyPlan = (
 
     return {
         greeting:
-            dsaAnalytics && dsaAnalytics.dsaScore < 40
+            dsaAnalytics.dsaScore < 40
                 ? `Your DSA readiness is ${dsaAnalytics.dsaScore}/100, so today should focus on pattern breadth and consistent revision.`
                 : "Stay consistent today with focused DSA, resume, and interview preparation.",
 
@@ -106,29 +170,49 @@ const buildFallbackDailyPlan = (
                 name: "Resume",
                 icon: "file",
                 color: "success",
-                items: [
-                    {
-                        task:
-                            "Review one Resume Intelligence recommendation and improve one project bullet.",
-                        reason:
-                            "A focused resume improvement can strengthen ATS relevance and recruiter clarity.",
-                        duration: "20 min",
-                    },
-                ],
+                items: hasResume
+                    ? [
+                        {
+                            task:
+                                "Review one Resume Intelligence recommendation and improve one project bullet.",
+                            reason:
+                                "A focused resume improvement can strengthen ATS relevance and recruiter clarity.",
+                            duration: "20 min",
+                        },
+                    ]
+                    : [
+                        {
+                            task:
+                                "Upload your current resume for analysis.",
+                            reason:
+                                "No resume analysis exists yet, so PlacementOS cannot identify ATS or role-fit gaps.",
+                            duration: "15 min",
+                        },
+                    ],
             },
             {
                 name: "Interview",
                 icon: "mic",
                 color: "warning",
-                items: [
-                    {
-                        task:
-                            "Explain one technical project end-to-end using problem, architecture, decisions, and impact.",
-                        reason:
-                            "Structured explanations improve technical communication and interview confidence.",
-                        duration: "30 min",
-                    },
-                ],
+                items: hasInterview
+                    ? [
+                        {
+                            task:
+                                "Explain one technical project end-to-end using problem, architecture, decisions, and impact.",
+                            reason:
+                                "Structured explanations improve technical communication and interview confidence.",
+                            duration: "30 min",
+                        },
+                    ]
+                    : [
+                        {
+                            task:
+                                "Log one mock or past interview experience.",
+                            reason:
+                                "No interview replay exists yet, so PlacementOS cannot identify communication or technical weaknesses.",
+                            duration: "20 min",
+                        },
+                    ],
             },
         ],
 
@@ -272,16 +356,6 @@ const findRecurringInterviewConcepts = (
 export const generateDailyPlan = async (
     userId: string
 ): Promise<DailyPlanAIResponse> => {
-    if (!process.env.GROQ_API_KEY) {
-        throw new Error(
-            "GROQ_API_KEY is missing"
-        );
-    }
-
-    const model =
-        process.env.GROQ_MODEL ||
-        "llama-3.3-70b-versatile";
-
     const [
         dsaAnalytics,
         recentDsaProblems,
@@ -345,8 +419,47 @@ export const generateDailyPlan = async (
         }),
     ]);
 
+    const hasDsaEvidence =
+        recentDsaProblems.length > 0;
+
+    const hasResumeEvidence =
+        Boolean(latestResume);
+
+    const hasInterviewEvidence =
+        recentInterviews.length > 0;
+
+    const hasPreparationEvidence =
+        hasDsaEvidence ||
+        hasResumeEvidence ||
+        hasInterviewEvidence;
+
+    /*
+     * A completely new account has no evidence from which
+     * weak patterns, resume gaps, or interview weaknesses
+     * can be inferred.
+     */
+    if (!hasPreparationEvidence) {
+        return buildStarterDailyPlan();
+    }
+
     const fallback =
-        buildFallbackDailyPlan(dsaAnalytics);
+        buildFallbackDailyPlan({
+            dsaAnalytics,
+            hasResume: hasResumeEvidence,
+            hasInterview:
+                hasInterviewEvidence,
+        });
+
+    /*
+     * Return a data-aware fallback if Groq is unavailable.
+     */
+    if (!process.env.GROQ_API_KEY) {
+        return fallback;
+    }
+
+    const model =
+        process.env.GROQ_MODEL ||
+        "llama-3.3-70b-versatile";
 
     const dsaSummary = {
         dsaScore: dsaAnalytics.dsaScore,
