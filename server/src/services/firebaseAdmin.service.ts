@@ -1,5 +1,6 @@
 import {
     cert,
+    getApp,
     getApps,
     initializeApp,
 } from "firebase-admin/app";
@@ -8,45 +9,52 @@ import {
     getAuth,
 } from "firebase-admin/auth";
 
-const FIREBASE_APP_NAME =
-    "placementos-auth";
+const FIREBASE_ADMIN_APP_NAME =
+    "placementos-firebase-admin";
 
-const requireEnvironmentVariable = (
+const getRequiredEnvironmentValue = (
     key: string
 ): string => {
-    const value = process.env[key]?.trim();
+    const value =
+        process.env[key]?.trim();
 
     if (!value) {
         throw new Error(
-            `Missing required environment variable: ${key}`
+            `${key} is missing from server environment variables.`
         );
     }
 
     return value;
 };
 
-export const getFirebaseAdminAuth = () => {
-    const existingApp = getApps().find(
-        (app) => app.name === FIREBASE_APP_NAME
-    );
+const getFirebaseAdminApp = () => {
+    const existingApp =
+        getApps().find(
+            (app) =>
+                app.name ===
+                FIREBASE_ADMIN_APP_NAME
+        );
 
     if (existingApp) {
-        return getAuth(existingApp);
+        return existingApp;
     }
 
-    const projectId = requireEnvironmentVariable(
-        "FIREBASE_PROJECT_ID"
-    );
+    const projectId =
+        getRequiredEnvironmentValue(
+            "FIREBASE_PROJECT_ID"
+        );
 
-    const clientEmail = requireEnvironmentVariable(
-        "FIREBASE_CLIENT_EMAIL"
-    );
+    const clientEmail =
+        getRequiredEnvironmentValue(
+            "FIREBASE_CLIENT_EMAIL"
+        );
 
-    const privateKey = requireEnvironmentVariable(
-        "FIREBASE_PRIVATE_KEY"
-    ).replace(/\\n/g, "\n");
+    const privateKey =
+        getRequiredEnvironmentValue(
+            "FIREBASE_PRIVATE_KEY"
+        ).replace(/\\n/g, "\n");
 
-    const firebaseApp = initializeApp(
+    return initializeApp(
         {
             credential: cert({
                 projectId,
@@ -54,8 +62,14 @@ export const getFirebaseAdminAuth = () => {
                 privateKey,
             }),
         },
-        FIREBASE_APP_NAME
+        FIREBASE_ADMIN_APP_NAME
     );
+};
 
-    return getAuth(firebaseApp);
+export const verifyFirebaseIdToken = (
+    idToken: string
+) => {
+    return getAuth(
+        getFirebaseAdminApp()
+    ).verifyIdToken(idToken);
 };

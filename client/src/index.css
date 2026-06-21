@@ -146,3 +146,54 @@ html {
     animation-iteration-count: 1 !important;
   }
 }
+
+.placement-roadmap-flow .react-flow__controls {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: #0d1323;
+  box-shadow: none;
+}
+
+.placement-roadmap-flow .react-flow__controls-button {
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: #0d1323;
+  color: #cbd5e1;
+}
+
+.placement-roadmap-flow .react-flow__controls-button:hover {
+  background: #161d31;
+}
+
+.placement-roadmap-flow .react-flow__controls-button svg {
+  fill: currentColor;
+}
+
+.placement-roadmap-flow .react-flow__minimap {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: #0d1323;
+}
+
+.placement-roadmap-flow .react-flow__attribution {
+  border-radius: 6px 0 0 0;
+  background: rgba(13, 19, 35, 0.86);
+}
+
+.placement-roadmap-flow .react-flow__attribution a {
+  color: #64748b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .placement-roadmap-flow *,
+  .placement-roadmap-flow *::before,
+  .placement-roadmap-flow *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

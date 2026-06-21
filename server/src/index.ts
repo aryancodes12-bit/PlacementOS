@@ -1,11 +1,11 @@
-
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import { Server } from "socket.io";
-
+import roadmapRoutes from "./routes/roadmap.routes";
 import authRoutes from "./routes/auth.routes";
 import dailyPlanRoutes from "./routes/dailyplan.routes";
 import dsaRoutes from "./routes/dsa.routes";
@@ -17,7 +17,7 @@ import readinessRoutes from "./routes/readiness.routes";
 import resumeRoutes from "./routes/resume.routes";
 import settingsRoutes from "./routes/settings.routes";
 
-dotenv.config();
+
 
 const app = express();
 const httpServer = createServer(app);
@@ -113,7 +113,7 @@ app.use(
     })
 );
 app.use(cookieParser());
-
+app.use("/api/roadmap", roadmapRoutes);
 const io = new Server(httpServer, {
     cors: {
         origin: allowedOrigins,

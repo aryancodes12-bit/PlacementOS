@@ -1,4 +1,6 @@
 import {
+    verifyFirebaseIdToken,
+} from "../services/firebaseAdmin.service"; import {
     createHash,
     randomBytes,
 } from "crypto";
@@ -22,9 +24,6 @@ import {
     sendVerificationEmail,
 } from "../services/emailVerification.service";
 
-import {
-    getFirebaseAdminAuth,
-} from "../services/firebaseAdmin.service";
 
 import type {
     AuthRequest,
@@ -597,7 +596,6 @@ export const resendVerification = async (
         });
     }
 };
-
 // ─────────────────────────────────────────────
 // Firebase Google authentication
 // ─────────────────────────────────────────────
@@ -620,11 +618,9 @@ export const firebaseGoogleAuth = async (
         }
 
         const decodedToken =
-            await getFirebaseAdminAuth()
-                .verifyIdToken(
-                    idToken,
-                    true
-                );
+            await verifyFirebaseIdToken(
+                idToken
+            );
 
         const provider =
             decodedToken.firebase
@@ -672,24 +668,50 @@ export const firebaseGoogleAuth = async (
                 ? decodedToken.picture
                 : null;
 
-        let user =
+        const userByFirebaseUid =
             await prisma.user.findUnique({
+                where: {
+                    firebaseUid,
+                },
+            });
+
+        if (
+            userByFirebaseUid &&
+            userByFirebaseUid.email !== email
+        ) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    "This Google identity is already connected to another account.",
+            });
+        }
+
+        let user =
+            userByFirebaseUid ||
+            (await prisma.user.findUnique({
                 where: {
                     email,
                 },
-            });
+            }));
 
         if (!user) {
             user =
                 await prisma.user.create({
                     data: {
                         email,
+
                         name:
-                            name.slice(0, 80),
+                            name.slice(
+                                0,
+                                80
+                            ),
 
                         firebaseUid,
-                        avatarUrl: picture,
-                        emailVerified: true,
+                        avatarUrl:
+                            picture,
+
+                        emailVerified:
+                            true,
 
                         profile: {
                             create: {},
@@ -717,7 +739,8 @@ export const firebaseGoogleAuth = async (
 
                     data: {
                         firebaseUid,
-                        emailVerified: true,
+                        emailVerified:
+                            true,
 
                         avatarUrl:
                             picture ||
@@ -739,40 +762,73 @@ export const firebaseGoogleAuth = async (
             success: true,
             message:
                 "Google authentication successful.",
+
             ...createAuthResponse(user),
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage =
+            error instanceof Error
+                ? error.message
+                : "Unknown Firebase authentication error";
+
+        const errorCode =
+            typeof error === "object" &&
+                error !== null &&
+                "code" in error
+                ? String(
+                    (
+                        error as {
+                            code?: unknown;
+                        }
+                    ).code || ""
+                )
+                : "";
+
         console.error(
             "Firebase Google auth error:",
-            error
+            {
+                code: errorCode,
+                message: errorMessage,
+
+                stack:
+                    error instanceof Error
+                        ? error.stack
+                        : undefined,
+            }
         );
 
-        const firebaseErrorCode =
-            error?.code;
+        const isTokenError =
+            errorCode.startsWith("auth/");
 
-        if (
-            firebaseErrorCode ===
-            "auth/id-token-expired" ||
-            firebaseErrorCode ===
-            "auth/argument-error" ||
-            firebaseErrorCode ===
-            "auth/id-token-revoked"
-        ) {
-            return res.status(401).json({
+        return res
+            .status(
+                isTokenError
+                    ? 401
+                    : 500
+            )
+            .json({
                 success: false,
                 message:
-                    "Google authentication expired or was invalid. Please try again.",
-            });
-        }
+                    isTokenError
+                        ? "Your Google session is invalid or expired. Please try again."
+                        : "Google authentication failed.",
 
-        return res.status(500).json({
-            success: false,
-            message:
-                "Google authentication failed.",
-        });
+                ...(process.env.NODE_ENV !==
+                    "production"
+                    ? {
+                        debug: {
+                            code:
+                                errorCode ||
+                                "UNKNOWN_ERROR",
+
+                            message:
+                                errorMessage,
+                        },
+                    }
+                    : {}),
+            });
     }
 };
-
 // ─────────────────────────────────────────────
 // Refresh access token
 // ─────────────────────────────────────────────

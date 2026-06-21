@@ -10,11 +10,17 @@ import {
     Settings,
     Sparkles,
     Crown,
+    Map,
 } from "lucide-react";
 
 const navItems = [
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { to: "/daily-plan", icon: Sparkles, label: "Daily Plan" },
+    {
+        to: "/roadmap",
+        icon: Map,
+        label: "Full-Stack Roadmap",
+    },
     { to: "/pricing", icon: Crown, label: "Premium" },
     { to: "/dsa", icon: Code2, label: "DSA Tracker" },
     { to: "/resume", icon: FileText, label: "Resume" },

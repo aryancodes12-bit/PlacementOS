@@ -140,7 +140,14 @@ const LegalPage = lazy(() =>
 );
 
 const queryClient = new QueryClient();
-
+const FullStackRoadmapPage = lazy(() =>
+  import(
+    "./pages/FullStackRoadmapPage"
+  ).then((module) => ({
+    default:
+      module.FullStackRoadmapPage,
+  }))
+);
 const RouteLoader = () => {
   return (
     <div
@@ -195,7 +202,14 @@ function App() {
                 <LegalPage type="terms" />
               }
             />
-
+            <Route
+              path="/roadmap"
+              element={
+                <ProtectedRoute>
+                  <FullStackRoadmapPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/privacy"
               element={
