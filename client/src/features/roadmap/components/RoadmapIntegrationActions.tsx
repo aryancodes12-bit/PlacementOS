@@ -1,4 +1,5 @@
 import {
+    useEffect,
     useState,
 } from "react";
 
@@ -21,10 +22,24 @@ import type {
 interface RoadmapTopicActionProps {
     stage: RoadmapStage;
     topic: RoadmapTopic;
+
+    initialAdded?: boolean;
+    limitReached?: boolean;
+    statusLoading?: boolean;
+
+    onAdded?: (
+        alreadyAdded: boolean
+    ) => void;
 }
 
 interface RoadmapSkillActionProps {
     skill: string;
+    initialAdded?: boolean;
+    statusLoading?: boolean;
+
+    onAdded?: (
+        alreadyAdded: boolean
+    ) => void;
 }
 
 type ActionState =
@@ -35,31 +50,90 @@ type ActionState =
     | "ERROR";
 
 const getErrorMessage = (
-    error: any,
+    error: unknown,
     fallback: string
 ) => {
-    return (
-        error?.response?.data?.message ||
-        error?.message ||
-        fallback
-    );
+    if (
+        typeof error === "object" &&
+        error !== null
+    ) {
+        const candidate = error as {
+            response?: {
+                data?: {
+                    message?: unknown;
+                };
+            };
+            message?: unknown;
+        };
+
+        const responseMessage =
+            candidate.response?.data
+                ?.message;
+
+        if (
+            typeof responseMessage ===
+            "string"
+        ) {
+            return responseMessage;
+        }
+
+        if (
+            typeof candidate.message ===
+            "string"
+        ) {
+            return candidate.message;
+        }
+    }
+
+    return fallback;
 };
 
 export const RoadmapTopicAction = ({
     stage,
     topic,
+    initialAdded = false,
+    limitReached = false,
+    statusLoading = false,
+    onAdded,
 }: RoadmapTopicActionProps) => {
     const [status, setStatus] =
-        useState<ActionState>("IDLE");
+        useState<ActionState>(
+            initialAdded
+                ? "EXISTS"
+                : "IDLE"
+        );
 
     const [message, setMessage] =
         useState("");
 
+    useEffect(() => {
+        setStatus((current) => {
+            if (initialAdded) {
+                return current ===
+                    "SUCCESS"
+                    ? current
+                    : "EXISTS";
+            }
+
+            return current === "EXISTS"
+                ? "IDLE"
+                : current;
+        });
+    }, [initialAdded]);
+
+    const completed =
+        status === "SUCCESS" ||
+        status === "EXISTS";
+
+    const blockedByLimit =
+        limitReached && !completed;
+
     const handleAdd = async () => {
         if (
             status === "LOADING" ||
-            status === "SUCCESS" ||
-            status === "EXISTS"
+            completed ||
+            blockedByLimit ||
+            statusLoading
         ) {
             return;
         }
@@ -90,6 +164,9 @@ export const RoadmapTopicAction = ({
             );
 
             setMessage(data.message);
+            onAdded?.(
+                data.alreadyAdded
+            );
         } catch (error) {
             setStatus("ERROR");
 
@@ -102,9 +179,18 @@ export const RoadmapTopicAction = ({
         }
     };
 
-    const completed =
-        status === "SUCCESS" ||
-        status === "EXISTS";
+    const buttonLabel =
+        statusLoading
+            ? "Checking..."
+            : status === "LOADING"
+                ? "Adding..."
+                : status === "EXISTS"
+                    ? "Already in plan"
+                    : status === "SUCCESS"
+                        ? "Added to plan"
+                        : blockedByLimit
+                            ? "Daily plan full"
+                            : "Add to Daily Plan";
 
     return (
         <div className="mt-3">
@@ -113,19 +199,30 @@ export const RoadmapTopicAction = ({
                 onClick={handleAdd}
                 disabled={
                     status === "LOADING" ||
-                    completed
+                    completed ||
+                    blockedByLimit ||
+                    statusLoading
+                }
+                title={
+                    blockedByLimit
+                        ? "Remove a roadmap task from today’s plan before adding another."
+                        : undefined
                 }
                 className={[
                     "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-semibold transition",
                     completed
                         ? "cursor-default border-success/20 bg-success-muted text-success"
-                        : "border-brand/20 bg-brand-muted text-brand hover:border-brand/40",
-                    status === "LOADING"
+                        : blockedByLimit
+                            ? "cursor-not-allowed border-border bg-bg-tertiary text-text-tertiary"
+                            : "border-brand/20 bg-brand-muted text-brand hover:border-brand/40",
+                    status === "LOADING" ||
+                        statusLoading
                         ? "cursor-wait opacity-70"
                         : "",
                 ].join(" ")}
             >
-                {status === "LOADING" ? (
+                {status === "LOADING" ||
+                    statusLoading ? (
                     <Loader2
                         size={13}
                         className="animate-spin"
@@ -138,47 +235,68 @@ export const RoadmapTopicAction = ({
                     />
                 )}
 
-                {status === "LOADING"
-                    ? "Adding..."
-                    : status === "EXISTS"
-                        ? "Already in plan"
-                        : status ===
-                            "SUCCESS"
-                            ? "Added to plan"
-                            : "Add to Daily Plan"}
+                {buttonLabel}
             </button>
 
-            {message && (
-                <p
-                    aria-live="polite"
-                    className={[
-                        "mt-2 text-[10px] leading-4",
-                        status === "ERROR"
-                            ? "text-danger"
-                            : "text-text-tertiary",
-                    ].join(" ")}
-                >
-                    {message}
-                </p>
-            )}
+            {(message ||
+                blockedByLimit) && (
+                    <p
+                        aria-live="polite"
+                        className={[
+                            "mt-2 text-[10px] leading-4",
+                            status === "ERROR"
+                                ? "text-danger"
+                                : "text-text-tertiary",
+                        ].join(" ")}
+                    >
+                        {message ||
+                            "Today’s roadmap task limit has been reached."}
+                    </p>
+                )}
         </div>
     );
 };
 
 export const RoadmapSkillAction = ({
     skill,
+    initialAdded = false,
+    statusLoading = false,
+    onAdded,
 }: RoadmapSkillActionProps) => {
     const [status, setStatus] =
-        useState<ActionState>("IDLE");
+        useState<ActionState>(
+            initialAdded
+                ? "EXISTS"
+                : "IDLE"
+        );
 
     const [message, setMessage] =
         useState("");
 
+    useEffect(() => {
+        setStatus((current) => {
+            if (initialAdded) {
+                return current ===
+                    "SUCCESS"
+                    ? current
+                    : "EXISTS";
+            }
+
+            return current === "EXISTS"
+                ? "IDLE"
+                : current;
+        });
+    }, [initialAdded]);
+
+    const completed =
+        status === "SUCCESS" ||
+        status === "EXISTS";
+
     const handleAdd = async () => {
         if (
             status === "LOADING" ||
-            status === "SUCCESS" ||
-            status === "EXISTS"
+            completed ||
+            statusLoading
         ) {
             return;
         }
@@ -199,6 +317,9 @@ export const RoadmapSkillAction = ({
             );
 
             setMessage(data.message);
+            onAdded?.(
+                data.alreadyAdded
+            );
         } catch (error) {
             setStatus("ERROR");
 
@@ -211,10 +332,6 @@ export const RoadmapSkillAction = ({
         }
     };
 
-    const completed =
-        status === "SUCCESS" ||
-        status === "EXISTS";
-
     return (
         <div>
             <button
@@ -222,7 +339,8 @@ export const RoadmapSkillAction = ({
                 onClick={handleAdd}
                 disabled={
                     status === "LOADING" ||
-                    completed
+                    completed ||
+                    statusLoading
                 }
                 title={message || undefined}
                 className={[
@@ -230,9 +348,13 @@ export const RoadmapSkillAction = ({
                     completed
                         ? "cursor-default border-success/20 bg-success-muted text-success"
                         : "border-indigo-400/15 bg-indigo-500/10 text-indigo-300 hover:border-indigo-400/35",
+                    statusLoading
+                        ? "cursor-wait opacity-70"
+                        : "",
                 ].join(" ")}
             >
-                {status === "LOADING" ? (
+                {status === "LOADING" ||
+                    statusLoading ? (
                     <Loader2
                         size={12}
                         className="animate-spin"
@@ -243,7 +365,9 @@ export const RoadmapSkillAction = ({
                     <Plus size={12} />
                 )}
 
-                {skill}
+                {completed
+                    ? `${skill} · In profile`
+                    : skill}
             </button>
 
             {status === "ERROR" && (

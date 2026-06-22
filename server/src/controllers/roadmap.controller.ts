@@ -1,15 +1,12 @@
-import type { Response } from "express";
 import type { Prisma } from "@prisma/client";
+import type { Response } from "express";
 
-import { prisma } from "../prisma/client";
 import type { AuthRequest } from "../middlewares/auth.middleware";
+import { prisma } from "../prisma/client";
 import { generateDailyPlan } from "../services/dailyplan.service";
-import {
-    getDailyPlanDateKey,
-} from "../utils/dailyPlanDate";
-import {
-    calculateDailyPlanTotalTime,
-} from "../utils/dailyPlanTime";
+import { getDailyPlanDateKey } from "../utils/dailyPlanDate";
+import { calculateDailyPlanTotalTime } from "../utils/dailyPlanTime";
+
 const MAX_ROADMAP_TASKS_PER_DAY = 5;
 const MAX_PROFILE_SKILLS = 30;
 
@@ -45,6 +42,7 @@ interface MutableDailyPlan {
     categories: DailyPlanCategory[];
     totalTime: string;
     focusMessage: string;
+    baseFocusMessage?: string;
 
     [key: string]: unknown;
 }
@@ -95,6 +93,8 @@ const clonePlan = (
         ) as Partial<MutableDailyPlan>;
 
         return {
+            ...cloned,
+
             greeting:
                 typeof cloned.greeting ===
                     "string"
@@ -118,6 +118,12 @@ const clonePlan = (
                     "string"
                     ? cloned.focusMessage
                     : fallback.focusMessage,
+
+            baseFocusMessage:
+                typeof cloned.baseFocusMessage ===
+                    "string"
+                    ? cloned.baseFocusMessage
+                    : undefined,
         };
     } catch {
         return fallback;
@@ -153,12 +159,6 @@ const determinePlanCategory = (
         };
     }
 
-    /*
-     * Full-stack roadmap topics are technical study
-     * sessions. The current Daily Plan schema supports
-     * DSA, Resume, and Interview categories, so technical
-     * roadmap learning belongs under Interview preparation.
-     */
     return {
         name: "Interview",
         icon: "mic",
@@ -179,6 +179,45 @@ const getRoadmapTasks = (
                 )
                 : []
     );
+};
+
+const synchronizeRoadmapSummary = (
+    plan: MutableDailyPlan
+) => {
+    const roadmapTopicTitles =
+        getRoadmapTasks(plan)
+            .map((item) =>
+                item.task
+                    .replace(
+                        /^Study\s+/i,
+                        ""
+                    )
+                    .trim()
+            )
+            .filter(Boolean)
+            .slice(0, 5);
+
+    if (roadmapTopicTitles.length === 1) {
+        plan.focusMessage =
+            `Today’s roadmap focus: ${roadmapTopicTitles[0]}.`;
+    } else if (
+        roadmapTopicTitles.length > 1
+    ) {
+        plan.focusMessage =
+            `Today’s roadmap focuses: ${roadmapTopicTitles.join(
+                ", "
+            )}.`;
+    } else if (
+        plan.baseFocusMessage?.trim()
+    ) {
+        plan.focusMessage =
+            plan.baseFocusMessage;
+    }
+
+    plan.totalTime =
+        calculateDailyPlanTotalTime(
+            plan.categories
+        );
 };
 
 export const addRoadmapTopicToDailyPlan =
@@ -250,6 +289,7 @@ export const addRoadmapTopicToDailyPlan =
             const userId = req.user.id;
             const createdDate =
                 getDailyPlanDateKey();
+
             const existingRecord =
                 await prisma.dailyPlan.findUnique({
                     where: {
@@ -266,9 +306,7 @@ export const addRoadmapTopicToDailyPlan =
                     userId
                 ));
 
-            const plan =
-                clonePlan(basePlan);
-
+            const plan = clonePlan(basePlan);
             const roadmapTasks =
                 getRoadmapTasks(plan);
 
@@ -297,6 +335,7 @@ export const addRoadmapTopicToDailyPlan =
             ) {
                 return res.status(400).json({
                     success: false,
+                    code: "ROADMAP_TASK_LIMIT_REACHED",
                     message:
                         "You can add up to 5 roadmap topics to one daily plan.",
                 });
@@ -328,8 +367,15 @@ export const addRoadmapTopicToDailyPlan =
                 category.items = [];
             }
 
-            const roadmapTask: DailyPlanItem =
-            {
+            if (
+                roadmapTasks.length === 0 &&
+                !plan.baseFocusMessage
+            ) {
+                plan.baseFocusMessage =
+                    plan.focusMessage;
+            }
+
+            const roadmapTask: DailyPlanItem = {
                 task: `Study ${topicTitle}`,
                 reason:
                     `Selected from ${stageTitle} in the Full-Stack Developer Roadmap. ` +
@@ -340,35 +386,10 @@ export const addRoadmapTopicToDailyPlan =
                 roadmapStageId: stageId,
                 roadmapTopicId: topicId,
             };
-            category.items.push(
-                roadmapTask
-            );
 
-            const updatedRoadmapTasks =
-                getRoadmapTasks(plan);
+            category.items.push(roadmapTask);
+            synchronizeRoadmapSummary(plan);
 
-            const roadmapTopicTitles =
-                updatedRoadmapTasks
-                    .map((item) =>
-                        item.task.replace(
-                            /^Study\s+/i,
-                            ""
-                        )
-                    )
-                    .filter(Boolean)
-                    .slice(0, 5);
-
-            plan.focusMessage =
-                roadmapTopicTitles.length === 1
-                    ? `Today’s roadmap focus: ${roadmapTopicTitles[0]}.`
-                    : `Today’s roadmap focuses: ${roadmapTopicTitles.join(
-                        ", "
-                    )}.`;
-
-            plan.totalTime =
-                calculateDailyPlanTotalTime(
-                    plan.categories
-                );
             const savedRecord =
                 await prisma.dailyPlan.upsert({
                     where: {
@@ -413,6 +434,99 @@ export const addRoadmapTopicToDailyPlan =
                 success: false,
                 message:
                     "Failed to add the roadmap topic to your daily plan.",
+            });
+        }
+    };
+
+export const getRoadmapIntegrationStatus =
+    async (
+        req: AuthRequest,
+        res: Response
+    ) => {
+        try {
+            if (!req.user) {
+                return res.status(401).json({
+                    success: false,
+                    message: "Unauthorized",
+                });
+            }
+
+            const userId = req.user.id;
+            const createdDate =
+                getDailyPlanDateKey();
+
+            const [
+                dailyPlanRecord,
+                profile,
+            ] = await Promise.all([
+                prisma.dailyPlan.findUnique({
+                    where: {
+                        userId_createdDate: {
+                            userId,
+                            createdDate,
+                        },
+                    },
+
+                    select: {
+                        plan: true,
+                    },
+                }),
+
+                prisma.profile.findUnique({
+                    where: {
+                        userId,
+                    },
+
+                    select: {
+                        skills: true,
+                    },
+                }),
+            ]);
+
+            const plan = clonePlan(
+                dailyPlanRecord?.plan
+            );
+
+            const dailyPlanTopicIds =
+                Array.from(
+                    new Set(
+                        getRoadmapTasks(plan)
+                            .map(
+                                (task) =>
+                                    task.roadmapTopicId
+                            )
+                            .filter(
+                                (
+                                    topicId
+                                ): topicId is string =>
+                                    Boolean(topicId)
+                            )
+                    )
+                );
+
+            return res.status(200).json({
+                success: true,
+
+                data: {
+                    dailyPlanTopicIds,
+                    profileSkills:
+                        profile?.skills ?? [],
+                    roadmapTaskCount:
+                        dailyPlanTopicIds.length,
+                    maxRoadmapTasks:
+                        MAX_ROADMAP_TASKS_PER_DAY,
+                },
+            });
+        } catch (error) {
+            console.error(
+                "Get roadmap integration status error:",
+                error
+            );
+
+            return res.status(500).json({
+                success: false,
+                message:
+                    "Failed to load roadmap status.",
             });
         }
     };
@@ -486,6 +600,7 @@ export const addRoadmapSkillToProfile =
             ) {
                 return res.status(400).json({
                     success: false,
+                    code: "PROFILE_SKILL_LIMIT_REACHED",
                     message:
                         "Your profile can contain up to 30 skills.",
                 });

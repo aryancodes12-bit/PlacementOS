@@ -7,11 +7,17 @@ import {
 import {
     addRoadmapSkillToProfile,
     addRoadmapTopicToDailyPlan,
+    getRoadmapIntegrationStatus,
 } from "../controllers/roadmap.controller";
 
 const router = Router();
 
 router.use(protect);
+
+router.get(
+    "/status",
+    getRoadmapIntegrationStatus
+);
 
 router.post(
     "/daily-plan",

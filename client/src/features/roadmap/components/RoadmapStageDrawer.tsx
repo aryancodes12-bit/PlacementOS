@@ -1,4 +1,9 @@
 import {
+    useEffect,
+    useState,
+} from "react";
+
+import {
     ArrowRight,
     BookOpen,
     CheckCircle2,
@@ -7,13 +12,19 @@ import {
     Target,
     X,
 } from "lucide-react";
+
+import {
+    useNavigate,
+} from "react-router-dom";
+
+import {
+    roadmapService,
+} from "../../../services/roadmap.service";
+
 import {
     RoadmapSkillAction,
     RoadmapTopicAction,
 } from "./RoadmapIntegrationActions";
-import {
-    useNavigate,
-} from "react-router-dom";
 
 import type {
     RoadmapStage,
@@ -29,8 +40,148 @@ export const RoadmapStageDrawer = ({
     onClose,
 }: RoadmapStageDrawerProps) => {
     const navigate = useNavigate();
-
     const visible = Boolean(stage);
+
+    const [
+        addedTopicIds,
+        setAddedTopicIds,
+    ] = useState<Set<string>>(
+        new Set()
+    );
+
+    const [
+        profileSkills,
+        setProfileSkills,
+    ] = useState<Set<string>>(
+        new Set()
+    );
+
+    const [
+        roadmapTaskCount,
+        setRoadmapTaskCount,
+    ] = useState(0);
+
+    const [
+        maxRoadmapTasks,
+        setMaxRoadmapTasks,
+    ] = useState(5);
+
+    const [
+        statusLoading,
+        setStatusLoading,
+    ] = useState(false);
+
+    const [
+        statusError,
+        setStatusError,
+    ] = useState("");
+
+    useEffect(() => {
+        if (!stage) {
+            return;
+        }
+
+        let active = true;
+
+        const fetchStatus = async () => {
+            try {
+                setStatusLoading(true);
+                setStatusError("");
+                setAddedTopicIds(
+                    new Set()
+                );
+                setProfileSkills(
+                    new Set()
+                );
+
+                const { data } =
+                    await roadmapService.getStatus();
+
+                if (!active) {
+                    return;
+                }
+
+                setAddedTopicIds(
+                    new Set(
+                        data.data
+                            .dailyPlanTopicIds
+                    )
+                );
+
+                setProfileSkills(
+                    new Set(
+                        data.data.profileSkills.map(
+                            (skill) =>
+                                skill
+                                    .trim()
+                                    .toLowerCase()
+                        )
+                    )
+                );
+
+                setRoadmapTaskCount(
+                    data.data
+                        .roadmapTaskCount
+                );
+
+                setMaxRoadmapTasks(
+                    data.data
+                        .maxRoadmapTasks
+                );
+            } catch (error) {
+                console.error(
+                    "Failed to load roadmap status:",
+                    error
+                );
+
+                if (active) {
+                    setStatusError(
+                        "Saved roadmap status could not be loaded."
+                    );
+                }
+            } finally {
+                if (active) {
+                    setStatusLoading(false);
+                }
+            }
+        };
+
+        void fetchStatus();
+
+        return () => {
+            active = false;
+        };
+    }, [stage?.id]);
+
+    useEffect(() => {
+        if (!visible) {
+            return;
+        }
+
+        const handleKeyDown = (
+            event: KeyboardEvent
+        ) => {
+            if (event.key === "Escape") {
+                onClose();
+            }
+        };
+
+        window.addEventListener(
+            "keydown",
+            handleKeyDown
+        );
+
+        return () => {
+            window.removeEventListener(
+                "keydown",
+                handleKeyDown
+            );
+        };
+    }, [visible, onClose]);
+
+    const limitReached =
+        roadmapTaskCount >=
+        maxRoadmapTasks;
 
     return (
         <>
@@ -47,6 +198,8 @@ export const RoadmapStageDrawer = ({
             />
 
             <aside
+                role="dialog"
+                aria-modal="true"
                 aria-hidden={!visible}
                 aria-label="Roadmap stage details"
                 className={[
@@ -115,6 +268,24 @@ export const RoadmapStageDrawer = ({
                             </div>
                         </div>
 
+                        <div className="mt-3 rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-3">
+                            {statusLoading ? (
+                                <p className="text-xs text-slate-500">
+                                    Loading your saved roadmap status...
+                                </p>
+                            ) : statusError ? (
+                                <p className="text-xs text-rose-300">
+                                    {statusError}
+                                </p>
+                            ) : (
+                                <p className="text-xs text-slate-400">
+                                    {roadmapTaskCount}/
+                                    {maxRoadmapTasks}{" "}
+                                    roadmap topics selected for today
+                                </p>
+                            )}
+                        </div>
+
                         <section className="mt-7">
                             <div className="flex items-center gap-2">
                                 <Target
@@ -151,16 +322,13 @@ export const RoadmapStageDrawer = ({
                                         >
                                             <div className="flex items-start gap-3">
                                                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-[11px] font-bold text-indigo-300">
-                                                    {index +
-                                                        1}
+                                                    {index + 1}
                                                 </span>
 
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex flex-wrap items-center gap-2">
                                                         <h4 className="text-sm font-semibold text-white">
-                                                            {
-                                                                topic.title
-                                                            }
+                                                            {topic.title}
                                                         </h4>
 
                                                         {topic.placementFocus && (
@@ -171,19 +339,55 @@ export const RoadmapStageDrawer = ({
                                                     </div>
 
                                                     <p className="mt-2 text-xs leading-5 text-slate-500">
-                                                        {
-                                                            topic.description
-                                                        }
+                                                        {topic.description}
                                                     </p>
 
                                                     <p className="mt-2 text-[10px] font-medium text-slate-600">
-                                                        {
-                                                            topic.estimatedTime
-                                                        }
+                                                        {topic.estimatedTime}
                                                     </p>
+
                                                     <RoadmapTopicAction
                                                         stage={stage}
                                                         topic={topic}
+                                                        initialAdded={
+                                                            addedTopicIds.has(
+                                                                topic.id
+                                                            )
+                                                        }
+                                                        limitReached={
+                                                            limitReached
+                                                        }
+                                                        statusLoading={
+                                                            statusLoading
+                                                        }
+                                                        onAdded={(
+                                                            alreadyAdded
+                                                        ) => {
+                                                            setAddedTopicIds(
+                                                                (current) => {
+                                                                    const next =
+                                                                        new Set(
+                                                                            current
+                                                                        );
+
+                                                                    next.add(
+                                                                        topic.id
+                                                                    );
+
+                                                                    return next;
+                                                                }
+                                                            );
+
+                                                            if (!alreadyAdded) {
+                                                                setRoadmapTaskCount(
+                                                                    (current) =>
+                                                                        Math.min(
+                                                                            maxRoadmapTasks,
+                                                                            current + 1
+                                                                        )
+                                                                );
+                                                            }
+                                                        }}
                                                     />
                                                 </div>
                                             </div>
@@ -193,23 +397,52 @@ export const RoadmapStageDrawer = ({
                             </div>
                         </section>
 
-                        {stage.skills.length >
-                            0 && (
-                                <section className="mt-7">
-                                    <h3 className="text-sm font-semibold text-white">
-                                        Profile-worthy skills
-                                    </h3>
+                        {stage.skills.length > 0 && (
+                            <section className="mt-7">
+                                <h3 className="text-sm font-semibold text-white">
+                                    Profile-worthy skills
+                                </h3>
 
-                                    <div className="mt-3 flex flex-wrap gap-2">
-                                        {stage.skills.map((skill) => (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {stage.skills.map(
+                                        (skill) => (
                                             <RoadmapSkillAction
                                                 key={skill}
                                                 skill={skill}
+                                                initialAdded={
+                                                    profileSkills.has(
+                                                        skill
+                                                            .trim()
+                                                            .toLowerCase()
+                                                    )
+                                                }
+                                                statusLoading={
+                                                    statusLoading
+                                                }
+                                                onAdded={() => {
+                                                    setProfileSkills(
+                                                        (current) => {
+                                                            const next =
+                                                                new Set(
+                                                                    current
+                                                                );
+
+                                                            next.add(
+                                                                skill
+                                                                    .trim()
+                                                                    .toLowerCase()
+                                                            );
+
+                                                            return next;
+                                                        }
+                                                    );
+                                                }}
                                             />
-                                        ))}
-                                    </div>
-                                </section>
-                            )}
+                                        )
+                                    )}
+                                </div>
+                            </section>
+                        )}
 
                         {stage.project && (
                             <section className="mt-7 rounded-xl border border-emerald-400/15 bg-emerald-500/[0.06] p-4">
