@@ -1,6 +1,9 @@
+
 import api from "../../services/api";
 
 import type {
+    ClearReadNotificationsResponse,
+    DeleteNotificationResponse,
     MarkAllNotificationsReadResponse,
     MarkNotificationReadResponse,
     NotificationListResponse,
@@ -44,4 +47,21 @@ export const notificationService = {
             "/notifications/read-all"
         );
     },
+
+    deleteNotification: (
+        notificationId: string
+    ) => {
+        return api.delete<DeleteNotificationResponse>(
+            `/notifications/${encodeURIComponent(
+                notificationId
+            )}`
+        );
+    },
+
+    clearReadNotifications: () => {
+        return api.delete<ClearReadNotificationsResponse>(
+            "/notifications/read"
+        );
+    },
 };
+

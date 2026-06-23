@@ -83,4 +83,4 @@ export interface RealtimeNotificationPayload {
 
     isRead: boolean;
     createdAt: string;
-}
+}export interface DeleteNotificationResponse { success: boolean; message: string; data: { notificationId: string; }; } export interface ClearReadNotificationsResponse { success: boolean; message: string; data: { deletedCount: number; }; }

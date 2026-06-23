@@ -1,3 +1,4 @@
+
 import {
     create,
 } from "zustand";
@@ -41,6 +42,13 @@ interface NotificationState {
     markAllReadLocally: (
         readAt?: string
     ) => void;
+
+    removeNotificationLocally: (
+        notificationId: string
+    ) => void;
+
+    clearReadNotificationsLocally:
+    () => void;
 
     clearNotifications: () => void;
 }
@@ -94,15 +102,14 @@ export const useNotificationStore =
                 payload
             ) => {
                 set((state) => {
-                    const existingIndex =
-                        state.notifications
-                            .findIndex(
-                                (
-                                    notification
-                                ) =>
-                                    notification.id ===
-                                    payload.id
-                            );
+                    const existing =
+                        state.notifications.find(
+                            (
+                                notification
+                            ) =>
+                                notification.id ===
+                                payload.id
+                        );
 
                     const incoming:
                         NotificationItem = {
@@ -110,66 +117,54 @@ export const useNotificationStore =
                         readAt: null,
                     };
 
-                    if (
-                        existingIndex !==
-                        -1
-                    ) {
-                        const existing =
-                            state.notifications[
-                            existingIndex
-                            ];
+                    const nextNotifications =
+                        [
+                            incoming,
 
-                        const nextNotifications =
-                            [
-                                incoming,
-                                ...state.notifications.filter(
-                                    (
-                                        notification
-                                    ) =>
-                                        notification.id !==
-                                        payload.id
-                                ),
-                            ].slice(
-                                0,
-                                MAX_CACHED_NOTIFICATIONS
-                            );
+                            ...state.notifications.filter(
+                                (
+                                    notification
+                                ) =>
+                                    notification.id !==
+                                    payload.id
+                            ),
+                        ].slice(
+                            0,
+                            MAX_CACHED_NOTIFICATIONS
+                        );
 
-                        const unreadDifference =
-                            existing.isRead &&
-                                !incoming.isRead
-                                ? 1
-                                : !existing.isRead &&
-                                    incoming.isRead
-                                    ? -1
-                                    : 0;
-
+                    if (!existing) {
                         return {
                             notifications:
                                 nextNotifications,
 
                             unreadCount:
-                                Math.max(
-                                    0,
-                                    state.unreadCount +
-                                    unreadDifference
-                                ),
+                                state.unreadCount +
+                                (incoming.isRead
+                                    ? 0
+                                    : 1),
                         };
                     }
 
+                    const unreadDifference =
+                        existing.isRead &&
+                            !incoming.isRead
+                            ? 1
+                            : !existing.isRead &&
+                                incoming.isRead
+                                ? -1
+                                : 0;
+
                     return {
-                        notifications: [
-                            incoming,
-                            ...state.notifications,
-                        ].slice(
-                            0,
-                            MAX_CACHED_NOTIFICATIONS
-                        ),
+                        notifications:
+                            nextNotifications,
 
                         unreadCount:
-                            state.unreadCount +
-                            (incoming.isRead
-                                ? 0
-                                : 1),
+                            Math.max(
+                                0,
+                                state.unreadCount +
+                                unreadDifference
+                            ),
                     };
                 });
             },
@@ -202,8 +197,10 @@ export const useNotificationStore =
                                         notificationId
                                         ? {
                                             ...item,
+
                                             isRead:
                                                 true,
+
                                             readAt,
                                         }
                                         : item
@@ -244,6 +241,54 @@ export const useNotificationStore =
                 }));
             },
 
+            removeNotificationLocally: (
+                notificationId
+            ) => {
+                set((state) => {
+                    const notification =
+                        state.notifications.find(
+                            (item) =>
+                                item.id ===
+                                notificationId
+                        );
+
+                    if (!notification) {
+                        return state;
+                    }
+
+                    return {
+                        notifications:
+                            state.notifications.filter(
+                                (item) =>
+                                    item.id !==
+                                    notificationId
+                            ),
+
+                        unreadCount:
+                            Math.max(
+                                0,
+                                state.unreadCount -
+                                (notification.isRead
+                                    ? 0
+                                    : 1)
+                            ),
+                    };
+                });
+            },
+
+            clearReadNotificationsLocally:
+                () => {
+                    set((state) => ({
+                        notifications:
+                            state.notifications.filter(
+                                (
+                                    notification
+                                ) =>
+                                    !notification.isRead
+                            ),
+                    }));
+                },
+
             clearNotifications:
                 () => {
                     set({
@@ -262,3 +307,4 @@ export const useNotificationStore =
                 },
         })
     );
+
