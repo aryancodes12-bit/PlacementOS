@@ -22,7 +22,9 @@ import {
 import {
   ProtectedRoute,
 } from "./components/auth/ProtectedRoute";
-
+import {
+  BrandLogo,
+} from "./components/ui/BrandLogo";
 const OnboardingPage = lazy(() =>
   import("./pages/OnboardingPage").then(
     (module) => ({
@@ -159,8 +161,13 @@ const RouteLoader = () => {
       role="status"
       aria-live="polite"
     >
-      <div className="text-center">
-        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+      <div className="flex flex-col items-center text-center">
+        <BrandLogo
+          variant="auth"
+          priority
+        />
+
+        <div className="mt-6 h-8 w-8 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
 
         <p className="mt-4 text-sm text-slate-400">
           Loading PlacementOS…
@@ -169,7 +176,6 @@ const RouteLoader = () => {
     </div>
   );
 };
-
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
