@@ -2,7 +2,9 @@ import {
   lazy,
   Suspense,
 } from "react";
-
+import {
+  NotificationProvider,
+} from "./features/notifications/NotificationProvider";
 import {
   BrowserRouter,
   Navigate,
@@ -172,151 +174,153 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Suspense fallback={<RouteLoader />}>
-          <Routes>
+        <NotificationProvider>
+          <Suspense fallback={<RouteLoader />}>
+            <Routes>
 
-            <Route
-              path="/"
-              element={
-                <OnboardingPage />
-              }
-            />
+              <Route
+                path="/"
+                element={
+                  <OnboardingPage />
+                }
+              />
 
-            <Route
-              path="/login"
-              element={<LoginPage />}
-            />
+              <Route
+                path="/login"
+                element={<LoginPage />}
+              />
 
-            <Route
-              path="/register"
-              element={<RegisterPage />}
-            />
-            <Route
-              path="/verify-email"
-              element={<VerifyEmailPage />}
-            />
-            <Route
-              path="/terms"
-              element={
-                <LegalPage type="terms" />
-              }
-            />
-            <Route
-              path="/roadmap"
-              element={
-                <ProtectedRoute>
-                  <FullStackRoadmapPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/privacy"
-              element={
-                <LegalPage type="privacy" />
-              }
-            />
+              <Route
+                path="/register"
+                element={<RegisterPage />}
+              />
+              <Route
+                path="/verify-email"
+                element={<VerifyEmailPage />}
+              />
+              <Route
+                path="/terms"
+                element={
+                  <LegalPage type="terms" />
+                }
+              />
+              <Route
+                path="/roadmap"
+                element={
+                  <ProtectedRoute>
+                    <FullStackRoadmapPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/privacy"
+                element={
+                  <LegalPage type="privacy" />
+                }
+              />
 
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <DashboardPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <DashboardPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <ProfilePage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/dsa"
-              element={
-                <ProtectedRoute>
-                  <DSATrackerPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/dsa"
+                element={
+                  <ProtectedRoute>
+                    <DSATrackerPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/resume"
-              element={
-                <ProtectedRoute>
-                  <ResumePage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/resume"
+                element={
+                  <ProtectedRoute>
+                    <ResumePage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/interviews"
-              element={
-                <ProtectedRoute>
-                  <InterviewsPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/interviews"
+                element={
+                  <ProtectedRoute>
+                    <InterviewsPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/interviews/new"
-              element={
-                <ProtectedRoute>
-                  <NewInterviewPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/interviews/new"
+                element={
+                  <ProtectedRoute>
+                    <NewInterviewPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/interviews/:id"
-              element={
-                <ProtectedRoute>
-                  <InterviewDetailPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/interviews/:id"
+                element={
+                  <ProtectedRoute>
+                    <InterviewDetailPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/daily-plan"
-              element={
-                <ProtectedRoute>
-                  <DailyPlanPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/daily-plan"
+                element={
+                  <ProtectedRoute>
+                    <DailyPlanPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/pricing"
-              element={
-                <ProtectedRoute>
-                  <PricingPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/pricing"
+                element={
+                  <ProtectedRoute>
+                    <PricingPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <SettingsPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute>
+                    <SettingsPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="*"
-              element={
-                <Navigate
-                  to="/"
-                  replace
-                />
-              }
-            />
-          </Routes>
-        </Suspense>
+              <Route
+                path="*"
+                element={
+                  <Navigate
+                    to="/"
+                    replace
+                  />
+                }
+              />
+            </Routes>
+          </Suspense>
+        </NotificationProvider>
         <CookieConsent />
       </BrowserRouter>
     </QueryClientProvider>
