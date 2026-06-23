@@ -9,7 +9,9 @@ import {
   Route,
   Routes,
 } from "react-router-dom";
-
+import {
+  CookieConsent,
+} from "./features/cookie-consent/CookieConsent";
 import {
   QueryClient,
   QueryClientProvider,
@@ -168,14 +170,11 @@ const RouteLoader = () => {
 
 function App() {
   return (
-    <QueryClientProvider
-      client={queryClient}
-    >
+    <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Suspense
-          fallback={<RouteLoader />}
-        >
+        <Suspense fallback={<RouteLoader />}>
           <Routes>
+
             <Route
               path="/"
               element={
@@ -318,6 +317,7 @@ function App() {
             />
           </Routes>
         </Suspense>
+        <CookieConsent />
       </BrowserRouter>
     </QueryClientProvider>
   );

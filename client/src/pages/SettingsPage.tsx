@@ -8,11 +8,14 @@ import {
 import type { FormEvent } from "react";
 
 import { useNavigate } from "react-router-dom";
-
+import {
+    openCookieSettings,
+} from "../features/cookie-consent/cookieConsent.service";
 import {
     AlertTriangle,
     Bug,
     CheckCircle2,
+    Cookie,
     Database,
     ExternalLink,
     Loader2,
@@ -533,7 +536,34 @@ export const SettingsPage = () => {
                                 </p>
                             )}
                         </div>
+                        <section className="rounded-2xl border border-border bg-bg-secondary p-6">
+                            <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
+                                <div className="flex items-start gap-3">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-muted text-brand">
+                                        <Cookie size={18} />
+                                    </div>
 
+                                    <div>
+                                        <h2 className="text-base font-semibold text-text-primary">
+                                            Cookie preferences
+                                        </h2>
+
+                                        <p className="mt-1 max-w-3xl text-sm leading-6 text-text-tertiary">
+                                            Review or change the optional storage categories PlacementOS may use. Necessary storage remains active for security and core application functionality.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={openCookieSettings}
+                                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-brand/25 bg-brand-muted px-4 py-2.5 text-sm font-medium text-brand transition hover:border-brand/50 active:scale-[0.98]"
+                                >
+                                    <Cookie size={15} />
+                                    Manage preferences
+                                </button>
+                            </div>
+                        </section>
                         <div className="rounded-2xl border border-border bg-bg-secondary p-6">
                             <Bug
                                 size={19}
@@ -985,6 +1015,7 @@ export const SettingsPage = () => {
                                     ? "Deleting..."
                                     : "Delete permanently"}
                             </button>
+
                         </div>
                     </div>
                 </div>
