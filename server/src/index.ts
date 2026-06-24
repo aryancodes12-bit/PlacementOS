@@ -5,53 +5,22 @@ import {
 } from "http";
 
 import {
-    Server,
-} from "socket.io";
-
-import {
     allowedOrigins,
     app,
 } from "./app";
 
+import {
+    initializeSocketServer,
+} from "./realtime/socket";
+
 export const httpServer =
     createServer(app);
 
-export const io = new Server(
-    httpServer,
-    {
-        cors: {
-            origin: allowedOrigins,
-
-            methods: [
-                "GET",
-                "POST",
-                "PUT",
-                "PATCH",
-                "DELETE",
-            ],
-
-            credentials: true,
-        },
-    }
-);
-
-io.on(
-    "connection",
-    (socket) => {
-        console.log(
-            `User connected: ${socket.id}`
-        );
-
-        socket.on(
-            "disconnect",
-            () => {
-                console.log(
-                    `User disconnected: ${socket.id}`
-                );
-            }
-        );
-    }
-);
+export const io =
+    initializeSocketServer(
+        httpServer,
+        allowedOrigins
+    );
 
 const PORT = Number(
     process.env.PORT || 5000

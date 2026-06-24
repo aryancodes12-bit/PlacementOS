@@ -5,9 +5,11 @@ import type {
 import {
     CheckCircle2,
     ShieldCheck,
-    Sparkles,
+
     Target,
 } from "lucide-react";
+
+import placementOsLogo from "../../assets/logo.jpeg";
 
 import {
     Link,
@@ -39,21 +41,17 @@ export const AuthShell = ({
                     <div className="relative z-10">
                         <Link
                             to="/"
-                            className="inline-flex items-center gap-3"
+                            aria-label="Go to PlacementOS home"
+                            className="inline-flex items-center rounded-xl transition hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
                         >
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-indigo-400/25 bg-indigo-500/10">
-                                <Sparkles
-                                    size={19}
-                                    className="text-indigo-300"
-                                />
-                            </div>
-
-                            <span className="text-xl font-bold">
-                                Placement
-                                <span className="text-indigo-400">
-                                    OS
-                                </span>
-                            </span>
+                            <img
+                                src={placementOsLogo}
+                                alt="PlacementOS — Know Your Placement Readiness"
+                                loading="eager"
+                                fetchPriority="high"
+                                draggable={false}
+                                className="h-30 w-60 rounded-2xl object-contain"
+                            />
                         </Link>
 
                         <div className="mt-24 max-w-xl">

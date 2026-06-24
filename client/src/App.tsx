@@ -2,14 +2,18 @@ import {
   lazy,
   Suspense,
 } from "react";
-
+import {
+  NotificationProvider,
+} from "./features/notifications/NotificationProvider";
 import {
   BrowserRouter,
   Navigate,
   Route,
   Routes,
 } from "react-router-dom";
-
+import {
+  CookieConsent,
+} from "./features/cookie-consent/CookieConsent";
 import {
   QueryClient,
   QueryClientProvider,
@@ -18,7 +22,9 @@ import {
 import {
   ProtectedRoute,
 } from "./components/auth/ProtectedRoute";
-
+import {
+  BrandLogo,
+} from "./components/ui/BrandLogo";
 const OnboardingPage = lazy(() =>
   import("./pages/OnboardingPage").then(
     (module) => ({
@@ -155,8 +161,13 @@ const RouteLoader = () => {
       role="status"
       aria-live="polite"
     >
-      <div className="text-center">
-        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+      <div className="flex flex-col items-center text-center">
+        <BrandLogo
+          variant="auth"
+          priority
+        />
+
+        <div className="mt-6 h-8 w-8 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
 
         <p className="mt-4 text-sm text-slate-400">
           Loading PlacementOS…
@@ -165,159 +176,158 @@ const RouteLoader = () => {
     </div>
   );
 };
-
 function App() {
   return (
-    <QueryClientProvider
-      client={queryClient}
-    >
+    <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Suspense
-          fallback={<RouteLoader />}
-        >
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <OnboardingPage />
-              }
-            />
+        <NotificationProvider>
+          <Suspense fallback={<RouteLoader />}>
+            <Routes>
 
-            <Route
-              path="/login"
-              element={<LoginPage />}
-            />
+              <Route
+                path="/"
+                element={
+                  <OnboardingPage />
+                }
+              />
 
-            <Route
-              path="/register"
-              element={<RegisterPage />}
-            />
-            <Route
-              path="/verify-email"
-              element={<VerifyEmailPage />}
-            />
-            <Route
-              path="/terms"
-              element={
-                <LegalPage type="terms" />
-              }
-            />
-            <Route
-              path="/roadmap"
-              element={
-                <ProtectedRoute>
-                  <FullStackRoadmapPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/privacy"
-              element={
-                <LegalPage type="privacy" />
-              }
-            />
+              <Route
+                path="/login"
+                element={<LoginPage />}
+              />
 
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <DashboardPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/register"
+                element={<RegisterPage />}
+              />
+              <Route
+                path="/verify-email"
+                element={<VerifyEmailPage />}
+              />
+              <Route
+                path="/terms"
+                element={
+                  <LegalPage type="terms" />
+                }
+              />
+              <Route
+                path="/roadmap"
+                element={
+                  <ProtectedRoute>
+                    <FullStackRoadmapPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/privacy"
+                element={
+                  <LegalPage type="privacy" />
+                }
+              />
 
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <DashboardPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/dsa"
-              element={
-                <ProtectedRoute>
-                  <DSATrackerPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <ProfilePage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/resume"
-              element={
-                <ProtectedRoute>
-                  <ResumePage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/dsa"
+                element={
+                  <ProtectedRoute>
+                    <DSATrackerPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/interviews"
-              element={
-                <ProtectedRoute>
-                  <InterviewsPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/resume"
+                element={
+                  <ProtectedRoute>
+                    <ResumePage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/interviews/new"
-              element={
-                <ProtectedRoute>
-                  <NewInterviewPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/interviews"
+                element={
+                  <ProtectedRoute>
+                    <InterviewsPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/interviews/:id"
-              element={
-                <ProtectedRoute>
-                  <InterviewDetailPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/interviews/new"
+                element={
+                  <ProtectedRoute>
+                    <NewInterviewPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/daily-plan"
-              element={
-                <ProtectedRoute>
-                  <DailyPlanPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/interviews/:id"
+                element={
+                  <ProtectedRoute>
+                    <InterviewDetailPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/pricing"
-              element={
-                <ProtectedRoute>
-                  <PricingPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/daily-plan"
+                element={
+                  <ProtectedRoute>
+                    <DailyPlanPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <SettingsPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/pricing"
+                element={
+                  <ProtectedRoute>
+                    <PricingPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="*"
-              element={
-                <Navigate
-                  to="/"
-                  replace
-                />
-              }
-            />
-          </Routes>
-        </Suspense>
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute>
+                    <SettingsPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="*"
+                element={
+                  <Navigate
+                    to="/"
+                    replace
+                  />
+                }
+              />
+            </Routes>
+          </Suspense>
+        </NotificationProvider>
+        <CookieConsent />
       </BrowserRouter>
     </QueryClientProvider>
   );

@@ -22,7 +22,9 @@ import {
 import {
     generateDailyPlan,
 } from "../services/dailyplan.service";
-
+import {
+    publishDailyPlanReadyNotification,
+} from "../services/dailyPlanNotification.service";
 import {
     getDailyPlanDateKey,
 } from "../utils/dailyPlanDate";
@@ -321,6 +323,15 @@ router.get(
                     plan:
                         plan as unknown as Prisma.InputJsonValue,
                 },
+            });
+
+            /*
+             * Notify only after the plan has been
+             * successfully persisted.
+             */
+            await publishDailyPlanReadyNotification({
+                userId,
+                createdDate,
             });
 
             return res

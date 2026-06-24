@@ -5,7 +5,7 @@ import cors, {
     type CorsOptions,
 } from "cors";
 import cookieParser from "cookie-parser";
-
+import notificationRoutes from "./routes/notification.routes";
 import authRoutes from "./routes/auth.routes";
 import dailyPlanRoutes from "./routes/dailyplan.routes";
 import dsaRoutes from "./routes/dsa.routes";
@@ -171,7 +171,10 @@ app.use(
     "/api/daily-plan",
     dailyPlanRoutes
 );
-
+app.use(
+    "/api/notifications",
+    notificationRoutes
+);
 app.use(
     "/api/roadmap",
     roadmapRoutes
