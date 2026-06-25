@@ -37,9 +37,9 @@ const ConsentToggle = ({
     onChange,
 }: ToggleProps) => {
     return (
-        <div className="flex items-start justify-between gap-5 rounded-xl border border-border bg-bg-tertiary p-4">
-            <div>
-                <div className="flex items-center gap-2">
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-bg-tertiary p-4">
+            <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-semibold text-text-primary">
                         {label}
                     </p>
@@ -66,7 +66,7 @@ const ConsentToggle = ({
                     onChange?.(!checked)
                 }
                 className={[
-                    "relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition",
+                    "relative mt-0.5 h-6 w-11 shrink-0 overflow-hidden rounded-full transition",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
                     checked
                         ? "bg-brand"
@@ -78,10 +78,10 @@ const ConsentToggle = ({
             >
                 <span
                     className={[
-                        "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
+                        "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
                         checked
                             ? "translate-x-5"
-                            : "translate-x-0.5",
+                            : "translate-x-0",
                     ].join(" ")}
                 />
             </button>
@@ -326,7 +326,7 @@ export const CookieConsent = () => {
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="cookie-settings-title"
-                        className="fixed left-1/2 top-1/2 z-[220] max-h-[90vh] w-[calc(100%-1.5rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-bg-secondary p-5 shadow-2xl sm:p-6"
+                        className="fixed left-1/2 top-1/2 z-[220] max-h-[90vh] w-[calc(100%-1.5rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-bg-secondary p-4 shadow-2xl sm:p-6"
                     >
                         <div className="flex items-start justify-between gap-4">
                             <div className="flex items-start gap-3">
