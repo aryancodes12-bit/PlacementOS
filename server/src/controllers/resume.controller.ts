@@ -8,6 +8,9 @@ import {
 } from "../services/resume.service";
 import axios from "axios";
 import { updateReadiness } from "../services/readiness.service";
+import {
+    publishResumeAnalysisReadyNotification,
+} from "../services/resumeAnalysisNotification.service";
 const updateResumeReadiness = async (userId: string, resumeScore: number) => {
     const current = await prisma.readinessScore.findUnique({
         where: {
@@ -193,13 +196,40 @@ export const uploadResume = async (req: AuthRequest, res: Response) => {
             },
         });
 
-        await updateReadiness(userId);
+        await updateReadiness(
+            userId
+        );
+
+
+        await publishResumeAnalysisReadyNotification({
+            userId,
+
+            resumeId:
+                resume.id,
+
+            fileName:
+                resume.fileName ??
+                req.file.originalname,
+
+            targetRole:
+                resume.targetRole,
+
+            atsScore:
+                resume.atsScore ??
+                analysis.atsScore,
+        });
+
+
 
         return res.status(201).json({
-            message: "Resume uploaded and analyzed successfully",
+            message:
+                "Resume uploaded and analyzed successfully",
+
             analysis,
             resume,
         });
+
+
     } catch (error: any) {
         console.error("uploadResume error:", error);
 

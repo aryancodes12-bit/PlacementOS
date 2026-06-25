@@ -6,6 +6,9 @@ import {
     analyzeInterviewReplay,
     transcribeInterviewAudio,
 } from "../services/openaiInterview.service";
+import {
+    publishInterviewAnalysisReadyNotification,
+} from "../services/interviewAnalysisNotification.service";
 import { updateReadiness } from "../services/readiness.service";
 const normalizeEnum = (value: unknown, fallback: string) => {
     if (!value) return fallback;
@@ -619,7 +622,12 @@ export const updateInterview = async (req: AuthRequest, res: Response) => {
             },
         });
 
-        await recalculateInterviewReadiness(userId);
+
+
+
+        await recalculateInterviewReadiness(
+            userId
+        );
 
         return res.status(200).json({
             message: "Interview replay updated successfully",
@@ -627,10 +635,7 @@ export const updateInterview = async (req: AuthRequest, res: Response) => {
         });
     } catch (error) {
         console.error("updateInterview error:", error);
-
-        return res.status(500).json({
-            message: "Failed to update interview replay",
-        });
+        return res.status(500).json({ message: "Failed to update interview replay" });
     }
 };
 
@@ -821,13 +826,43 @@ export const analyzeInterviewWithAI = async (
             },
         });
 
-        await recalculateInterviewReadiness(userId);
+
+        await recalculateInterviewReadiness(
+            userId
+        );
+
+        await publishInterviewAnalysisReadyNotification(
+            {
+                userId,
+
+                interviewId:
+                    updatedInterview.id,
+
+                company:
+                    updatedInterview.company,
+
+                role:
+                    updatedInterview.role,
+
+                sourceType:
+                    updatedInterview.sourceType,
+
+                analysisCompletedAt:
+                    new Date(),
+            }
+        );
 
         return res.status(200).json({
-            message: "Interview analyzed successfully",
+            message:
+                "Interview analyzed successfully",
+
             analysis,
-            interview: updatedInterview,
+
+            interview:
+                updatedInterview,
         });
+
+
     } catch (error: any) {
         console.error("analyzeInterviewWithAI error:", error);
 
@@ -978,10 +1013,35 @@ export const createAudioInterview = async (
             },
         });
 
-        await recalculateInterviewReadiness(userId);
+        await recalculateInterviewReadiness(
+            userId
+        );
+
+        await publishInterviewAnalysisReadyNotification(
+            {
+                userId,
+
+                interviewId:
+                    interview.id,
+
+                company:
+                    interview.company,
+
+                role:
+                    interview.role,
+
+                sourceType:
+                    interview.sourceType,
+
+                analysisCompletedAt:
+                    new Date(),
+            }
+        );
 
         return res.status(201).json({
-            message: "Audio interview uploaded, transcribed, and analyzed successfully",
+            message:
+                "Audio interview uploaded, transcribed, and analyzed successfully",
+
             transcript,
             analysis,
             interview,
@@ -1133,10 +1193,35 @@ export const createVideoInterview = async (
             },
         });
 
-        await recalculateInterviewReadiness(userId);
+        await recalculateInterviewReadiness(
+            userId
+        );
+
+        await publishInterviewAnalysisReadyNotification(
+            {
+                userId,
+
+                interviewId:
+                    interview.id,
+
+                company:
+                    interview.company,
+
+                role:
+                    interview.role,
+
+                sourceType:
+                    interview.sourceType,
+
+                analysisCompletedAt:
+                    new Date(),
+            }
+        );
 
         return res.status(201).json({
-            message: "Video interview uploaded, transcribed, and analyzed successfully",
+            message:
+                "Video interview uploaded, transcribed, and analyzed successfully",
+
             transcript,
             analysis,
             interview,
@@ -1237,3 +1322,4 @@ export const getInterviewStats = async (req: AuthRequest, res: Response) => {
         });
     }
 };
+

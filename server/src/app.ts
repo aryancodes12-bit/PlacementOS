@@ -1,5 +1,5 @@
 import "dotenv/config";
-
+import notificationAutomationRoutes from "./routes/notificationAutomation.routes";
 import express from "express";
 import cors, {
     type CorsOptions,
@@ -17,7 +17,7 @@ import readinessRoutes from "./routes/readiness.routes";
 import resumeRoutes from "./routes/resume.routes";
 import roadmapRoutes from "./routes/roadmap.routes";
 import settingsRoutes from "./routes/settings.routes";
-
+import notificationPreferenceRoutes from "./routes/notificationPreference.routes";
 export const normalizeOrigin = (
     origin: string
 ): string => {
@@ -174,6 +174,13 @@ app.use(
 app.use(
     "/api/notifications",
     notificationRoutes
+);
+app.use(
+    "/api/notification-preferences",
+    notificationPreferenceRoutes
+); app.use(
+    "/api/internal/notification-automation",
+    notificationAutomationRoutes
 );
 app.use(
     "/api/roadmap",

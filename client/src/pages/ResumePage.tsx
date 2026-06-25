@@ -1,338 +1,965 @@
-import { useEffect, useState } from "react";
+import {
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
+
 import {
     AlertCircle,
     Clock,
     FileText,
-    Loader2,
     RefreshCw,
     Trash2,
     Upload,
+    WifiOff,
 } from "lucide-react";
-import { AppLayout } from "../components/ui/AppLayout";
-import { UploadResumeModal } from "../components/resume/UploadResumeModal";
-import { ResumeAnalysisView } from "../components/resume/ResumeAnalysisView";
-import { resumeService } from "../services/resume.service";
-import type { Resume } from "../services/resume.service";
 
-const getScoreTone = (score?: number | null) => {
-    if (typeof score !== "number") {
+import {
+    isAxiosError,
+} from "axios";
+
+import {
+    AppLayout,
+} from "../components/ui/AppLayout";
+
+import {
+    ActionButton,
+} from "../components/ui/design-system/ActionButton";
+
+import {
+    AppModal,
+} from "../components/ui/design-system/AppModal";
+
+import {
+    EmptyState,
+} from "../components/ui/design-system/EmptyState";
+
+import {
+    PageSurface,
+} from "../components/ui/design-system/PageSurface";
+
+import {
+    SectionHeader,
+} from "../components/ui/design-system/SectionHeader";
+
+import {
+    Skeleton,
+} from "../components/ui/design-system/Skeleton";
+
+import {
+    StatusNotice,
+} from "../components/ui/design-system/StatusNotice";
+
+import {
+    ResumeAnalysisSkeleton,
+} from "../components/resume/ResumeAnalysisSkeleton";
+
+import {
+    ResumeAnalysisView,
+} from "../components/resume/ResumeAnalysisView";
+
+import {
+    ResumeErrorBoundary,
+} from "../components/resume/ResumeErrorBoundary";
+
+import {
+    UploadResumeModal,
+} from "../components/resume/UploadResumeModal";
+
+import {
+    resumeService,
+} from "../services/resume.service";
+
+import type {
+    Resume,
+} from "../services/resume.service";
+
+interface ApiErrorResponse {
+    message?: string;
+}
+
+const getScoreTone = (
+    score?: number | null
+) => {
+    if (
+        typeof score !==
+        "number"
+    ) {
         return "text-text-tertiary";
     }
 
-    if (score >= 75) return "text-success";
-    if (score >= 55) return "text-brand";
+    if (score >= 75) {
+        return "text-success";
+    }
+
+    if (score >= 55) {
+        return "text-[#A5B4FC]";
+    }
+
     return "text-danger";
 };
 
-const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-    });
-};
-
-const formatFileSize = (size?: number | null) => {
-    if (!size) return "Unknown size";
-
-    return `${(size / 1024 / 1024).toFixed(2)} MB`;
-};
-
-export const ResumePage = () => {
-    const [resumes, setResumes] = useState<Resume[]>([]);
-    const [selectedResume, setSelectedResume] = useState<Resume | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
-    const [showUploadModal, setShowUploadModal] = useState(false);
-    const [error, setError] = useState("");
-
-    const fetchResumes = async () => {
-        try {
-            setIsLoading(true);
-            setError("");
-
-            const { data } = await resumeService.getAll();
-
-            setResumes(data.resumes);
-
-            if (data.resumes.length > 0) {
-                setSelectedResume((current) => {
-                    if (!current) return data.resumes[0];
-
-                    return (
-                        data.resumes.find((resume) => resume.id === current.id) ??
-                        data.resumes[0]
-                    );
-                });
-            } else {
-                setSelectedResume(null);
-            }
-        } catch (err: any) {
-            setError(
-                err.response?.data?.message ||
-                "Failed to load resume intelligence reports."
-            );
-        } finally {
-            setIsLoading(false);
+const formatDate = (
+    date: string
+) => {
+    return new Date(
+        date
+    ).toLocaleDateString(
+        "en-IN",
+        {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
         }
-    };
+    );
+};
 
-    useEffect(() => {
-        fetchResumes();
-    }, []);
+const formatFileSize = (
+    size?: number | null
+) => {
+    if (!size) {
+        return "Unknown size";
+    }
 
-    const handleUploaded = (resume: Resume) => {
-        setResumes((previous) => [resume, ...previous]);
-        setSelectedResume(resume);
-    };
+    return `${(
+        size /
+        1024 /
+        1024
+    ).toFixed(2)} MB`;
+};
 
-    const handleDelete = async (resumeId: string) => {
-        const confirmDelete = window.confirm(
-            "Delete this resume version? This action cannot be undone."
+const getErrorMessage = (
+    error: unknown,
+    fallback: string
+) => {
+    if (
+        isAxiosError<ApiErrorResponse>(
+            error
+        )
+    ) {
+        return (
+            error.response
+                ?.data
+                ?.message ||
+            fallback
+        );
+    }
+
+    return fallback;
+};
+
+const ResumeVersionCard = ({
+    resume,
+    selected,
+    deleting,
+    mobile = false,
+    onSelect,
+    onDelete,
+}: {
+    resume: Resume;
+    selected: boolean;
+    deleting: boolean;
+    mobile?: boolean;
+    onSelect: () => void;
+    onDelete: () => void;
+}) => {
+    const scoreTone =
+        getScoreTone(
+            resume.atsScore
         );
 
-        if (!confirmDelete) return;
-
-        try {
-            setIsDeletingId(resumeId);
-            setError("");
-
-            await resumeService.delete(resumeId);
-
-            setResumes((previous) => {
-                const updated = previous.filter((resume) => resume.id !== resumeId);
-
-                if (selectedResume?.id === resumeId) {
-                    setSelectedResume(updated[0] ?? null);
-                }
-
-                return updated;
-            });
-        } catch (err: any) {
-            setError(
-                err.response?.data?.message || "Failed to delete resume version."
-            );
-        } finally {
-            setIsDeletingId(null);
-        }
-    };
-
     return (
-        <AppLayout>
-            <div className="space-y-6">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-muted text-brand">
-                                <FileText size={20} />
-                            </div>
+        <div
+            className={[
+                "group relative rounded-xl border text-left transition duration-200",
+                mobile
+                    ? "w-[17rem] shrink-0 snap-start"
+                    : "w-full",
+                selected
+                    ? "border-brand/55 bg-brand/10 shadow-[0_0_0_1px_rgba(99,102,241,0.10)]"
+                    : "border-border bg-bg-tertiary hover:border-border-hover hover:bg-bg-hover",
+            ].join(
+                " "
+            )}
+        >
+            <button
+                type="button"
+                onClick={
+                    onSelect
+                }
+                aria-pressed={
+                    selected
+                }
+                className="w-full rounded-xl p-3 pr-11 text-left outline-none focus-visible:ring-2 focus-visible:ring-brand/70"
+            >
+                <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-bold text-text-primary">
+                                Version{" "}
+                                {
+                                    resume.version
+                                }
+                            </p>
 
-                            <div>
-                                <h1 className="text-2xl font-bold text-text-primary">
-                                    Resume Intelligence
-                                </h1>
-                                <p className="text-sm text-text-secondary">
-                                    ATS score, role fit, keyword gaps, project depth, and resume
-                                    action plan.
-                                </p>
-                            </div>
+                            <span
+                                className={[
+                                    "rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide",
+                                    resume.analysisStatus ===
+                                        "ANALYZED"
+                                        ? "border-success/20 bg-success/10 text-success"
+                                        : resume.analysisStatus ===
+                                            "FAILED"
+                                            ? "border-danger/20 bg-danger/10 text-danger"
+                                            : "border-warning/20 bg-warning/10 text-warning",
+                                ].join(
+                                    " "
+                                )}
+                            >
+                                {
+                                    resume.analysisStatus
+                                }
+                            </span>
                         </div>
+
+                        <p className="mt-1 truncate text-xs text-text-secondary">
+                            {resume.fileName ||
+                                "Resume PDF"}
+                        </p>
+
+                        <p className="mt-2 text-[11px] text-text-tertiary">
+                            {formatDate(
+                                resume.createdAt
+                            )}{" "}
+                            ·{" "}
+                            {formatFileSize(
+                                resume.fileSize
+                            )}
+                        </p>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={fetchResumes}
-                            disabled={isLoading}
-                            className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-text-secondary transition hover:border-border-hover hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
-                        >
-                            <RefreshCw
-                                size={15}
-                                className={isLoading ? "animate-spin" : ""}
-                            />
-                            Refresh
-                        </button>
-
-                        <button
-                            onClick={() => setShowUploadModal(true)}
-                            className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-hover"
-                        >
-                            <Upload size={15} />
-                            Upload Resume
-                        </button>
-                    </div>
+                    <span
+                        className={[
+                            "shrink-0 text-lg font-black",
+                            scoreTone,
+                        ].join(
+                            " "
+                        )}
+                    >
+                        {typeof resume.atsScore ===
+                            "number"
+                            ? resume.atsScore
+                            : "--"}
+                    </span>
                 </div>
 
-                {error && (
-                    <div className="flex items-start gap-2 rounded-xl border border-danger/20 bg-danger-muted px-4 py-3 text-sm text-danger">
-                        <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                        <p>{error}</p>
+                {resume.targetRole && (
+                    <p className="mt-3 truncate rounded-lg border border-border bg-bg-secondary/70 px-2.5 py-1.5 text-xs text-text-secondary">
+                        {
+                            resume.targetRole
+                        }
+                    </p>
+                )}
+            </button>
+
+            <button
+                type="button"
+                onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete();
+                }}
+                disabled={deleting}
+                aria-label={`Delete resume version ${resume.version}`}
+                className={[
+                    "absolute right-2 top-2",
+                    "inline-flex h-9 w-9 items-center justify-center",
+                    "rounded-lg border border-border",
+                    "bg-bg-secondary/90 text-text-tertiary",
+                    "opacity-100 shadow-sm backdrop-blur-sm",
+                    "transition duration-150",
+                    "hover:border-danger/40 hover:bg-danger/10 hover:text-danger",
+                    "active:scale-95",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/70",
+                    "disabled:cursor-not-allowed disabled:opacity-50",
+                ].join(" ")}
+            >
+                <Trash2
+                    size={14}
+                    className={
+                        deleting
+                            ? "animate-pulse"
+                            : ""
+                    }
+                    aria-hidden="true"
+                />
+            </button>
+        </div>
+    );
+};
+
+const ResumePageContent = () => {
+    const [
+        resumes,
+        setResumes,
+    ] = useState<Resume[]>(
+        []
+    );
+
+    const [
+        selectedResume,
+        setSelectedResume,
+    ] = useState<Resume | null>(
+        null
+    );
+
+    const [
+        isLoading,
+        setIsLoading,
+    ] = useState(true);
+
+    const [
+        isDeletingId,
+        setIsDeletingId,
+    ] = useState<string | null>(
+        null
+    );
+
+    const [
+        pendingDeleteResume,
+        setPendingDeleteResume,
+    ] = useState<Resume | null>(
+        null
+    );
+
+    const [
+        showUploadModal,
+        setShowUploadModal,
+    ] = useState(false);
+
+    const [
+        error,
+        setError,
+    ] = useState("");
+
+    const [
+        isOnline,
+        setIsOnline,
+    ] = useState(
+        () =>
+            typeof navigator ===
+            "undefined" ||
+            navigator.onLine
+    );
+
+    const sortedResumes =
+        useMemo(
+            () =>
+                [...resumes].sort(
+                    (
+                        first,
+                        second
+                    ) =>
+                        new Date(
+                            second.createdAt
+                        ).getTime() -
+                        new Date(
+                            first.createdAt
+                        ).getTime()
+                ),
+            [resumes]
+        );
+
+    const fetchResumes =
+        async (
+            showLoading = true
+        ) => {
+            try {
+                if (showLoading) {
+                    setIsLoading(
+                        true
+                    );
+                }
+
+                setError("");
+
+                const { data } =
+                    await resumeService
+                        .getAll();
+
+                const nextResumes =
+                    data.resumes;
+
+                setResumes(
+                    nextResumes
+                );
+
+                setSelectedResume(
+                    (current) => {
+                        if (
+                            nextResumes.length ===
+                            0
+                        ) {
+                            return null;
+                        }
+
+                        if (!current) {
+                            return nextResumes[0];
+                        }
+
+                        return (
+                            nextResumes.find(
+                                (
+                                    resume
+                                ) =>
+                                    resume.id ===
+                                    current.id
+                            ) ??
+                            nextResumes[0]
+                        );
+                    }
+                );
+            } catch (fetchError) {
+                setError(
+                    getErrorMessage(
+                        fetchError,
+                        "Failed to load resume intelligence reports."
+                    )
+                );
+            } finally {
+                if (showLoading) {
+                    setIsLoading(
+                        false
+                    );
+                }
+            }
+        };
+
+    useEffect(() => {
+        void fetchResumes();
+
+        const handleOnline =
+            () => setIsOnline(true);
+
+        const handleOffline =
+            () => setIsOnline(false);
+
+        window.addEventListener(
+            "online",
+            handleOnline
+        );
+
+        window.addEventListener(
+            "offline",
+            handleOffline
+        );
+
+        return () => {
+            window.removeEventListener(
+                "online",
+                handleOnline
+            );
+
+            window.removeEventListener(
+                "offline",
+                handleOffline
+            );
+        };
+    }, []);
+
+    const handleUploaded = (
+        resume: Resume
+    ) => {
+        setResumes(
+            (previous) => [
+                resume,
+                ...previous.filter(
+                    (
+                        item
+                    ) =>
+                        item.id !==
+                        resume.id
+                ),
+            ]
+        );
+
+        setSelectedResume(
+            resume
+        );
+
+        setError("");
+    };
+
+    const handleDelete =
+        async () => {
+            if (
+                !pendingDeleteResume
+            ) {
+                return;
+            }
+
+            if (!isOnline) {
+                setError(
+                    "You are offline. Reconnect before deleting a resume."
+                );
+                return;
+            }
+
+            const resumeId =
+                pendingDeleteResume.id;
+
+            try {
+                setIsDeletingId(
+                    resumeId
+                );
+
+                setError("");
+
+                await resumeService
+                    .delete(
+                        resumeId
+                    );
+
+                setResumes(
+                    (previous) => {
+                        const updated =
+                            previous.filter(
+                                (
+                                    resume
+                                ) =>
+                                    resume.id !==
+                                    resumeId
+                            );
+
+                        setSelectedResume(
+                            (
+                                current
+                            ) =>
+                                current?.id ===
+                                    resumeId
+                                    ? updated[0] ??
+                                    null
+                                    : current
+                        );
+
+                        return updated;
+                    }
+                );
+
+                setPendingDeleteResume(
+                    null
+                );
+            } catch (deleteError) {
+                setError(
+                    getErrorMessage(
+                        deleteError,
+                        "Failed to delete resume version."
+                    )
+                );
+            } finally {
+                setIsDeletingId(
+                    null
+                );
+            }
+        };
+
+    return (
+        <AppLayout
+            title="Resume Intelligence"
+            description="ATS score, role fit, keyword gaps, project depth, and an actionable improvement plan."
+        >
+            <div className="mx-auto grid w-full max-w-[1500px] gap-4 sm:gap-5">
+                <PageSurface padding="md">
+                    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                        <SectionHeader
+                            title="Resume workspace"
+                            description={`${resumes.length} saved ${resumes.length ===
+                                1
+                                ? "version"
+                                : "versions"
+                                }. Select a report to compare progress.`}
+                            icon={
+                                <FileText
+                                    size={19}
+                                    aria-hidden="true"
+                                />
+                            }
+                            compact
+                        />
+
+                        <div className="grid grid-cols-2 gap-2 sm:flex">
+                            <ActionButton
+                                type="button"
+                                variant="secondary"
+                                loading={
+                                    isLoading
+                                }
+                                loadingText="Loading..."
+                                leadingIcon={
+                                    <RefreshCw
+                                        size={15}
+                                        aria-hidden="true"
+                                    />
+                                }
+                                disabled={
+                                    !isOnline
+                                }
+                                onClick={() =>
+                                    void fetchResumes()
+                                }
+                            >
+                                Refresh
+                            </ActionButton>
+
+                            <ActionButton
+                                type="button"
+                                leadingIcon={
+                                    <Upload
+                                        size={16}
+                                        aria-hidden="true"
+                                    />
+                                }
+                                disabled={
+                                    !isOnline
+                                }
+                                onClick={() =>
+                                    setShowUploadModal(
+                                        true
+                                    )
+                                }
+                            >
+                                Upload
+                            </ActionButton>
+                        </div>
                     </div>
+                </PageSurface>
+
+                {!isOnline && (
+                    <StatusNotice
+                        tone="warning"
+                        title="You are offline"
+                    >
+                        <span className="inline-flex items-start gap-2">
+                            <WifiOff
+                                size={16}
+                                className="mt-0.5 shrink-0"
+                                aria-hidden="true"
+                            />
+
+                            Existing reports remain visible, but uploads, refreshes, PDF viewing, and deletion may fail until the connection returns.
+                        </span>
+                    </StatusNotice>
+                )}
+
+                {error && (
+                    <StatusNotice
+                        tone="error"
+                        dismissible
+                        onDismiss={() =>
+                            setError("")
+                        }
+                    >
+                        <span className="inline-flex items-start gap-2">
+                            <AlertCircle
+                                size={16}
+                                className="mt-0.5 shrink-0"
+                                aria-hidden="true"
+                            />
+
+                            {error}
+                        </span>
+                    </StatusNotice>
                 )}
 
                 {isLoading ? (
-                    <div className="grid gap-4 lg:grid-cols-12">
-                        <div className="space-y-3 lg:col-span-3">
-                            {[1, 2, 3].map((item) => (
-                                <div
-                                    key={item}
-                                    className="h-24 animate-pulse rounded-2xl border border-border bg-bg-secondary"
-                                />
-                            ))}
-                        </div>
-
-                        <div className="space-y-4 lg:col-span-9">
-                            <div className="h-48 animate-pulse rounded-2xl border border-border bg-bg-secondary" />
-                            <div className="grid gap-4 md:grid-cols-3">
-                                {[1, 2, 3].map((item) => (
-                                    <div
-                                        key={item}
-                                        className="h-32 animate-pulse rounded-2xl border border-border bg-bg-secondary"
+                    <div className="grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                            {Array.from({
+                                length: 3,
+                            }).map(
+                                (
+                                    _,
+                                    index
+                                ) => (
+                                    <Skeleton
+                                        key={
+                                            index
+                                        }
+                                        height="7rem"
                                     />
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                ) : resumes.length === 0 ? (
-                    <div className="flex min-h-[520px] flex-col items-center justify-center rounded-2xl border border-border bg-bg-secondary px-6 text-center">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-bg-tertiary text-text-tertiary">
-                            <FileText size={30} />
-                        </div>
-
-                        <h2 className="mt-5 text-xl font-semibold text-text-primary">
-                            No resume uploaded yet
-                        </h2>
-
-                        <p className="mt-2 max-w-md text-sm leading-6 text-text-secondary">
-                            Upload your resume PDF to generate ATS score, role-fit score,
-                            keyword gaps, section feedback, and project improvement
-                            suggestions.
-                        </p>
-
-                        <button
-                            onClick={() => setShowUploadModal(true)}
-                            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-medium text-white transition hover:bg-brand-hover"
-                        >
-                            <Upload size={16} />
-                            Upload First Resume
-                        </button>
-                    </div>
-                ) : (
-                    <div className="grid gap-5 lg:grid-cols-12">
-                        <aside className="lg:col-span-3">
-                            <div className="sticky top-6 rounded-2xl border border-border bg-bg-secondary p-4">
-                                <div className="mb-4 flex items-center gap-2">
-                                    <Clock size={15} className="text-brand" />
-                                    <h2 className="text-sm font-semibold text-text-primary">
-                                        Version History
-                                    </h2>
-                                </div>
-
-                                <div className="space-y-2">
-                                    {resumes.map((resume) => {
-                                        const isSelected = selectedResume?.id === resume.id;
-                                        const scoreTone = getScoreTone(resume.atsScore);
-
-                                        return (
-                                            <div
-                                                key={resume.id}
-                                                role="button"
-                                                tabIndex={0}
-                                                onClick={() => setSelectedResume(resume)}
-                                                onKeyDown={(event) => {
-                                                    if (event.key === "Enter" || event.key === " ") {
-                                                        setSelectedResume(resume);
-                                                    }
-                                                }}
-                                                className={`w-full cursor-pointer rounded-xl border p-3 text-left transition ${isSelected
-                                                    ? "border-brand bg-brand-muted"
-                                                    : "border-border bg-bg-tertiary hover:border-border-hover hover:bg-bg-hover"
-                                                    }`}
-                                            >
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="min-w-0">
-                                                        <div className="flex items-center gap-2">
-                                                            <p className="text-sm font-semibold text-text-primary">
-                                                                Version {resume.version}
-                                                            </p>
-
-                                                            {resume.analysisStatus === "ANALYZED" && (
-                                                                <span className="rounded-full bg-success-muted px-2 py-0.5 text-[10px] font-medium text-success">
-                                                                    Analyzed
-                                                                </span>
-                                                            )}
-                                                        </div>
-
-                                                        <p className="mt-1 truncate text-xs text-text-tertiary">
-                                                            {resume.fileName || "Resume PDF"}
-                                                        </p>
-
-                                                        <p className="mt-1 text-xs text-text-tertiary">
-                                                            {formatDate(resume.createdAt)}
-                                                        </p>
-
-                                                        <p className="mt-1 text-xs text-text-tertiary">
-                                                            {formatFileSize(resume.fileSize)}
-                                                        </p>
-                                                    </div>
-
-                                                    <div className="flex shrink-0 flex-col items-end gap-2">
-                                                        <span className={`text-lg font-bold ${scoreTone}`}>
-                                                            {typeof resume.atsScore === "number"
-                                                                ? resume.atsScore
-                                                                : "--"}
-                                                        </span>
-
-                                                        <button
-                                                            onClick={(event) => {
-                                                                event.stopPropagation();
-                                                                handleDelete(resume.id);
-                                                            }}
-                                                            disabled={isDeletingId === resume.id}
-                                                            className="rounded-lg p-1.5 text-text-tertiary transition hover:bg-danger-muted hover:text-danger disabled:opacity-60"
-                                                        >
-                                                            {isDeletingId === resume.id ? (
-                                                                <Loader2 size={13} className="animate-spin" />
-                                                            ) : (
-                                                                <Trash2 size={13} />
-                                                            )}
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                {resume.targetRole && (
-                                                    <div className="mt-3 rounded-lg bg-bg-secondary px-2 py-1 text-xs text-text-secondary">
-                                                        {resume.targetRole}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </aside>
-
-                        <main className="lg:col-span-9">
-                            {selectedResume ? (
-                                <ResumeAnalysisView resume={selectedResume} />
-                            ) : (
-                                <div className="rounded-2xl border border-border bg-bg-secondary p-8 text-center">
-                                    <FileText size={30} className="mx-auto text-text-tertiary" />
-                                    <p className="mt-3 text-sm text-text-secondary">
-                                        Select a resume version to view analysis.
-                                    </p>
-                                </div>
+                                )
                             )}
-                        </main>
+                        </div>
+
+                        <ResumeAnalysisSkeleton />
                     </div>
+                ) : resumes.length ===
+                    0 ? (
+                    <EmptyState
+                        title="Upload your first resume"
+                        description="Generate ATS, role-fit, keyword, project, readability, and recruiter-focused improvement intelligence."
+                        icon={
+                            <FileText
+                                size={30}
+                                aria-hidden="true"
+                            />
+                        }
+                        action={
+                            <ActionButton
+                                type="button"
+                                leadingIcon={
+                                    <Upload
+                                        size={16}
+                                        aria-hidden="true"
+                                    />
+                                }
+                                disabled={
+                                    !isOnline
+                                }
+                                onClick={() =>
+                                    setShowUploadModal(
+                                        true
+                                    )
+                                }
+                            >
+                                Upload First Resume
+                            </ActionButton>
+                        }
+                    />
+                ) : (
+                    <>
+                        <section className="lg:hidden">
+                            <div className="mb-3 flex items-center gap-2">
+                                <Clock
+                                    size={15}
+                                    className="text-[#A5B4FC]"
+                                    aria-hidden="true"
+                                />
+
+                                <h2 className="text-sm font-bold text-text-primary">
+                                    Version history
+                                </h2>
+                            </div>
+
+                            <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6">
+                                {sortedResumes.map(
+                                    (
+                                        resume
+                                    ) => (
+                                        <ResumeVersionCard
+                                            key={
+                                                resume.id
+                                            }
+                                            resume={
+                                                resume
+                                            }
+                                            selected={
+                                                selectedResume?.id ===
+                                                resume.id
+                                            }
+                                            deleting={
+                                                isDeletingId ===
+                                                resume.id
+                                            }
+                                            mobile
+                                            onSelect={() =>
+                                                setSelectedResume(
+                                                    resume
+                                                )
+                                            }
+                                            onDelete={() =>
+                                                setPendingDeleteResume(
+                                                    resume
+                                                )
+                                            }
+                                        />
+                                    )
+                                )}
+                            </div>
+                        </section>
+
+                        <div className="grid min-w-0 gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
+                            <aside className="hidden lg:block">
+                                <PageSurface
+                                    padding="md"
+                                    className="sticky top-6"
+                                >
+                                    <div className="mb-4 flex items-center gap-2">
+                                        <Clock
+                                            size={15}
+                                            className="text-[#A5B4FC]"
+                                            aria-hidden="true"
+                                        />
+
+                                        <h2 className="text-sm font-bold text-text-primary">
+                                            Version history
+                                        </h2>
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        {sortedResumes.map(
+                                            (
+                                                resume
+                                            ) => (
+                                                <ResumeVersionCard
+                                                    key={
+                                                        resume.id
+                                                    }
+                                                    resume={
+                                                        resume
+                                                    }
+                                                    selected={
+                                                        selectedResume?.id ===
+                                                        resume.id
+                                                    }
+                                                    deleting={
+                                                        isDeletingId ===
+                                                        resume.id
+                                                    }
+                                                    onSelect={() =>
+                                                        setSelectedResume(
+                                                            resume
+                                                        )
+                                                    }
+                                                    onDelete={() =>
+                                                        setPendingDeleteResume(
+                                                            resume
+                                                        )
+                                                    }
+                                                />
+                                            )
+                                        )}
+                                    </div>
+                                </PageSurface>
+                            </aside>
+
+                            <main className="min-w-0">
+                                {selectedResume ? (
+                                    <ResumeAnalysisView
+                                        resume={
+                                            selectedResume
+                                        }
+                                    />
+                                ) : (
+                                    <EmptyState
+                                        compact
+                                        title="Select a resume version"
+                                        description="Choose a saved version to view its analysis report."
+                                        icon={
+                                            <FileText
+                                                size={28}
+                                                aria-hidden="true"
+                                            />
+                                        }
+                                    />
+                                )}
+                            </main>
+                        </div>
+                    </>
                 )}
             </div>
 
             {showUploadModal && (
                 <UploadResumeModal
-                    onClose={() => setShowUploadModal(false)}
-                    onUploaded={handleUploaded}
+                    onClose={() =>
+                        setShowUploadModal(
+                            false
+                        )
+                    }
+                    onUploaded={
+                        handleUploaded
+                    }
                 />
             )}
+
+            <AppModal
+                open={
+                    Boolean(
+                        pendingDeleteResume
+                    )
+                }
+                title="Delete resume version?"
+                description={
+                    pendingDeleteResume
+                        ? `Version ${pendingDeleteResume.version} and its analysis report will be permanently removed.`
+                        : undefined
+                }
+                size="sm"
+                busy={
+                    Boolean(
+                        isDeletingId
+                    )
+                }
+                icon={
+                    <Trash2
+                        size={19}
+                        aria-hidden="true"
+                    />
+                }
+                onClose={() =>
+                    setPendingDeleteResume(
+                        null
+                    )
+                }
+                footer={
+                    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                        <ActionButton
+                            type="button"
+                            variant="secondary"
+                            disabled={
+                                Boolean(
+                                    isDeletingId
+                                )
+                            }
+                            onClick={() =>
+                                setPendingDeleteResume(
+                                    null
+                                )
+                            }
+                        >
+                            Cancel
+                        </ActionButton>
+
+                        <ActionButton
+                            type="button"
+                            variant="danger"
+                            loading={
+                                Boolean(
+                                    isDeletingId
+                                )
+                            }
+                            loadingText="Deleting..."
+                            leadingIcon={
+                                <Trash2
+                                    size={16}
+                                    aria-hidden="true"
+                                />
+                            }
+                            disabled={
+                                !isOnline
+                            }
+                            onClick={() =>
+                                void handleDelete()
+                            }
+                        >
+                            Delete version
+                        </ActionButton>
+                    </div>
+                }
+            >
+                <StatusNotice
+                    tone="error"
+                >
+                    This operation cannot be undone. The stored file and generated intelligence report for this version will be removed.
+                </StatusNotice>
+            </AppModal>
         </AppLayout>
+    );
+};
+
+export const ResumePage = () => {
+    return (
+        <ResumeErrorBoundary>
+            <ResumePageContent />
+        </ResumeErrorBoundary>
     );
 };
