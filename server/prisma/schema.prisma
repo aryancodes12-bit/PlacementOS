@@ -101,18 +101,19 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  profile          Profile?
-  dsaProblems      DSAProblem[]
-  resumes          Resume[]
-  interviews       InterviewSession[]
-  streaks          Streak[]
-  readinessScore   ReadinessScore?
-  dailyPlans       DailyPlan[]
-  readinessHistory ReadinessHistory[]
-  plan             Plan               @default(FREE)
-  payments         Payment[]
-  feedback         Feedback[]
-  notifications    Notification[]
+  profile                Profile?
+  dsaProblems            DSAProblem[]
+  resumes                Resume[]
+  interviews             InterviewSession[]
+  streaks                Streak[]
+  readinessScore         ReadinessScore?
+  dailyPlans             DailyPlan[]
+  readinessHistory       ReadinessHistory[]
+  plan                   Plan                    @default(FREE)
+  payments               Payment[]
+  feedback               Feedback[]
+  notifications          Notification[]
+  notificationPreference NotificationPreference?
 
   @@index([emailVerificationTokenHash])
 }
@@ -448,4 +449,34 @@ model Notification {
   @@index([userId, createdAt])
   @@index([emailEligible, emailSentAt])
   @@index([type])
+}
+
+model NotificationPreference {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // One optional combined reminder email per day.
+  emailDigestEnabled Boolean @default(false)
+
+  // Reminder categories controlled by the user.
+  streakRiskEnabled        Boolean @default(true)
+  dsaRevisionEnabled       Boolean @default(true)
+  resumeStaleEnabled       Boolean @default(true)
+  interviewInactiveEnabled Boolean @default(true)
+
+  // Digest delivery time in the user's timezone.
+  digestHour   Int    @default(20)
+  digestMinute Int    @default(0)
+  timezone     String @default("Asia/Kolkata")
+
+  // Used to enforce at most one digest per local calendar day.
+  lastDigestDate   String?
+  lastDigestSentAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([emailDigestEnabled])
 }

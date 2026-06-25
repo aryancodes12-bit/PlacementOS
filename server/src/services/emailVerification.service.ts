@@ -1,4 +1,6 @@
-import axios from "axios";
+import {
+    sendEmailJsTemplate,
+} from "./emailJs.service";
 
 interface SendVerificationEmailInput {
     email: string;
@@ -6,30 +8,11 @@ interface SendVerificationEmailInput {
     token: string;
 }
 
-interface EmailJsRequestBody {
-    service_id: string;
-    template_id: string;
-    user_id: string;
-    accessToken?: string;
-
-    template_params: {
-        to_email: string;
-        to_name: string;
-        verification_link: string;
-        expires_in: string;
-        application_name: string;
-    };
-}
-
-const EMAIL_SEND_INTERVAL_MS = 1_100;
-
-let emailQueue: Promise<void> = Promise.resolve();
-let lastEmailSentAt = 0;
-
 const requireEnvironmentVariable = (
     key: string
 ): string => {
-    const value = process.env[key]?.trim();
+    const value =
+        process.env[key]?.trim();
 
     if (!value) {
         throw new Error(
@@ -40,129 +23,54 @@ const requireEnvironmentVariable = (
     return value;
 };
 
-const wait = (milliseconds: number) =>
-    new Promise<void>((resolve) => {
-        setTimeout(resolve, milliseconds);
-    });
-
-const enqueueEmail = async (
-    operation: () => Promise<void>
-): Promise<void> => {
-    const queuedOperation = emailQueue.then(
-        async () => {
-            const elapsed =
-                Date.now() - lastEmailSentAt;
-
-            const remainingDelay = Math.max(
-                0,
-                EMAIL_SEND_INTERVAL_MS - elapsed
+export const sendVerificationEmail =
+    async ({
+        email,
+        name,
+        token,
+    }: SendVerificationEmailInput):
+        Promise<void> => {
+        const templateId =
+            requireEnvironmentVariable(
+                "EMAILJS_TEMPLATE_ID"
             );
 
-            if (remainingDelay > 0) {
-                await wait(remainingDelay);
-            }
+        const clientUrl =
+            requireEnvironmentVariable(
+                "CLIENT_URL"
+            ).replace(
+                /\/+$/,
+                ""
+            );
 
-            await operation();
+        const verificationLink =
+            `${clientUrl}/verify-email?token=` +
+            encodeURIComponent(token);
 
-            lastEmailSentAt = Date.now();
-        }
-    );
+        await sendEmailJsTemplate({
+            templateId,
 
-    emailQueue = queuedOperation.catch(
-        () => undefined
-    );
+            logLabel:
+                "verification",
 
-    return queuedOperation;
-};
+            failureMessage:
+                "Verification email could not be sent.",
 
-export const sendVerificationEmail = async ({
-    email,
-    name,
-    token,
-}: SendVerificationEmailInput): Promise<void> => {
-    const serviceId =
-        requireEnvironmentVariable(
-            "EMAILJS_SERVICE_ID"
-        );
+            templateParams: {
+                to_email:
+                    email,
 
-    const templateId =
-        requireEnvironmentVariable(
-            "EMAILJS_TEMPLATE_ID"
-        );
+                to_name:
+                    name,
 
-    const publicKey =
-        requireEnvironmentVariable(
-            "EMAILJS_PUBLIC_KEY"
-        );
+                verification_link:
+                    verificationLink,
 
-    /*
-     * Optional. Only needed when private-key authorization
-     * is enabled in EmailJS Account → Security.
-     */
-    const privateKey =
-        process.env.EMAILJS_PRIVATE_KEY?.trim();
+                expires_in:
+                    "30 minutes",
 
-    const clientUrl =
-        requireEnvironmentVariable(
-            "CLIENT_URL"
-        ).replace(/\/+$/, "");
-
-    const verificationLink =
-        `${clientUrl}/verify-email?token=` +
-        encodeURIComponent(token);
-
-    const requestBody: EmailJsRequestBody = {
-        service_id: serviceId,
-        template_id: templateId,
-        user_id: publicKey,
-
-        template_params: {
-            to_email: email,
-            to_name: name,
-            verification_link:
-                verificationLink,
-            expires_in: "30 minutes",
-            application_name: "PlacementOS",
-        },
+                application_name:
+                    "PlacementOS",
+            },
+        });
     };
-
-    if (privateKey) {
-        requestBody.accessToken =
-            privateKey;
-    }
-
-    await enqueueEmail(async () => {
-        try {
-            await axios.post(
-                "https://api.emailjs.com/api/v1.0/email/send",
-                requestBody,
-                {
-                    headers: {
-                        "Content-Type":
-                            "application/json",
-                    },
-
-                    timeout: 10_000,
-                }
-            );
-        } catch (error: any) {
-            console.error(
-                "EmailJS verification error:",
-                {
-                    status:
-                        error.response?.status,
-
-                    response:
-                        error.response?.data,
-
-                    message:
-                        error.message,
-                }
-            );
-
-            throw new Error(
-                "Verification email could not be sent."
-            );
-        }
-    });
-};
