@@ -3,17 +3,19 @@ import type {
 } from "react";
 
 import {
+    ArrowLeft,
     CheckCircle2,
     ShieldCheck,
-
     Target,
 } from "lucide-react";
-
-import placementOsLogo from "../../assets/logo.jpeg";
 
 import {
     Link,
 } from "react-router-dom";
+
+import {
+    BrandLogo,
+} from "../ui/BrandLogo";
 
 interface AuthShellProps {
     title: string;
@@ -44,19 +46,19 @@ export const AuthShell = ({
                             aria-label="Go to PlacementOS home"
                             className="inline-flex items-center rounded-xl transition hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
                         >
-                            <img
-                                src={placementOsLogo}
-                                alt="PlacementOS — Know Your Placement Readiness"
-                                loading="eager"
-                                fetchPriority="high"
-                                draggable={false}
-                                className="h-30 w-60 rounded-2xl object-contain"
+                            <BrandLogo
+                                variant="loader"
+                                priority
+                                className="items-start text-left"
                             />
                         </Link>
 
                         <div className="mt-24 max-w-xl">
                             <div className="inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-200">
-                                <Target size={13} />
+                                <Target
+                                    size={13}
+                                    aria-hidden="true"
+                                />
                                 Prepare with clarity
                             </div>
 
@@ -81,6 +83,7 @@ export const AuthShell = ({
                                             <CheckCircle2
                                                 size={16}
                                                 className="text-emerald-400"
+                                                aria-hidden="true"
                                             />
 
                                             {benefit}
@@ -95,22 +98,37 @@ export const AuthShell = ({
                         <ShieldCheck
                             size={14}
                             className="text-emerald-400"
+                            aria-hidden="true"
                         />
                         Secure authentication and user-controlled data
                     </div>
                 </section>
 
-                <main className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
+                <main className="flex min-h-screen items-center justify-center px-5 py-8 sm:px-8 sm:py-10">
                     <div className="w-full max-w-md">
-                        <Link
-                            to="/"
-                            className="mb-10 inline-flex items-center gap-2 text-lg font-bold lg:hidden"
-                        >
-                            Placement
-                            <span className="text-indigo-400">
-                                OS
-                            </span>
-                        </Link>
+                        <div className="mb-8 flex items-center justify-between gap-3 lg:hidden">
+                            <Link
+                                to="/"
+                                aria-label="Go to PlacementOS home"
+                                className="min-w-0 rounded-xl transition hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                            >
+                                <BrandLogo
+                                    variant="auth"
+                                    priority
+                                />
+                            </Link>
+
+                            <Link
+                                to="/"
+                                className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-300 transition hover:border-indigo-400/30 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                            >
+                                <ArrowLeft
+                                    size={14}
+                                    aria-hidden="true"
+                                />
+                                Home
+                            </Link>
+                        </div>
 
                         <div className="mb-7">
                             <h1 className="text-3xl font-bold tracking-tight">

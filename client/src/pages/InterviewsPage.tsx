@@ -1,11 +1,21 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
+
+import type {
+    FormEvent,
+    ReactNode,
+} from "react";
+
 import {
     BarChart3,
     Building2,
     CalendarDays,
     CheckCircle2,
-
+    Eye,
     Mic,
     Plus,
     Search,
@@ -14,520 +24,1216 @@ import {
     TrendingUp,
 } from "lucide-react";
 
-import { AppLayout } from "../components/ui/AppLayout";
-import { interviewService } from "../services/interview.service";
+import {
+    useNavigate,
+} from "react-router-dom";
+
+import {
+    InterviewErrorBoundary,
+} from "../components/interviews/InterviewErrorBoundary";
+
+import {
+    InterviewPageSkeleton,
+} from "../components/interviews/InterviewPageSkeleton";
+
+import {
+    formatInterviewDate,
+    formatInterviewEnum,
+    getInterviewApiError,
+    getInterviewDisplayScores,
+    getInterviewResultClasses,
+    getInterviewScoreTone,
+    INTERVIEW_RESULTS,
+    INTERVIEW_ROUND_TYPES,
+} from "../components/interviews/interview-ui.utils";
+
+import {
+    ActionButton,
+} from "../components/ui/design-system/ActionButton";
+
+import {
+    EmptyState,
+} from "../components/ui/design-system/EmptyState";
+
+import {
+    IconTile,
+} from "../components/ui/design-system/IconTile";
 
 import type {
-    InterviewReplay,
-    InterviewStats,
-    InterviewResult,
+    IconTileTone,
+} from "../components/ui/design-system/IconTile";
 
+import {
+    PageSurface,
+} from "../components/ui/design-system/PageSurface";
+
+import {
+    SelectField,
+    TextField,
+} from "../components/ui/design-system/FormControls";
+
+import {
+    StatusNotice,
+} from "../components/ui/design-system/StatusNotice";
+
+import {
+    AppLayout,
+} from "../components/ui/AppLayout";
+
+import {
+    interviewService,
 } from "../services/interview.service";
 
-const formatEnum = (value: string) => {
-    return value
-        .toLowerCase()
-        .split("_")
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(" ");
+import type {
+    InterviewFilters,
+    InterviewReplay,
+    InterviewResult,
+    InterviewRoundType,
+    InterviewStats,
+} from "../services/interview.service";
+
+type InterviewListFilters = {
+    search: string;
+    roundType:
+    | InterviewRoundType
+    | "";
+    result:
+    | InterviewResult
+    | "";
 };
 
-const getResultClass = (result: InterviewResult) => {
-    if (result === "SELECTED") {
-        return "bg-success-muted text-success border-success/10";
-    }
+interface StatCardProps {
+    helper: string;
+    icon: ReactNode;
+    label: string;
+    tone: IconTileTone;
+    value: ReactNode;
+}
 
-    if (result === "REJECTED") {
-        return "bg-danger-muted text-danger border-danger/10";
-    }
+interface InsightPanelProps {
+    children: ReactNode;
+    icon: ReactNode;
+    title: string;
+}
 
-    if (result === "ON_HOLD") {
-        return "bg-warning-muted text-warning border-warning/10";
-    }
-
-    return "bg-brand-muted text-brand border-brand/10";
+const EMPTY_FILTERS: InterviewListFilters = {
+    search: "",
+    roundType: "",
+    result: "",
 };
 
-const getScoreLabel = (score: number) => {
-    if (score >= 8) return "Strong";
-    if (score >= 6) return "Average";
-    if (score > 0) return "Needs work";
-    return "No data";
+const roundTypeOptions = [
+    {
+        label: "All rounds",
+        value: "",
+    },
+    ...INTERVIEW_ROUND_TYPES.map(
+        (roundType) => ({
+            label:
+                formatInterviewEnum(
+                    roundType
+                ),
+            value:
+                roundType,
+        })
+    ),
+];
+
+const resultOptions = [
+    {
+        label: "All results",
+        value: "",
+    },
+    ...INTERVIEW_RESULTS.map(
+        (result) => ({
+            label:
+                formatInterviewEnum(
+                    result
+                ),
+            value:
+                result,
+        })
+    ),
+];
+
+const buildInterviewFilters = ({
+    search,
+    roundType,
+    result,
+}: InterviewListFilters): InterviewFilters => {
+    return {
+        search:
+            search.trim() ||
+            undefined,
+        roundType:
+            roundType ||
+            undefined,
+        result:
+            result ||
+            undefined,
+    };
+};
+
+const hasFilters = ({
+    search,
+    roundType,
+    result,
+}: InterviewListFilters) => {
+    return Boolean(
+        search.trim() ||
+        roundType ||
+        result
+    );
+};
+
+const getCompanyInitial = (
+    company: string
+) => {
+    return (
+        company
+            .trim()
+            .charAt(0)
+            .toUpperCase() ||
+        "I"
+    );
+};
+
+const StatCard = ({
+    helper,
+    icon,
+    label,
+    tone,
+    value,
+}: StatCardProps) => {
+    return (
+        <PageSurface padding="md">
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+                        {
+                            label
+                        }
+                    </p>
+
+                    <p className="mt-3 break-words text-xl font-bold leading-tight text-text-primary sm:text-2xl">
+                        {
+                            value
+                        }
+                    </p>
+
+                    <p className="mt-1 text-xs text-text-tertiary">
+                        {
+                            helper
+                        }
+                    </p>
+                </div>
+
+                <IconTile
+                    tone={
+                        tone
+                    }
+                    size="sm"
+                >
+                    {
+                        icon
+                    }
+                </IconTile>
+            </div>
+        </PageSurface>
+    );
+};
+
+const InsightPanel = ({
+    children,
+    icon,
+    title,
+}: InsightPanelProps) => {
+    return (
+        <PageSurface
+            as="section"
+            padding="lg"
+        >
+            <div className="mb-4 flex items-center gap-2">
+                {
+                    icon
+                }
+
+                <h3 className="text-sm font-semibold text-text-primary">
+                    {
+                        title
+                    }
+                </h3>
+            </div>
+
+            {
+                children
+            }
+        </PageSurface>
+    );
 };
 
 export const InterviewsPage = () => {
-    const navigate = useNavigate();
+    const navigate =
+        useNavigate();
 
-    const [interviews, setInterviews] = useState<InterviewReplay[]>([]);
-    const [stats, setStats] = useState<InterviewStats | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [interviews, setInterviews] =
+        useState<InterviewReplay[]>(
+            []
+        );
 
-    const [search, setSearch] = useState("");
-    const [roundType, setRoundType] = useState("");
-    const [result, setResult] = useState("");
+    const [stats, setStats] =
+        useState<InterviewStats | null>(
+            null
+        );
 
-    const fetchData = async () => {
-        setLoading(true);
+    const [loading, setLoading] =
+        useState(true);
 
-        try {
-            const [interviewsResponse, statsResponse] = await Promise.all([
-                interviewService.getAll({
-                    search: search || undefined,
-                    roundType: roundType || undefined,
-                    result: result || undefined,
-                }),
-                interviewService.getStats(),
-            ]);
+    const [refreshing, setRefreshing] =
+        useState(false);
 
-            setInterviews(interviewsResponse.data.interviews);
-            setStats(statsResponse.data);
-        } catch (error) {
-            console.error("Failed to fetch interviews:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const [error, setError] =
+        useState("");
 
-    useEffect(() => {
-        fetchData();
-    }, []);
+    const [filters, setFilters] =
+        useState<InterviewListFilters>(
+            EMPTY_FILTERS
+        );
 
-    const applyFilters = async () => {
-        await fetchData();
+    const [
+        appliedFilters,
+        setAppliedFilters,
+    ] =
+        useState<InterviewListFilters>(
+            EMPTY_FILTERS
+        );
+
+    const fetchInterviews =
+        useCallback(
+            async (
+                nextFilters:
+                InterviewListFilters =
+                    EMPTY_FILTERS,
+                initialLoad = false
+            ) => {
+                if (initialLoad) {
+                    setLoading(true);
+                } else {
+                    setRefreshing(true);
+                }
+
+                setError("");
+
+                try {
+                    const [
+                        interviewsResponse,
+                        statsResponse,
+                    ] =
+                        await Promise.all(
+                            [
+                                interviewService.getAll(
+                                    buildInterviewFilters(
+                                        nextFilters
+                                    )
+                                ),
+                                interviewService.getStats(),
+                            ]
+                        );
+
+                    setInterviews(
+                        interviewsResponse
+                            .data
+                            .interviews
+                    );
+                    setStats(
+                        statsResponse
+                            .data
+                    );
+                } catch (
+                    fetchError
+                ) {
+                    console.error(
+                        "Failed to fetch interviews:",
+                        fetchError
+                    );
+                    setError(
+                        getInterviewApiError(
+                            fetchError,
+                            "Failed to load interview replays."
+                        )
+                    );
+                } finally {
+                    setLoading(false);
+                    setRefreshing(false);
+                }
+            },
+            []
+        );
+
+    useEffect(
+        () => {
+            const timeoutId =
+                window.setTimeout(
+                    () => {
+                        void fetchInterviews(
+                            EMPTY_FILTERS,
+                            true
+                        );
+                    },
+                    0
+                );
+
+            return () => {
+                window.clearTimeout(
+                    timeoutId
+                );
+            };
+        },
+        [
+            fetchInterviews,
+        ]
+    );
+
+    const topWeakTopic =
+        stats
+            ?.mostMissedConcepts
+            ?.[0]
+            ?.name ||
+        stats
+            ?.mostRepeatedTopics
+            ?.[0]
+            ?.name ||
+        "No weak topic yet";
+
+    const weaknessItems =
+        stats
+            ?.mostMissedConcepts
+            ?.length
+            ? stats.mostMissedConcepts
+            : stats?.mostRepeatedTopics ??
+            [];
+
+    const hasActiveFilters =
+        hasFilters(
+            appliedFilters
+        );
+
+    const averageConfidenceTone =
+        getInterviewScoreTone(
+            stats?.averageConfidenceScore
+        );
+
+    const averageTechnicalTone =
+        getInterviewScoreTone(
+            stats?.averageTechnicalScore
+        );
+
+    const filteredEmptyCopy =
+        hasActiveFilters
+            ? {
+                title:
+                    "No interviews match these filters",
+                description:
+                    "Try clearing the filters or widening your search to bring older replays back into view.",
+                actionLabel:
+                    "Clear filters",
+            }
+            : {
+                title:
+                    "No interview replays yet",
+                description:
+                    "Log your first interview to start tracking repeated weak topics, confidence, feedback, and next actions.",
+                actionLabel:
+                    "Log First Interview",
+            };
+
+    const statCards =
+        useMemo(
+            () => [
+                {
+                    helper:
+                        "Manual and AI-assisted replays",
+                    icon: (
+                        <Mic
+                            size={16}
+                            aria-hidden="true"
+                        />
+                    ),
+                    label:
+                        "Interviews Logged",
+                    tone:
+                        "brand" as const,
+                    value:
+                        stats
+                            ?.totalInterviews ??
+                        0,
+                },
+                {
+                    helper:
+                        averageConfidenceTone.label,
+                    icon: (
+                        <TrendingUp
+                            size={16}
+                            aria-hidden="true"
+                        />
+                    ),
+                    label:
+                        "Avg Confidence",
+                    tone:
+                        "success" as const,
+                    value:
+                        stats
+                            ? `${stats.averageConfidenceScore}/10`
+                            : "-",
+                },
+                {
+                    helper:
+                        averageTechnicalTone.label,
+                    icon: (
+                        <BarChart3
+                            size={16}
+                            aria-hidden="true"
+                        />
+                    ),
+                    label:
+                        "Avg Technical",
+                    tone:
+                        "warning" as const,
+                    value:
+                        stats
+                            ? `${stats.averageTechnicalScore}/10`
+                            : "-",
+                },
+                {
+                    helper:
+                        "Most repeated weak area",
+                    icon: (
+                        <Target
+                            size={16}
+                            aria-hidden="true"
+                        />
+                    ),
+                    label:
+                        "Weak Topic",
+                    tone:
+                        "danger" as const,
+                    value:
+                        topWeakTopic,
+                },
+            ],
+            [
+                averageConfidenceTone.label,
+                averageTechnicalTone.label,
+                stats,
+                topWeakTopic,
+            ]
+        );
+
+    const applyFilters = async (
+        event: FormEvent<HTMLFormElement>
+    ) => {
+        event.preventDefault();
+
+        const nextFilters = {
+            ...filters,
+            search:
+                filters.search.trim(),
+        };
+
+        setFilters(
+            nextFilters
+        );
+        setAppliedFilters(
+            nextFilters
+        );
+        await fetchInterviews(
+            nextFilters
+        );
     };
 
     const clearFilters = async () => {
-        setSearch("");
-        setRoundType("");
-        setResult("");
+        const nextFilters = {
+            ...EMPTY_FILTERS,
+        };
 
-        setLoading(true);
-
-        try {
-            const [interviewsResponse, statsResponse] = await Promise.all([
-                interviewService.getAll(),
-                interviewService.getStats(),
-            ]);
-
-            setInterviews(interviewsResponse.data.interviews);
-            setStats(statsResponse.data);
-        } catch (error) {
-            console.error("Failed to clear filters:", error);
-        } finally {
-            setLoading(false);
-        }
+        setFilters(
+            nextFilters
+        );
+        setAppliedFilters(
+            nextFilters
+        );
+        await fetchInterviews(
+            nextFilters
+        );
     };
 
-    const handleDelete = async (id: string) => {
-        const confirmed = window.confirm("Delete this interview replay?");
+    const handleDelete = async (
+        interview: InterviewReplay
+    ) => {
+        const confirmed =
+            window.confirm(
+                `Delete the ${interview.company} ${interview.role} replay?`
+            );
 
-        if (!confirmed) return;
+        if (!confirmed) {
+            return;
+        }
+
+        setRefreshing(true);
+        setError("");
 
         try {
-            await interviewService.delete(id);
-            await fetchData();
-        } catch (error) {
-            console.error("Failed to delete interview:", error);
+            await interviewService.delete(
+                interview.id
+            );
+            await fetchInterviews(
+                appliedFilters
+            );
+        } catch (
+            deleteError
+        ) {
+            console.error(
+                "Failed to delete interview:",
+                deleteError
+            );
+            setError(
+                getInterviewApiError(
+                    deleteError,
+                    "Failed to delete interview replay."
+                )
+            );
+            setRefreshing(false);
         }
     };
-
-    const topWeakTopic =
-        stats?.mostMissedConcepts?.[0]?.name ||
-        stats?.mostRepeatedTopics?.[0]?.name ||
-        "No weak topic yet";
 
     return (
         <AppLayout
             title="Interview Replay"
             description="Turn every mock or real interview into structured feedback, weak-area memory, and next actions."
             action={
-                <button
-                    onClick={() => navigate("/interviews/new")}
-                    className="bg-brand hover:bg-brand-hover text-white font-medium px-4 py-2 rounded-xl transition-all duration-200 text-sm flex items-center gap-2"
+                <ActionButton
+                    type="button"
+                    leadingIcon={
+                        <Plus
+                            size={16}
+                            aria-hidden="true"
+                        />
+                    }
+                    onClick={() =>
+                        navigate(
+                            "/interviews/new"
+                        )
+                    }
                 >
-                    <Plus size={15} />
                     Log Interview
-                </button>
+                </ActionButton>
             }
         >
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
-                <div className="bg-bg-secondary border border-border rounded-2xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                        <p className="text-xs uppercase tracking-wide text-text-tertiary">
-                            Interviews Logged
-                        </p>
-                        <Mic size={16} className="text-brand" />
-                    </div>
-                    <p className="text-2xl font-bold text-text-primary">
-                        {loading ? "..." : stats?.totalInterviews ?? 0}
-                    </p>
-                    <p className="text-xs text-text-tertiary mt-1">
-                        Manual interview replays
-                    </p>
-                </div>
+            <InterviewErrorBoundary>
+                {loading ? (
+                    <InterviewPageSkeleton />
+                ) : (
+                    <div className="mx-auto max-w-6xl space-y-5">
+                        {error && (
+                            <StatusNotice tone="error">
+                                {
+                                    error
+                                }
+                            </StatusNotice>
+                        )}
 
-                <div className="bg-bg-secondary border border-border rounded-2xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                        <p className="text-xs uppercase tracking-wide text-text-tertiary">
-                            Avg Confidence
-                        </p>
-                        <TrendingUp size={16} className="text-success" />
-                    </div>
-                    <p className="text-2xl font-bold text-text-primary">
-                        {loading ? "..." : `${stats?.averageConfidenceScore ?? 0}/10`}
-                    </p>
-                    <p className="text-xs text-text-tertiary mt-1">
-                        {getScoreLabel(stats?.averageConfidenceScore ?? 0)}
-                    </p>
-                </div>
-
-                <div className="bg-bg-secondary border border-border rounded-2xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                        <p className="text-xs uppercase tracking-wide text-text-tertiary">
-                            Avg Technical
-                        </p>
-                        <BarChart3 size={16} className="text-warning" />
-                    </div>
-                    <p className="text-2xl font-bold text-text-primary">
-                        {loading ? "..." : `${stats?.averageTechnicalScore ?? 0}/10`}
-                    </p>
-                    <p className="text-xs text-text-tertiary mt-1">
-                        {getScoreLabel(stats?.averageTechnicalScore ?? 0)}
-                    </p>
-                </div>
-
-                <div className="bg-bg-secondary border border-border rounded-2xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                        <p className="text-xs uppercase tracking-wide text-text-tertiary">
-                            Weak Topic
-                        </p>
-                        <Target size={16} className="text-danger" />
-                    </div>
-                    <p className="text-base font-bold text-text-primary truncate">
-                        {loading ? "..." : topWeakTopic}
-                    </p>
-                    <p className="text-xs text-text-tertiary mt-1">
-                        Most repeated weak area
-                    </p>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-12 gap-4">
-                <section className="col-span-12 lg:col-span-8 space-y-4">
-                    <div className="bg-bg-secondary border border-border rounded-2xl p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                            <div className="md:col-span-2 relative">
-                                <Search
-                                    size={16}
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
-                                />
-                                <input
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    placeholder="Search company or role"
-                                    className="w-full bg-bg-tertiary border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm text-text-primary placeholder-text-tertiary focus:outline-none focus:border-brand transition"
-                                />
-                            </div>
-
-                            <select
-                                value={roundType}
-                                onChange={(e) => setRoundType(e.target.value)}
-                                className="bg-bg-tertiary border border-border rounded-xl px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-brand transition"
-                            >
-                                <option value="">All rounds</option>
-                                {[
-                                    "HR",
-                                    "TECHNICAL",
-                                    "MANAGERIAL",
-                                    "APTITUDE",
-                                    "GROUP_DISCUSSION",
-                                    "SYSTEM_DESIGN",
-                                    "CODING",
-                                    "OTHER",
-                                ].map((item) => (
-                                    <option key={item} value={item}>
-                                        {formatEnum(item)}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <select
-                                value={result}
-                                onChange={(e) => setResult(e.target.value)}
-                                className="bg-bg-tertiary border border-border rounded-xl px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-brand transition"
-                            >
-                                <option value="">All results</option>
-                                {["PENDING", "SELECTED", "REJECTED", "ON_HOLD", "NO_RESPONSE"].map(
-                                    (item) => (
-                                        <option key={item} value={item}>
-                                            {formatEnum(item)}
-                                        </option>
-                                    )
-                                )}
-                            </select>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            {statCards.map(
+                                (
+                                    card
+                                ) => (
+                                    <StatCard
+                                        key={
+                                            card.label
+                                        }
+                                        {...card}
+                                    />
+                                )
+                            )}
                         </div>
 
-                        <div className="flex gap-2 mt-3">
-                            <button
-                                onClick={applyFilters}
-                                className="bg-brand hover:bg-brand-hover text-white px-4 py-2 rounded-xl text-sm font-medium transition"
-                            >
-                                Apply
-                            </button>
-                            <button
-                                onClick={clearFilters}
-                                className="bg-bg-tertiary hover:bg-bg-hover border border-border text-text-secondary hover:text-text-primary px-4 py-2 rounded-xl text-sm font-medium transition"
-                            >
-                                Clear
-                            </button>
-                        </div>
-                    </div>
+                        <div className="grid grid-cols-12 gap-4">
+                            <section className="col-span-12 space-y-4 lg:col-span-8">
+                                <form
+                                    onSubmit={
+                                        applyFilters
+                                    }
+                                >
+                                    <PageSurface padding="md">
+                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_11rem_11rem]">
+                                            <TextField
+                                                label="Search"
+                                                value={
+                                                    filters.search
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    setFilters(
+                                                        (
+                                                            previous
+                                                        ) => ({
+                                                            ...previous,
+                                                            search:
+                                                                event.target
+                                                                    .value,
+                                                        })
+                                                    )
+                                                }
+                                                placeholder="Company or role"
+                                                leadingIcon={
+                                                    <Search
+                                                        size={16}
+                                                        aria-hidden="true"
+                                                    />
+                                                }
+                                            />
 
-                    {loading ? (
-                        <div className="bg-bg-secondary border border-border rounded-2xl p-6 text-text-secondary">
-                            Loading interviews...
-                        </div>
-                    ) : interviews.length === 0 ? (
-                        <div className="bg-bg-secondary border border-border rounded-2xl p-10 flex flex-col items-center justify-center text-center">
-                            <div className="w-14 h-14 rounded-2xl bg-bg-tertiary border border-border flex items-center justify-center mb-4">
-                                <Mic size={24} className="text-text-tertiary" />
-                            </div>
-                            <h3 className="text-lg font-semibold text-text-primary">
-                                No interview replays yet
-                            </h3>
-                            <p className="text-sm text-text-secondary mt-2 max-w-md">
-                                Log your first interview to start tracking repeated weak topics,
-                                confidence, feedback, and next actions.
-                            </p>
-                            <button
-                                onClick={() => navigate("/interviews/new")}
-                                className="mt-5 bg-brand hover:bg-brand-hover text-white px-4 py-2 rounded-xl text-sm font-medium transition"
-                            >
-                                Log First Interview
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {interviews.map((interview) => {
-                                const ai = interview.aiSummary as any;
+                                            <SelectField
+                                                label="Round"
+                                                value={
+                                                    filters.roundType
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    setFilters(
+                                                        (
+                                                            previous
+                                                        ) => ({
+                                                            ...previous,
+                                                            roundType:
+                                                                event.target
+                                                                    .value as InterviewRoundType | "",
+                                                        })
+                                                    )
+                                                }
+                                                options={
+                                                    roundTypeOptions
+                                                }
+                                            />
 
-                                const scores = {
-                                    confidence: interview.confidenceScore ?? ai?.confidenceScore ?? null,
-                                    communication: interview.communicationScore ?? ai?.communicationScore ?? null,
-                                    technical: interview.technicalScore ?? ai?.technicalScore ?? null,
-                                };
+                                            <SelectField
+                                                label="Result"
+                                                value={
+                                                    filters.result
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    setFilters(
+                                                        (
+                                                            previous
+                                                        ) => ({
+                                                            ...previous,
+                                                            result:
+                                                                event.target
+                                                                    .value as InterviewResult | "",
+                                                        })
+                                                    )
+                                                }
+                                                options={
+                                                    resultOptions
+                                                }
+                                            />
+                                        </div>
 
-                                const displayTopics =
-                                    interview.topics?.length > 0
-                                        ? interview.topics
-                                        : ai?.repeatedRiskTopics ?? [];
+                                        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                            <p
+                                                className="text-xs text-text-tertiary"
+                                                role="status"
+                                                aria-live="polite"
+                                            >
+                                                {refreshing
+                                                    ? "Refreshing interviews..."
+                                                    : `${interviews.length} replay${interviews.length === 1
+                                                        ? ""
+                                                        : "s"} shown`}
+                                            </p>
 
-                                return (
-                                    <article
-                                        key={interview.id}
-                                        className="bg-bg-secondary border border-border hover:border-border-hover rounded-2xl p-5 transition"
-                                    >
-                                        <div className="flex items-start gap-4">
-                                            <div className="w-11 h-11 rounded-xl bg-brand-muted border border-brand/10 flex items-center justify-center text-brand font-bold">
-                                                {interview.company.charAt(0).toUpperCase()}
-                                            </div>
+                                            <div className="flex gap-2">
+                                                <ActionButton
+                                                    type="submit"
+                                                    size="sm"
+                                                    loading={
+                                                        refreshing
+                                                    }
+                                                    loadingText="Applying..."
+                                                >
+                                                    Apply
+                                                </ActionButton>
 
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <h3 className="text-base font-semibold text-text-primary">
-                                                        {interview.company}
-                                                    </h3>
-                                                    <span className="text-xs text-text-tertiary">·</span>
-                                                    <p className="text-sm text-text-secondary">
-                                                        {interview.role}
-                                                    </p>
-                                                    <span
-                                                        className={`text-[11px] px-2 py-0.5 rounded-full border ${getResultClass(
-                                                            interview.result
-                                                        )}`}
-                                                    >
-                                                        {formatEnum(interview.result)}
-                                                    </span>
-                                                </div>
-
-                                                <div className="flex items-center gap-3 text-xs text-text-tertiary mt-1">
-                                                    <span className="flex items-center gap-1">
-                                                        <CalendarDays size={12} />
-                                                        {new Date(interview.date).toLocaleDateString("en-IN", {
-                                                            day: "numeric",
-                                                            month: "short",
-                                                            year: "numeric",
-                                                        })}
-                                                    </span>
-                                                    <span>{formatEnum(interview.roundType)}</span>
-                                                </div>
-
-                                                <div className="flex flex-wrap gap-1.5 mt-3">
-                                                    {displayTopics.slice(0, 5).map((topic: string) => (
-                                                        <span
-                                                            key={topic}
-                                                            className="bg-bg-tertiary border border-border text-text-secondary text-[11px] px-2.5 py-1 rounded-full"
-                                                        >
-                                                            {topic}
-                                                        </span>
-                                                    ))}
-                                                </div>
-
-                                                {interview.conceptsMissed.length > 0 && (
-                                                    <div className="mt-3">
-                                                        <p className="text-[11px] uppercase tracking-wide text-danger mb-1.5">
-                                                            Missed Concepts
-                                                        </p>
-                                                        <div className="flex flex-wrap gap-1.5">
-                                                            {interview.conceptsMissed.map((concept) => (
-                                                                <span
-                                                                    key={concept}
-                                                                    className="bg-danger-muted border border-danger/10 text-danger text-[11px] px-2.5 py-1 rounded-full"
-                                                                >
-                                                                    {concept}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            <div className="flex flex-col items-end gap-3">
-                                                <div className="grid grid-cols-3 gap-2 text-center">
-                                                    <div>
-                                                        <p className="text-sm font-bold text-text-primary">
-                                                            {scores.confidence ?? "-"}
-                                                        </p>
-                                                        <p className="text-[10px] text-text-tertiary">Conf</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-bold text-text-primary">
-                                                            {scores.communication ?? "-"}
-                                                        </p>
-                                                        <p className="text-[10px] text-text-tertiary">Comm</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-bold text-text-primary">
-                                                            {scores.technical ?? "-"}
-                                                        </p>
-                                                        <p className="text-[10px] text-text-tertiary">Tech</p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        onClick={() => navigate(`/interviews/${interview.id}`)}
-                                                        className="bg-bg-tertiary hover:bg-bg-hover border border-border text-text-secondary hover:text-text-primary px-3 py-2 rounded-xl text-xs transition"
-                                                    >
-                                                        View
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(interview.id)}
-                                                        className="bg-bg-tertiary hover:bg-danger-muted border border-border hover:border-danger/10 text-text-tertiary hover:text-danger p-2 rounded-xl transition"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </div>
+                                                <ActionButton
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={
+                                                        clearFilters
+                                                    }
+                                                    disabled={
+                                                        refreshing ||
+                                                        (!hasFilters(
+                                                            filters
+                                                        ) &&
+                                                            !hasActiveFilters)
+                                                    }
+                                                >
+                                                    Clear
+                                                </ActionButton>
                                             </div>
                                         </div>
-                                    </article>
-                                );
-                            })}
-                        </div>
-                    )}
-                </section>
+                                    </PageSurface>
+                                </form>
 
-                <aside className="col-span-12 lg:col-span-4 space-y-4">
-                    <div className="bg-bg-secondary border border-border rounded-2xl p-5">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Target size={16} className="text-danger" />
-                            <h3 className="text-sm font-semibold text-text-primary">
-                                Weakness Memory
-                            </h3>
-                        </div>
+                                {interviews.length ===
+                                    0 ? (
+                                    <EmptyState
+                                        title={
+                                            filteredEmptyCopy.title
+                                        }
+                                        description={
+                                            filteredEmptyCopy.description
+                                        }
+                                        icon={
+                                            <Mic
+                                                size={24}
+                                                aria-hidden="true"
+                                            />
+                                        }
+                                        compact
+                                        action={
+                                            <ActionButton
+                                                type="button"
+                                                onClick={
+                                                    hasActiveFilters
+                                                        ? clearFilters
+                                                        : () =>
+                                                            navigate(
+                                                                "/interviews/new"
+                                                            )
+                                                }
+                                            >
+                                                {
+                                                    filteredEmptyCopy.actionLabel
+                                                }
+                                            </ActionButton>
+                                        }
+                                    />
+                                ) : (
+                                    <div className="space-y-3">
+                                        {interviews.map(
+                                            (
+                                                interview
+                                            ) => {
+                                                const scores =
+                                                    getInterviewDisplayScores(
+                                                        interview
+                                                    );
 
-                        {stats?.mostMissedConcepts?.length ? (
-                            <div className="space-y-2">
-                                {stats.mostMissedConcepts.map((item) => (
-                                    <div
-                                        key={item.name}
-                                        className="flex items-center justify-between bg-bg-tertiary border border-border rounded-xl px-3 py-2"
-                                    >
-                                        <span className="text-sm text-text-secondary">
-                                            {item.name}
-                                        </span>
-                                        <span className="text-xs text-danger">{item.count}x</span>
+                                                const displayTopics =
+                                                    interview.topics
+                                                        ?.length >
+                                                        0
+                                                        ? interview.topics
+                                                        : interview
+                                                            .aiSummary
+                                                            ?.repeatedRiskTopics ??
+                                                        [];
+
+                                                return (
+                                                    <PageSurface
+                                                        key={
+                                                            interview.id
+                                                        }
+                                                        as="article"
+                                                        padding="lg"
+                                                        className="transition hover:border-border-hover"
+                                                    >
+                                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                                                            <IconTile
+                                                                tone="brand"
+                                                                size="md"
+                                                            >
+                                                                <span className="text-sm font-bold">
+                                                                    {getCompanyInitial(
+                                                                        interview.company
+                                                                    )}
+                                                                </span>
+                                                            </IconTile>
+
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <h3 className="truncate text-base font-semibold text-text-primary">
+                                                                        {
+                                                                            interview.company
+                                                                        }
+                                                                    </h3>
+
+                                                                    <span className="text-sm text-text-tertiary">
+                                                                        /
+                                                                    </span>
+
+                                                                    <p className="text-sm text-text-secondary">
+                                                                        {
+                                                                            interview.role
+                                                                        }
+                                                                    </p>
+
+                                                                    <span
+                                                                        className={[
+                                                                            "rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+                                                                            getInterviewResultClasses(
+                                                                                interview.result
+                                                                            ),
+                                                                        ].join(
+                                                                            " "
+                                                                        )}
+                                                                    >
+                                                                        {formatInterviewEnum(
+                                                                            interview.result
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+
+                                                                <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-text-tertiary">
+                                                                    <span className="inline-flex items-center gap-1.5">
+                                                                        <CalendarDays
+                                                                            size={13}
+                                                                            aria-hidden="true"
+                                                                        />
+                                                                        {formatInterviewDate(
+                                                                            interview.date
+                                                                        )}
+                                                                    </span>
+
+                                                                    <span>
+                                                                        {formatInterviewEnum(
+                                                                            interview.roundType
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+
+                                                                {displayTopics.length >
+                                                                    0 && (
+                                                                    <div className="mt-3 flex flex-wrap gap-1.5">
+                                                                        {displayTopics
+                                                                            .slice(
+                                                                                0,
+                                                                                5
+                                                                            )
+                                                                            .map(
+                                                                                (
+                                                                                    topic
+                                                                                ) => (
+                                                                                    <span
+                                                                                        key={
+                                                                                            topic
+                                                                                        }
+                                                                                        className="rounded-full border border-border bg-bg-tertiary px-2.5 py-1 text-[11px] text-text-secondary"
+                                                                                    >
+                                                                                        {
+                                                                                            topic
+                                                                                        }
+                                                                                    </span>
+                                                                                )
+                                                                            )}
+                                                                    </div>
+                                                                )}
+
+                                                                {interview.conceptsMissed
+                                                                    .length >
+                                                                    0 && (
+                                                                    <div className="mt-4">
+                                                                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-danger">
+                                                                            Missed Concepts
+                                                                        </p>
+
+                                                                        <div className="flex flex-wrap gap-1.5">
+                                                                            {interview.conceptsMissed.map(
+                                                                                (
+                                                                                    concept
+                                                                                ) => (
+                                                                                    <span
+                                                                                        key={
+                                                                                            concept
+                                                                                        }
+                                                                                        className="rounded-full border border-danger/10 bg-danger-muted px-2.5 py-1 text-[11px] text-danger"
+                                                                                    >
+                                                                                        {
+                                                                                            concept
+                                                                                        }
+                                                                                    </span>
+                                                                                )
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="flex shrink-0 flex-col gap-3 sm:items-end">
+                                                                <div className="grid grid-cols-3 gap-2 rounded-xl border border-border bg-bg-tertiary p-2 text-center">
+                                                                    {[
+                                                                        {
+                                                                            label:
+                                                                                "Conf",
+                                                                            value:
+                                                                                scores.confidence,
+                                                                        },
+                                                                        {
+                                                                            label:
+                                                                                "Comm",
+                                                                            value:
+                                                                                scores.communication,
+                                                                        },
+                                                                        {
+                                                                            label:
+                                                                                "Tech",
+                                                                            value:
+                                                                                scores.technical,
+                                                                        },
+                                                                    ].map(
+                                                                        (
+                                                                            score
+                                                                        ) => {
+                                                                            const tone =
+                                                                                getInterviewScoreTone(
+                                                                                    score.value
+                                                                                );
+
+                                                                            return (
+                                                                                <div
+                                                                                    key={
+                                                                                        score.label
+                                                                                    }
+                                                                                    className="min-w-12"
+                                                                                >
+                                                                                    <p
+                                                                                        className={[
+                                                                                            "text-sm font-bold",
+                                                                                            tone.textClass,
+                                                                                        ].join(
+                                                                                            " "
+                                                                                        )}
+                                                                                    >
+                                                                                        {score.value ??
+                                                                                            "-"}
+                                                                                    </p>
+
+                                                                                    <p className="mt-0.5 text-[10px] text-text-tertiary">
+                                                                                        {
+                                                                                            score.label
+                                                                                        }
+                                                                                    </p>
+                                                                                </div>
+                                                                            );
+                                                                        }
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="flex gap-2">
+                                                                    <ActionButton
+                                                                        type="button"
+                                                                        variant="secondary"
+                                                                        size="sm"
+                                                                        leadingIcon={
+                                                                            <Eye
+                                                                                size={14}
+                                                                                aria-hidden="true"
+                                                                            />
+                                                                        }
+                                                                        onClick={() =>
+                                                                            navigate(
+                                                                                `/interviews/${interview.id}`
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        View
+                                                                    </ActionButton>
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            handleDelete(
+                                                                                interview
+                                                                            )
+                                                                        }
+                                                                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-bg-tertiary text-text-tertiary transition hover:border-danger/20 hover:bg-danger-muted hover:text-danger"
+                                                                        aria-label={`Delete ${interview.company} interview replay`}
+                                                                        title="Delete replay"
+                                                                    >
+                                                                        <Trash2
+                                                                            size={15}
+                                                                            aria-hidden="true"
+                                                                        />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </PageSurface>
+                                                );
+                                            }
+                                        )}
                                     </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-sm text-text-tertiary">
-                                Log interviews with missed concepts to see repeated weak areas.
-                            </p>
-                        )}
-                    </div>
+                                )}
+                            </section>
 
-                    <div className="bg-bg-secondary border border-border rounded-2xl p-5">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Building2 size={16} className="text-brand" />
-                            <h3 className="text-sm font-semibold text-text-primary">
-                                Company-wise Readiness
-                            </h3>
+                            <aside className="col-span-12 space-y-4 lg:col-span-4">
+                                <InsightPanel
+                                    title="Weakness Memory"
+                                    icon={
+                                        <Target
+                                            size={16}
+                                            className="text-danger"
+                                            aria-hidden="true"
+                                        />
+                                    }
+                                >
+                                    {weaknessItems.length ? (
+                                        <div className="space-y-2">
+                                            {weaknessItems.map(
+                                                (
+                                                    item
+                                                ) => (
+                                                    <div
+                                                        key={
+                                                            item.name
+                                                        }
+                                                        className="flex items-center justify-between gap-3 rounded-xl border border-border bg-bg-tertiary px-3 py-2"
+                                                    >
+                                                        <span className="min-w-0 truncate text-sm text-text-secondary">
+                                                            {
+                                                                item.name
+                                                            }
+                                                        </span>
+
+                                                        <span className="shrink-0 text-xs font-semibold text-danger">
+                                                            {
+                                                                item.count
+                                                            }
+                                                            x
+                                                        </span>
+                                                    </div>
+                                                )
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm leading-6 text-text-tertiary">
+                                            Log interviews with missed concepts to see repeated weak areas.
+                                        </p>
+                                    )}
+                                </InsightPanel>
+
+                                <InsightPanel
+                                    title="Company-wise Readiness"
+                                    icon={
+                                        <Building2
+                                            size={16}
+                                            className="text-brand"
+                                            aria-hidden="true"
+                                        />
+                                    }
+                                >
+                                    {stats
+                                        ?.companyBreakdown
+                                        ?.length ? (
+                                        <div className="space-y-2">
+                                            {stats.companyBreakdown.map(
+                                                (
+                                                    item
+                                                ) => (
+                                                    <div
+                                                        key={
+                                                            item.company
+                                                        }
+                                                        className="flex items-center justify-between gap-3 text-sm"
+                                                    >
+                                                        <span className="min-w-0 truncate text-text-secondary">
+                                                            {
+                                                                item.company
+                                                            }
+                                                        </span>
+
+                                                        <span className="shrink-0 text-xs text-text-tertiary">
+                                                            {
+                                                                item.count
+                                                            }
+                                                            {" "}
+                                                            interview
+                                                            {item.count >
+                                                                1
+                                                                ? "s"
+                                                                : ""}
+                                                        </span>
+                                                    </div>
+                                                )
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm leading-6 text-text-tertiary">
+                                            Company readiness appears after you log interviews.
+                                        </p>
+                                    )}
+                                </InsightPanel>
+
+                                <InsightPanel
+                                    title="Next Action Plan"
+                                    icon={
+                                        <CheckCircle2
+                                            size={16}
+                                            className="text-success"
+                                            aria-hidden="true"
+                                        />
+                                    }
+                                >
+                                    {stats
+                                        ?.nextActions
+                                        ?.length ? (
+                                        <ol className="space-y-2">
+                                            {stats.nextActions
+                                                .slice(
+                                                    0,
+                                                    6
+                                                )
+                                                .map(
+                                                    (
+                                                        action,
+                                                        index
+                                                    ) => (
+                                                        <li
+                                                            key={`${action}-${index}`}
+                                                            className="flex gap-2 text-sm leading-6 text-text-secondary"
+                                                        >
+                                                            <span className="font-semibold text-brand">
+                                                                {index +
+                                                                    1}
+                                                                .
+                                                            </span>
+
+                                                            <span>
+                                                                {
+                                                                    action
+                                                                }
+                                                            </span>
+                                                        </li>
+                                                    )
+                                                )}
+                                        </ol>
+                                    ) : (
+                                        <p className="text-sm leading-6 text-text-tertiary">
+                                            Analyze an interview with AI to generate your next action plan.
+                                        </p>
+                                    )}
+                                </InsightPanel>
+                            </aside>
                         </div>
-
-                        {stats?.companyBreakdown?.length ? (
-                            <div className="space-y-2">
-                                {stats.companyBreakdown.map((item) => (
-                                    <div
-                                        key={item.company}
-                                        className="flex items-center justify-between"
-                                    >
-                                        <span className="text-sm text-text-secondary">
-                                            {item.company}
-                                        </span>
-                                        <span className="text-xs text-text-tertiary">
-                                            {item.count} interview{item.count > 1 ? "s" : ""}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-sm text-text-tertiary">
-                                Company readiness appears after you log interviews.
-                            </p>
-                        )}
                     </div>
-
-                    <div className="bg-bg-secondary border border-border rounded-2xl p-5">
-                        <div className="flex items-center gap-2 mb-4">
-                            <CheckCircle2 size={16} className="text-success" />
-                            <h3 className="text-sm font-semibold text-text-primary">
-                                Next Action Plan
-                            </h3>
-                        </div>
-
-                        {stats?.nextActions?.length ? (
-                            <ul className="space-y-2">
-                                {stats.nextActions.slice(0, 6).map((action, index) => (
-                                    <li
-                                        key={`${action}-${index}`}
-                                        className="flex gap-2 text-sm text-text-secondary"
-                                    >
-                                        <span className="text-brand font-semibold">
-                                            {index + 1}.
-                                        </span>
-                                        <span>{action}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-sm text-text-tertiary">
-                                Analyze an interview with AI to generate your next action plan.
-                            </p>
-                        )}
-                    </div>
-                </aside>
-            </div>
+                )}
+            </InterviewErrorBoundary>
         </AppLayout>
     );
 };

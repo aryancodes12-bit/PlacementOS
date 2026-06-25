@@ -1,55 +1,125 @@
-import type { LucideIcon } from "lucide-react";
+import type {
+    LucideIcon,
+} from "lucide-react";
+
 interface Props {
-    title: string
-    value: string | number
-    subtitle: string
-    icon: LucideIcon
-    trend?: { value: string; positive: boolean }
-    color?: 'brand' | 'success' | 'warning' | 'danger'
-    onClick?: () => void
+    title: string;
+    value: string | number;
+    subtitle: string;
+    icon: LucideIcon;
+    trend?: {
+        value: string;
+        positive: boolean;
+    };
+    color?:
+    | "brand"
+    | "success"
+    | "warning"
+    | "danger";
+    onClick?: () => void;
 }
 
 const colorMap = {
-    brand: { bg: 'bg-[#6366F120]', text: 'text-[#6366F1]', border: 'border-[#6366F115]' },
-    success: { bg: 'bg-[#22C55E15]', text: 'text-[#22C55E]', border: 'border-[#22C55E15]' },
-    warning: { bg: 'bg-[#F59E0B15]', text: 'text-[#F59E0B]', border: 'border-[#F59E0B15]' },
-    danger: { bg: 'bg-[#EF444415]', text: 'text-[#EF4444]', border: 'border-[#EF444415]' },
-}
+    brand: {
+        icon:
+            "border-brand/15 bg-brand-muted text-brand",
+        trendPositive:
+            "border-success/15 bg-success-muted text-success",
+        trendNegative:
+            "border-danger/15 bg-danger-muted text-danger",
+    },
+    success: {
+        icon:
+            "border-success/15 bg-success-muted text-success",
+        trendPositive:
+            "border-success/15 bg-success-muted text-success",
+        trendNegative:
+            "border-danger/15 bg-danger-muted text-danger",
+    },
+    warning: {
+        icon:
+            "border-warning/15 bg-warning-muted text-warning",
+        trendPositive:
+            "border-success/15 bg-success-muted text-success",
+        trendNegative:
+            "border-danger/15 bg-danger-muted text-danger",
+    },
+    danger: {
+        icon:
+            "border-danger/15 bg-danger-muted text-danger",
+        trendPositive:
+            "border-success/15 bg-success-muted text-success",
+        trendNegative:
+            "border-danger/15 bg-danger-muted text-danger",
+    },
+};
 
 export const StatCard = ({
-    title, value, subtitle, icon: Icon,
-    trend, color = 'brand', onClick
+    title,
+    value,
+    subtitle,
+    icon: Icon,
+    trend,
+    color = "brand",
+    onClick,
 }: Props) => {
-    const c = colorMap[color]
+    const tone =
+        colorMap[
+        color
+        ];
 
     return (
-        <div
+        <button
+            type="button"
             onClick={onClick}
-            className="bg-[#111118] border border-[#1E1E2E] rounded-2xl p-5
-                 cursor-pointer hover:border-[#2E2E42] hover:shadow-lg
-                 transition-all duration-200"
+            className={[
+                "group flex h-full min-h-44 w-full flex-col items-start rounded-2xl border border-border bg-bg-secondary p-5 text-left",
+                "shadow-[0_1px_0_rgba(255,255,255,0.025)_inset,0_18px_42px_rgba(0,0,0,0.11)]",
+                "transition duration-200 hover:-translate-y-0.5 hover:border-border-hover hover:bg-bg-hover/40",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70",
+            ].join(" ")}
         >
-            <div className="flex items-start justify-between mb-4">
-                <div className={`w-9 h-9 rounded-xl ${c.bg} border ${c.border}
-                         flex items-center justify-center`}>
-                    <Icon size={16} className={c.text} />
+            <div className="mb-5 flex w-full items-start justify-between gap-3">
+                <div
+                    className={[
+                        "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border",
+                        tone.icon,
+                    ].join(" ")}
+                >
+                    <Icon
+                        size={17}
+                        aria-hidden="true"
+                    />
                 </div>
+
                 {trend && (
-                    <span className={
-                        trend.positive
-                            ? 'bg-[#22C55E15] text-[#22C55E] text-xs font-medium px-2.5 py-1 rounded-full'
-                            : 'bg-[#EF444415] text-[#EF4444] text-xs font-medium px-2.5 py-1 rounded-full'
-                    }>
-                        {trend.positive ? '↑' : '↓'} {trend.value}
+                    <span
+                        className={[
+                            "shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold",
+                            trend.positive
+                                ? tone.trendPositive
+                                : tone.trendNegative,
+                        ].join(" ")}
+                    >
+                        {trend.positive
+                            ? "Up"
+                            : "Down"}{" "}
+                        {trend.value}
                     </span>
                 )}
             </div>
 
-            <p className="text-2xl font-bold text-[#F1F1F5] mb-0.5">{value}</p>
-            <p className="text-xs font-medium text-[#9090A8] uppercase tracking-wide">
+            <p className="break-words text-3xl font-bold leading-tight text-text-primary">
+                {value}
+            </p>
+
+            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                 {title}
             </p>
-            <p className="text-xs text-[#5A5A72] mt-1">{subtitle}</p>
-        </div>
-    )
-}
+
+            <p className="mt-2 line-clamp-2 text-sm leading-5 text-text-tertiary">
+                {subtitle}
+            </p>
+        </button>
+    );
+};

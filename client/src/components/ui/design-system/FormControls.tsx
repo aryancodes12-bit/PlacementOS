@@ -59,6 +59,7 @@ const controlStyles = css<{
 }>`
     width: 100%;
     min-height: 2.9rem;
+    min-width: 0;
 
     border:
         1px solid
@@ -140,6 +141,24 @@ const controlStyles = css<{
     }
 
     @media (
+        max-width: 380px
+    ) {
+        min-height: 2.7rem;
+
+        padding:
+            0.68rem
+            0.78rem;
+
+        padding-left:
+            ${({ $hasLeadingIcon }) =>
+            $hasLeadingIcon
+                ? "2.45rem"
+                : "0.78rem"};
+
+        font-size: 0.8125rem;
+    }
+
+    @media (
         prefers-reduced-motion:
             reduce
     ) {
@@ -180,13 +199,14 @@ const TextAreaControl =
     }>`
         ${controlStyles}
 
-        min-height: 9rem;
+        min-height: clamp(7rem, 30vw, 9rem);
         resize: vertical;
     `;
 
 const FieldContainer =
     styled.div`
         min-width: 0;
+        max-width: 100%;
     `;
 
 const FieldLabel =

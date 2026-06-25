@@ -2272,7 +2272,7 @@ export const OnboardingPage = () => {
                         <Reveal>
                             <BrandLogo
                                 variant="loader"
-                                className="mx-auto h-20 w-40 border-white/10 shadow-none"
+                                className="mx-auto"
                             />
 
                             <h2 className="mt-6 text-3xl font-bold tracking-tight text-white sm:text-5xl">

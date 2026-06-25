@@ -227,6 +227,8 @@ const sharedActionStyles = css<{
         $fullWidth
             ? "100%"
             : "auto"};
+    max-width: 100%;
+    min-width: 0;
 
     align-items: center;
     justify-content: center;
@@ -261,6 +263,34 @@ const sharedActionStyles = css<{
         sizeStyles[
         $size
         ]}
+
+    & > svg {
+        flex: 0 0 auto;
+    }
+
+    & > span {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    @media (
+        max-width: 380px
+    ) {
+        gap: 0.4rem;
+
+        ${({ $size }) =>
+        $size === "lg"
+            ? css`
+                  padding:
+                      0.75rem 1rem;
+              `
+            : css`
+                  padding:
+                      0.65rem 0.85rem;
+              `}
+    }
 
     &:focus-visible {
         outline:

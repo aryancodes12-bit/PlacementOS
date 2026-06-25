@@ -179,11 +179,17 @@ const paddingStyles = {
     `,
 
     sm: css`
-        padding: 0.9rem;
+        padding: 0.8rem;
+
+        @media (
+            min-width: 640px
+        ) {
+            padding: 0.9rem;
+        }
     `,
 
     md: css`
-        padding: 1rem;
+        padding: 0.9rem;
 
         @media (
             min-width: 640px
@@ -193,7 +199,7 @@ const paddingStyles = {
     `,
 
     lg: css`
-        padding: 1.1rem;
+        padding: 1rem;
 
         @media (
             min-width: 640px

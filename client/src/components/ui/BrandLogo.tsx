@@ -17,21 +17,55 @@ interface BrandLogoProps
     priority?: boolean;
 }
 
-const imageVariantClasses: Record<
-    Exclude<
-        BrandLogoVariant,
-        "sidebar"
-    >,
+const markClasses: Record<
+    BrandLogoVariant,
     string
 > = {
     navbar:
-        "h-10 w-[132px] rounded-xl p-1.5",
+        "h-10 w-10 rounded-2xl p-1.5",
+
+    sidebar:
+        "h-10 w-10 rounded-2xl p-1.5",
 
     auth:
-        "h-16 w-40 rounded-2xl p-2",
+        "h-12 w-12 rounded-2xl p-1.5",
 
     loader:
-        "h-20 w-44 rounded-2xl p-2.5",
+        "h-16 w-16 rounded-3xl p-2",
+};
+
+const textClasses: Record<
+    BrandLogoVariant,
+    string
+> = {
+    navbar:
+        "text-[15px]",
+
+    sidebar:
+        "text-[15px]",
+
+    auth:
+        "text-base",
+
+    loader:
+        "text-lg",
+};
+
+const subtitleClasses: Record<
+    BrandLogoVariant,
+    string
+> = {
+    navbar:
+        "text-[8px]",
+
+    sidebar:
+        "text-[9px]",
+
+    auth:
+        "text-[9px]",
+
+    loader:
+        "text-[10px]",
 };
 
 export const BrandLogo = ({
@@ -40,80 +74,73 @@ export const BrandLogo = ({
     className = "",
     ...rest
 }: BrandLogoProps) => {
-    if (
-        variant === "sidebar"
-    ) {
-        return (
-            <div
-                className={[
-                    "inline-flex min-w-0 items-center gap-3",
-                    className,
-                ].join(" ")}
-                {...rest}
-            >
-                <div
-                    className={[
-                        "relative flex h-10 w-10 shrink-0",
-                        "items-center justify-center overflow-hidden",
-                        "rounded-xl border border-indigo-400/25",
-                        "bg-gradient-to-br from-indigo-500 to-violet-600",
-                        "shadow-[0_8px_24px_rgba(99,102,241,0.24)]",
-                    ].join(" ")}
-                    aria-hidden="true"
-                >
-                    <span className="text-[13px] font-black tracking-[-0.04em] text-white">
-                        OS
-                    </span>
-
-                    <span className="pointer-events-none absolute inset-x-1 bottom-1 h-px bg-white/25" />
-                </div>
-
-                <div className="min-w-0">
-                    <p className="truncate text-[15px] font-black tracking-[-0.035em] text-text-primary">
-                        Placement
-                        <span className="text-indigo-400">
-                            OS
-                        </span>
-                    </p>
-
-                    <p className="mt-0.5 truncate text-[9px] font-semibold uppercase tracking-[0.15em] text-text-tertiary">
-                        Preparation workspace
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div
             className={[
-                "inline-flex items-center justify-center",
-                "overflow-hidden border border-black/10",
-                "bg-white shadow-sm",
-                imageVariantClasses[
-                variant
-                ],
+                "inline-flex min-w-0 items-center gap-3",
+                variant ===
+                    "loader"
+                    ? "flex-col text-center"
+                    : "",
                 className,
             ].join(" ")}
             {...rest}
         >
-            <img
-                src={logo}
-                alt="PlacementOS"
-                loading={
-                    priority
-                        ? "eager"
-                        : "lazy"
-                }
-                decoding="async"
-                fetchPriority={
-                    priority
-                        ? "high"
-                        : "auto"
-                }
-                draggable={false}
-                className="block h-full w-full object-contain"
-            />
+            <div
+                className={[
+                    "relative flex shrink-0 items-center justify-center overflow-hidden",
+                    "border border-indigo-400/25 bg-white shadow-[0_8px_24px_rgba(99,102,241,0.22)]",
+                    markClasses[
+                variant
+                ],
+                ].join(" ")}
+                aria-hidden="true"
+            >
+                <img
+                    src={logo}
+                    alt=""
+                    loading={
+                        priority
+                            ? "eager"
+                            : "lazy"
+                    }
+                    decoding="async"
+                    fetchPriority={
+                        priority
+                            ? "high"
+                            : "auto"
+                    }
+                    draggable={false}
+                    className="block h-full w-full object-contain"
+                />
+            </div>
+
+            <div className="min-w-0">
+                <p
+                    className={[
+                        "truncate font-black leading-none tracking-[-0.035em] text-text-primary",
+                        textClasses[
+                        variant
+                        ],
+                    ].join(" ")}
+                >
+                    Placement
+                    <span className="text-indigo-400">
+                        OS
+                    </span>
+                </p>
+
+                <p
+                    className={[
+                        "mt-1 truncate font-black uppercase tracking-[0.16em] text-text-primary",
+                        subtitleClasses[
+                        variant
+                        ],
+                    ].join(" ")}
+                >
+                    Preparation workspace
+                </p>
+            </div>
         </div>
     );
 };
