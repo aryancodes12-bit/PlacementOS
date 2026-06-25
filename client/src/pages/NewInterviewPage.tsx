@@ -1,18 +1,77 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import {
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
+
+import type {
+    FormEvent,
+    ReactNode,
+} from "react";
+
 import {
     ArrowLeft,
+    CheckCircle2,
     FileAudio,
+    HelpCircle,
     PenLine,
     Plus,
     Save,
+    Sparkles,
+    Target,
     Trash2,
     Video,
+    WifiOff,
 } from "lucide-react";
 
-import { AppLayout } from "../components/ui/AppLayout";
-import { interviewService } from "../services/interview.service";
-import { AudioInterviewUploader } from "../components/interviews/AudioInterviewUploader";
+import {
+    useNavigate,
+} from "react-router-dom";
+
+import {
+    AppLayout,
+} from "../components/ui/AppLayout";
+
+import {
+    ActionButton,
+} from "../components/ui/design-system/ActionButton";
+
+import {
+    PageSurface,
+} from "../components/ui/design-system/PageSurface";
+
+import {
+    SectionHeader,
+} from "../components/ui/design-system/SectionHeader";
+
+import {
+    StatusNotice,
+} from "../components/ui/design-system/StatusNotice";
+
+import {
+    AudioInterviewUploader,
+} from "../components/interviews/AudioInterviewUploader";
+
+import {
+    VideoInterviewUploader,
+} from "../components/interviews/VideoInterviewUploader";
+
+import {
+    InterviewErrorBoundary,
+} from "../components/interviews/InterviewErrorBoundary";
+
+import {
+    formatInterviewEnum,
+    getInterviewApiError,
+    INTERVIEW_RESULTS,
+    INTERVIEW_ROUND_TYPES,
+    toInterviewArray,
+    toInterviewScore,
+} from "../components/interviews/interview-ui.utils";
+
+import {
+    interviewService,
+} from "../services/interview.service";
 
 import type {
     CreateInterviewInput,
@@ -21,719 +80,1696 @@ import type {
     InterviewResult,
     InterviewRoundType,
 } from "../services/interview.service";
-import { VideoInterviewUploader } from "../components/interviews/VideoInterviewUploader";
-const roundTypes: InterviewRoundType[] = [
-    "HR",
-    "TECHNICAL",
-    "MANAGERIAL",
-    "APTITUDE",
-    "GROUP_DISCUSSION",
-    "SYSTEM_DESIGN",
-    "CODING",
-    "OTHER",
-];
 
-const results: InterviewResult[] = [
-    "PENDING",
-    "SELECTED",
-    "REJECTED",
-    "ON_HOLD",
-    "NO_RESPONSE",
-];
+type InterviewEntryMode =
+    | "manual"
+    | "audio"
+    | "video";
 
-const questionStatuses: InterviewQuestionStatus[] = [
-    "SOLVED",
-    "PARTIAL",
-    "FAILED",
-    "SKIPPED",
-];
+interface ManualInterviewForm {
+    company: string;
+    role: string;
+    roundType: InterviewRoundType;
+    date: string;
+    result: InterviewResult;
+    topics: string;
+    conceptsMissed: string;
+    whatWentWell: string;
+    whatWentWrong: string;
+    feedback: string;
+    confidenceScore: string;
+    communicationScore: string;
+    technicalScore: string;
+}
 
-const formatEnum = (value: string) => {
-    return value
-        .toLowerCase()
-        .split("_")
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(" ");
-};
-
-const toArray = (value: string) => {
-    return value
-        .split(/[\n,]/)
-        .map((item) => item.trim())
-        .filter(Boolean);
-};
-
-const toScore = (value: string) => {
-    if (!value) return null;
-
-    const score = Number(value);
-
-    if (Number.isNaN(score)) return null;
-
-    return Math.max(0, Math.min(10, score));
-};
-
-type QuestionForm = {
+interface QuestionForm {
+    localId: string;
     question: string;
     userAnswer: string;
     missedPoints: string;
     interviewerFeedback: string;
     confidenceScore: string;
     status: InterviewQuestionStatus;
+}
+
+const QUESTION_STATUSES: InterviewQuestionStatus[] = [
+    "SOLVED",
+    "PARTIAL",
+    "FAILED",
+    "SKIPPED",
+];
+
+const createLocalId = () => {
+    if (
+        typeof crypto !==
+        "undefined" &&
+        "randomUUID" in crypto
+    ) {
+        return crypto.randomUUID();
+    }
+
+    return `${Date.now()}-${Math.random()}`;
 };
 
-const emptyQuestion = (): QuestionForm => ({
-    question: "",
-    userAnswer: "",
-    missedPoints: "",
-    interviewerFeedback: "",
-    confidenceScore: "",
-    status: "PARTIAL",
-});
+const emptyQuestion =
+    (): QuestionForm => ({
+        localId:
+            createLocalId(),
+        question: "",
+        userAnswer: "",
+        missedPoints: "",
+        interviewerFeedback:
+            "",
+        confidenceScore:
+            "",
+        status: "PARTIAL",
+    });
 
-export const NewInterviewPage = () => {
-    const navigate = useNavigate();
-    const [mode, setMode] = useState<"manual" | "audio" | "video">("manual");
-    const [form, setForm] = useState({
+const initialForm =
+    (): ManualInterviewForm => ({
         company: "",
         role: "",
-        roundType: "TECHNICAL" as InterviewRoundType,
-        date: new Date().toISOString().split("T")[0],
-        result: "PENDING" as InterviewResult,
-
+        roundType:
+            "TECHNICAL",
+        date: new Date()
+            .toISOString()
+            .slice(0, 10),
+        result: "PENDING",
         topics: "",
-        conceptsMissed: "",
-
+        conceptsMissed:
+            "",
         whatWentWell: "",
         whatWentWrong: "",
         feedback: "",
-
-        confidenceScore: "",
-        communicationScore: "",
+        confidenceScore:
+            "",
+        communicationScore:
+            "",
         technicalScore: "",
     });
 
-    const [questions, setQuestions] = useState<QuestionForm[]>([
-        emptyQuestion(),
-    ]);
+const fieldClass = [
+    "w-full rounded-xl border border-border bg-bg-tertiary",
+    "px-3.5 py-2.5 text-sm text-text-primary",
+    "placeholder:text-text-tertiary",
+    "outline-none transition duration-150",
+    "hover:border-border-hover",
+    "focus:border-brand focus:ring-2 focus:ring-brand/20",
+    "disabled:cursor-not-allowed disabled:opacity-60",
+].join(" ");
 
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
+const textAreaClass = [
+    fieldClass,
+    "min-h-24 resize-y",
+].join(" ");
 
-    const inputClass =
-        "w-full bg-bg-tertiary border border-border rounded-xl px-4 py-2.5 " +
-        "text-text-primary placeholder-text-tertiary text-sm " +
-        "focus:outline-none focus:border-brand transition";
+const labelClass =
+    "mb-1.5 block text-xs font-bold uppercase tracking-[0.11em] text-text-secondary";
 
-    const labelClass =
-        "text-xs font-medium text-text-secondary mb-1.5 block uppercase tracking-wide";
+const helperClass =
+    "mt-1.5 text-[11px] leading-5 text-text-tertiary";
 
-    const updateQuestion = (
-        index: number,
-        field: keyof QuestionForm,
-        value: string
-    ) => {
-        setQuestions((prev) =>
-            prev.map((question, questionIndex) =>
-                questionIndex === index
-                    ? {
-                        ...question,
-                        [field]: value,
-                    }
-                    : question
-            )
-        );
-    };
-
-    const addQuestion = () => {
-        setQuestions((prev) => [...prev, emptyQuestion()]);
-    };
-
-    const removeQuestion = (index: number) => {
-        setQuestions((prev) => {
-            if (prev.length === 1) return prev;
-            return prev.filter((_, questionIndex) => questionIndex !== index);
-        });
-    };
-
-    const buildQuestionReplays = (): InterviewQuestionReplay[] => {
-        return questions
-            .map((question) => ({
-                question: question.question.trim(),
-                userAnswer: question.userAnswer.trim() || null,
-                missedPoints: toArray(question.missedPoints),
-                interviewerFeedback: question.interviewerFeedback.trim() || null,
-                confidenceScore: toScore(question.confidenceScore),
-                status: question.status,
-            }))
-            .filter((question) => question.question.length > 0);
-    };
-
-    const handleSubmit = async () => {
-        if (!form.company.trim()) {
-            setError("Company is required");
-            return;
-        }
-
-        if (!form.role.trim()) {
-            setError("Role is required");
-            return;
-        }
-
-        if (!form.date) {
-            setError("Interview date is required");
-            return;
-        }
-
-        const questionReplays = buildQuestionReplays();
-
-        if (questionReplays.length === 0) {
-            setError("Add at least one interview question");
-            return;
-        }
-
-        setLoading(true);
-        setError("");
-
-        try {
-            const questionLevelMissedPoints = questionReplays.flatMap(
-                (question) => question.missedPoints
-            );
-
-            const payload: CreateInterviewInput = {
-                company: form.company.trim(),
-                role: form.role.trim(),
-                roundType: form.roundType,
-                date: form.date,
-                result: form.result,
-
-                questionsAsked: questionReplays.map((question) => question.question),
-                questionReplays,
-
-                topics: toArray(form.topics),
-                conceptsMissed: Array.from(
-                    new Set([...toArray(form.conceptsMissed), ...questionLevelMissedPoints])
-                ),
-
-                whatWentWell: form.whatWentWell.trim(),
-                whatWentWrong: form.whatWentWrong.trim(),
-                feedback: form.feedback.trim(),
-
-                confidenceScore: toScore(form.confidenceScore),
-                communicationScore: toScore(form.communicationScore),
-                technicalScore: toScore(form.technicalScore),
-
-                nextActions: [],
-            };
-
-            await interviewService.create(payload);
-
-            navigate("/interviews");
-        } catch (err: any) {
-            console.error("Create interview error:", err.response?.data || err);
-            setError(err.response?.data?.message || "Failed to log interview");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-
+const SourceOption = ({
+    active,
+    icon,
+    title,
+    description,
+    onClick,
+}: {
+    active: boolean;
+    icon: ReactNode;
+    title: string;
+    description: string;
+    onClick: () => void;
+}) => {
     return (
-        <AppLayout
-            title="Log Interview"
-            description="Capture question-wise answers, missed points, feedback, scores, and weak areas."
-            action={
-                <button
-                    onClick={() => navigate("/interviews")}
-                    className="bg-bg-secondary hover:bg-bg-hover border border-border hover:border-border-hover text-text-secondary hover:text-text-primary px-4 py-2 rounded-xl text-sm transition flex items-center gap-2"
-                >
-                    <ArrowLeft size={15} />
-                    Back
-                </button>
+        <button
+            type="button"
+            aria-pressed={
+                active
             }
+            onClick={onClick}
+            className={[
+                "group rounded-2xl border p-4 text-left outline-none",
+                "transition duration-200 active:scale-[0.99]",
+                "focus-visible:ring-2 focus-visible:ring-brand/70",
+                active
+                    ? "border-brand/50 bg-brand/10 shadow-[0_0_0_1px_rgba(99,102,241,0.08)]"
+                    : "border-border bg-bg-tertiary hover:border-border-hover hover:bg-bg-hover",
+            ].join(
+                " "
+            )}
         >
-            <div className="max-w-6xl mx-auto">
-                <section className="bg-bg-secondary border border-border rounded-2xl p-4 mb-5">
-                    <p className="text-xs uppercase tracking-wide text-text-tertiary mb-3">
-                        Replay Source
+            <div className="flex items-start gap-3">
+                <div
+                    className={[
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
+                        active
+                            ? "border-brand/25 bg-brand/15 text-[#A5B4FC]"
+                            : "border-border bg-bg-secondary text-text-secondary group-hover:text-text-primary",
+                    ].join(
+                        " "
+                    )}
+                >
+                    {icon}
+                </div>
+
+                <div className="min-w-0">
+                    <p className="text-sm font-bold text-text-primary">
+                        {title}
                     </p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <button
-                            type="button"
-                            onClick={() => setMode("manual")}
-                            className={`border rounded-2xl p-4 text-left transition ${mode === "manual"
-                                ? "bg-brand-muted border-brand/20"
-                                : "bg-bg-tertiary border-border hover:border-border-hover"
-                                }`}
+                    <p className="mt-1 text-xs leading-5 text-text-tertiary">
+                        {description}
+                    </p>
+                </div>
+            </div>
+        </button>
+    );
+};
+
+const ScoreField = ({
+    id,
+    label,
+    value,
+    placeholder,
+    onChange,
+}: {
+    id: string;
+    label: string;
+    value: string;
+    placeholder: string;
+    onChange: (
+        value: string
+    ) => void;
+}) => {
+    return (
+        <div>
+            <label
+                htmlFor={id}
+                className={
+                    labelClass
+                }
+            >
+                {label}
+            </label>
+
+            <div className="relative">
+                <input
+                    id={id}
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.1"
+                    inputMode="decimal"
+                    value={value}
+                    placeholder={
+                        placeholder
+                    }
+                    className={`${fieldClass} pr-12`}
+                    onChange={(
+                        event
+                    ) =>
+                        onChange(
+                            event
+                                .target
+                                .value
+                        )
+                    }
+                />
+
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-text-tertiary">
+                    /10
+                </span>
+            </div>
+        </div>
+    );
+};
+
+const NewInterviewPageContent =
+    () => {
+        const navigate =
+            useNavigate();
+
+        const [
+            mode,
+            setMode,
+        ] =
+            useState<InterviewEntryMode>(
+                "manual"
+            );
+
+        const [
+            form,
+            setForm,
+        ] =
+            useState<ManualInterviewForm>(
+                initialForm
+            );
+
+        const [
+            questions,
+            setQuestions,
+        ] = useState<
+            QuestionForm[]
+        >([
+            emptyQuestion(),
+        ]);
+
+        const [
+            saving,
+            setSaving,
+        ] =
+            useState(false);
+
+        const [
+            error,
+            setError,
+        ] =
+            useState("");
+
+        const [
+            isOnline,
+            setIsOnline,
+        ] = useState(
+            () =>
+                typeof navigator ===
+                "undefined" ||
+                navigator.onLine
+        );
+
+        useEffect(() => {
+            const handleOnline =
+                () =>
+                    setIsOnline(
+                        true
+                    );
+
+            const handleOffline =
+                () =>
+                    setIsOnline(
+                        false
+                    );
+
+            window.addEventListener(
+                "online",
+                handleOnline
+            );
+
+            window.addEventListener(
+                "offline",
+                handleOffline
+            );
+
+            return () => {
+                window.removeEventListener(
+                    "online",
+                    handleOnline
+                );
+
+                window.removeEventListener(
+                    "offline",
+                    handleOffline
+                );
+            };
+        }, []);
+
+        const parsedTopics =
+            useMemo(
+                () =>
+                    toInterviewArray(
+                        form.topics
+                    ),
+                [form.topics]
+            );
+
+        const explicitMissedConcepts =
+            useMemo(
+                () =>
+                    toInterviewArray(
+                        form.conceptsMissed
+                    ),
+                [
+                    form.conceptsMissed,
+                ]
+            );
+
+        const completedQuestionCount =
+            useMemo(
+                () =>
+                    questions.filter(
+                        (
+                            question
+                        ) =>
+                            question.question.trim()
+                    ).length,
+                [questions]
+            );
+
+        const questionMissedPoints =
+            useMemo(
+                () =>
+                    questions.flatMap(
+                        (
+                            question
+                        ) =>
+                            toInterviewArray(
+                                question.missedPoints
+                            )
+                    ),
+                [questions]
+            );
+
+        const totalMissedConcepts =
+            useMemo(
+                () =>
+                    new Set([
+                        ...explicitMissedConcepts,
+                        ...questionMissedPoints,
+                    ]).size,
+                [
+                    explicitMissedConcepts,
+                    questionMissedPoints,
+                ]
+            );
+
+        const updateForm = <
+            K extends keyof ManualInterviewForm,
+        >(
+            field: K,
+            value: ManualInterviewForm[K]
+        ) => {
+            setForm(
+                (
+                    current
+                ) => ({
+                    ...current,
+                    [field]:
+                        value,
+                })
+            );
+        };
+
+        const updateQuestion = (
+            localId: string,
+            field:
+                keyof Omit<
+                    QuestionForm,
+                    "localId"
+                >,
+            value: string
+        ) => {
+            setQuestions(
+                (
+                    current
+                ) =>
+                    current.map(
+                        (
+                            question
+                        ) =>
+                            question.localId ===
+                                localId
+                                ? {
+                                    ...question,
+                                    [field]:
+                                        value,
+                                }
+                                : question
+                    )
+            );
+        };
+
+        const addQuestion =
+            () => {
+                setQuestions(
+                    (
+                        current
+                    ) => [
+                            ...current,
+                            emptyQuestion(),
+                        ]
+                );
+            };
+
+        const removeQuestion = (
+            localId: string
+        ) => {
+            setQuestions(
+                (
+                    current
+                ) => {
+                    if (
+                        current.length ===
+                        1
+                    ) {
+                        return current;
+                    }
+
+                    return current.filter(
+                        (
+                            question
+                        ) =>
+                            question.localId !==
+                            localId
+                    );
+                }
+            );
+        };
+
+        const buildQuestionReplays =
+            (): InterviewQuestionReplay[] => {
+                return questions
+                    .map(
+                        (
+                            question
+                        ) => ({
+                            question:
+                                question.question.trim(),
+
+                            userAnswer:
+                                question.userAnswer.trim() ||
+                                null,
+
+                            missedPoints:
+                                toInterviewArray(
+                                    question.missedPoints
+                                ),
+
+                            interviewerFeedback:
+                                question.interviewerFeedback.trim() ||
+                                null,
+
+                            confidenceScore:
+                                toInterviewScore(
+                                    question.confidenceScore
+                                ),
+
+                            status:
+                                question.status,
+                        })
+                    )
+                    .filter(
+                        (
+                            question
+                        ) =>
+                            question.question.length >
+                            0
+                    );
+            };
+
+        const handleSubmit =
+            async (
+                event: FormEvent
+            ) => {
+                event.preventDefault();
+
+                if (
+                    !isOnline
+                ) {
+                    setError(
+                        "You are offline. Reconnect before saving this interview replay."
+                    );
+                    return;
+                }
+
+                if (
+                    !form.company.trim()
+                ) {
+                    setError(
+                        "Company is required."
+                    );
+                    return;
+                }
+
+                if (
+                    !form.role.trim()
+                ) {
+                    setError(
+                        "Role is required."
+                    );
+                    return;
+                }
+
+                if (!form.date) {
+                    setError(
+                        "Interview date is required."
+                    );
+                    return;
+                }
+
+                const questionReplays =
+                    buildQuestionReplays();
+
+                if (
+                    questionReplays.length ===
+                    0
+                ) {
+                    setError(
+                        "Add at least one interview question."
+                    );
+                    return;
+                }
+
+                try {
+                    setSaving(
+                        true
+                    );
+
+                    setError("");
+
+                    const allMissedConcepts =
+                        Array.from(
+                            new Set([
+                                ...toInterviewArray(
+                                    form.conceptsMissed
+                                ),
+
+                                ...questionReplays.flatMap(
+                                    (
+                                        question
+                                    ) =>
+                                        question.missedPoints
+                                ),
+                            ])
+                        );
+
+                    const payload: CreateInterviewInput =
+                    {
+                        company:
+                            form.company.trim(),
+
+                        role:
+                            form.role.trim(),
+
+                        roundType:
+                            form.roundType,
+
+                        date:
+                            form.date,
+
+                        result:
+                            form.result,
+
+                        questionsAsked:
+                            questionReplays.map(
+                                (
+                                    question
+                                ) =>
+                                    question.question
+                            ),
+
+                        questionReplays,
+
+                        topics:
+                            toInterviewArray(
+                                form.topics
+                            ),
+
+                        conceptsMissed:
+                            allMissedConcepts,
+
+                        whatWentWell:
+                            form.whatWentWell.trim(),
+
+                        whatWentWrong:
+                            form.whatWentWrong.trim(),
+
+                        feedback:
+                            form.feedback.trim(),
+
+                        confidenceScore:
+                            toInterviewScore(
+                                form.confidenceScore
+                            ),
+
+                        communicationScore:
+                            toInterviewScore(
+                                form.communicationScore
+                            ),
+
+                        technicalScore:
+                            toInterviewScore(
+                                form.technicalScore
+                            ),
+
+                        nextActions:
+                            [],
+                    };
+
+                    const {
+                        data,
+                    } =
+                        await interviewService.create(
+                            payload
+                        );
+
+                    navigate(
+                        data
+                            .interview
+                            ?.id
+                            ? `/interviews/${data.interview.id}`
+                            : "/interviews"
+                    );
+                } catch (
+                submitError
+                ) {
+                    setError(
+                        getInterviewApiError(
+                            submitError,
+                            "Failed to log interview replay."
+                        )
+                    );
+                } finally {
+                    setSaving(
+                        false
+                    );
+                }
+            };
+
+        const switchMode = (
+            nextMode: InterviewEntryMode
+        ) => {
+            if (
+                saving
+            ) {
+                return;
+            }
+
+            setError("");
+            setMode(
+                nextMode
+            );
+        };
+
+        return (
+            <AppLayout
+                title="Log Interview"
+                description="Capture a manual replay or upload interview media for transcription and AI analysis."
+                action={
+                    <ActionButton
+                        type="button"
+                        variant="secondary"
+                        leadingIcon={
+                            <ArrowLeft
+                                size={15}
+                                aria-hidden="true"
+                            />
+                        }
+                        onClick={() =>
+                            navigate(
+                                "/interviews"
+                            )
+                        }
+                    >
+                        Back
+                    </ActionButton>
+                }
+            >
+                <div className="mx-auto grid w-full max-w-[1320px] gap-4 sm:gap-5">
+                    {!isOnline && (
+                        <StatusNotice
+                            tone="warning"
+                            title="You are offline"
                         >
-                            <div className="flex items-center gap-2 mb-2">
-                                <PenLine size={16} className="text-brand" />
-                                <span className="text-sm font-semibold text-text-primary">
-                                    Quick Log
-                                </span>
-                            </div>
-                            <p className="text-xs text-text-tertiary leading-5">
-                                Manually add questions, answers, missed points, and feedback.
-                            </p>
-                        </button>
+                            <span className="inline-flex items-start gap-2">
+                                <WifiOff
+                                    size={16}
+                                    className="mt-0.5 shrink-0"
+                                    aria-hidden="true"
+                                />
 
-                        <button
-                            type="button"
-                            onClick={() => setMode("audio")}
-                            className={`border rounded-2xl p-4 text-left transition ${mode === "audio"
-                                ? "bg-brand-muted border-brand/20"
-                                : "bg-bg-tertiary border-border hover:border-border-hover"
-                                }`}
+                                Manual saving and media uploads require an internet connection.
+                            </span>
+                        </StatusNotice>
+                    )}
+
+                    <PageSurface padding="md">
+                        <SectionHeader
+                            title="Replay source"
+                            description="Choose how you want to capture this interview."
+                            icon={
+                                <Sparkles
+                                    size={18}
+                                    aria-hidden="true"
+                                />
+                            }
+                            compact
+                        />
+
+                        <div className="mt-4 grid gap-3 md:grid-cols-3">
+                            <SourceOption
+                                active={
+                                    mode ===
+                                    "manual"
+                                }
+                                icon={
+                                    <PenLine
+                                        size={18}
+                                        aria-hidden="true"
+                                    />
+                                }
+                                title="Quick Log"
+                                description="Manually capture questions, answers, missed points, and feedback."
+                                onClick={() =>
+                                    switchMode(
+                                        "manual"
+                                    )
+                                }
+                            />
+
+                            <SourceOption
+                                active={
+                                    mode ===
+                                    "audio"
+                                }
+                                icon={
+                                    <FileAudio
+                                        size={18}
+                                        aria-hidden="true"
+                                    />
+                                }
+                                title="Upload Audio"
+                                description="Transcribe interview audio and generate an AI-assisted replay."
+                                onClick={() =>
+                                    switchMode(
+                                        "audio"
+                                    )
+                                }
+                            />
+
+                            <SourceOption
+                                active={
+                                    mode ===
+                                    "video"
+                                }
+                                icon={
+                                    <Video
+                                        size={18}
+                                        aria-hidden="true"
+                                    />
+                                }
+                                title="Upload Video"
+                                description="Save video evidence, extract speech, and generate interview analysis."
+                                onClick={() =>
+                                    switchMode(
+                                        "video"
+                                    )
+                                }
+                            />
+                        </div>
+                    </PageSurface>
+
+                    {mode ===
+                        "audio" ? (
+                        <AudioInterviewUploader />
+                    ) : mode ===
+                        "video" ? (
+                        <VideoInterviewUploader />
+                    ) : (
+                        <form
+                            onSubmit={
+                                handleSubmit
+                            }
+                            className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]"
                         >
-                            <div className="flex items-center gap-2 mb-2">
-                                <FileAudio size={16} className="text-brand" />
-                                <span className="text-sm font-semibold text-text-primary">
-                                    Upload Audio
-                                </span>
-                            </div>
-                            <p className="text-xs text-text-tertiary leading-5">
-                                Upload audio, auto-transcribe with Groq Whisper, and generate AI replay.
-                            </p>
-                        </button>
+                            <main className="grid min-w-0 gap-4">
+                                {error && (
+                                    <StatusNotice
+                                        tone="error"
+                                        dismissible
+                                        onDismiss={() =>
+                                            setError(
+                                                ""
+                                            )
+                                        }
+                                    >
+                                        {
+                                            error
+                                        }
+                                    </StatusNotice>
+                                )}
 
-                        <button
-                            type="button"
-                            onClick={() => setMode("video")}
-                            className={`border rounded-2xl p-4 text-left transition ${mode === "video"
-                                ? "bg-brand-muted border-brand/20"
-                                : "bg-bg-tertiary border-border hover:border-border-hover"
-                                }`}
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <Video size={16} className="text-text-tertiary" />
-                                <span className="text-sm font-semibold text-text-primary">
-                                    Upload Video
-                                </span>
-                            </div>
-                            <p className="text-xs text-text-tertiary leading-5">
-                                Upload video, extract transcript, and generate AI replay.
-                            </p>
-                        </button>
-                    </div>
-                </section>
-                {mode === "audio" ? (
-                    <AudioInterviewUploader />
-                ) : mode === "video" ? (
-                    <VideoInterviewUploader />
-                ) : (
-                    <>
-                        {error && (
-                            <div className="mb-4 bg-danger-muted border border-danger/10 text-danger text-sm rounded-xl px-4 py-3">
-                                {error}
-                            </div>
-                        )}
+                                <PageSurface padding="lg">
+                                    <SectionHeader
+                                        title="Interview details"
+                                        description="Start with company, role, round, date, and outcome."
+                                        icon={
+                                            <Target
+                                                size={18}
+                                                aria-hidden="true"
+                                            />
+                                        }
+                                        compact
+                                    />
 
-                        <div className="grid grid-cols-12 gap-4">
-                            <section className="col-span-12 lg:col-span-8 space-y-4">
-                                <div className="bg-bg-secondary border border-border rounded-2xl p-6 space-y-5">
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-text-primary">
-                                            Interview Details
-                                        </h3>
-                                        <p className="text-sm text-text-tertiary mt-1">
-                                            Start with company, role, round, and result.
-                                        </p>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="mt-5 grid gap-4 md:grid-cols-2">
                                         <div>
-                                            <label className={labelClass}>Company</label>
+                                            <label
+                                                htmlFor="interview-company"
+                                                className={
+                                                    labelClass
+                                                }
+                                            >
+                                                Company
+                                            </label>
+
                                             <input
-                                                className={inputClass}
+                                                id="interview-company"
+                                                value={
+                                                    form.company
+                                                }
+                                                autoComplete="organization"
                                                 placeholder="TCS, Infosys, Amazon, JPMorgan"
-                                                value={form.company}
-                                                onChange={(e) =>
-                                                    setForm({ ...form, company: e.target.value })
+                                                className={
+                                                    fieldClass
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    updateForm(
+                                                        "company",
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
                                                 }
                                             />
                                         </div>
 
                                         <div>
-                                            <label className={labelClass}>Role</label>
+                                            <label
+                                                htmlFor="interview-role"
+                                                className={
+                                                    labelClass
+                                                }
+                                            >
+                                                Role
+                                            </label>
+
                                             <input
-                                                className={inputClass}
-                                                placeholder="Java Developer Intern, SDE Intern"
-                                                value={form.role}
-                                                onChange={(e) =>
-                                                    setForm({ ...form, role: e.target.value })
+                                                id="interview-role"
+                                                value={
+                                                    form.role
+                                                }
+                                                autoComplete="organization-title"
+                                                placeholder="SDE Intern, Java Developer Intern"
+                                                className={
+                                                    fieldClass
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    updateForm(
+                                                        "role",
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
                                                 }
                                             />
                                         </div>
 
                                         <div>
-                                            <label className={labelClass}>Round Type</label>
-                                            <select
-                                                className={inputClass}
-                                                value={form.roundType}
-                                                onChange={(e) =>
-                                                    setForm({
-                                                        ...form,
-                                                        roundType: e.target.value as InterviewRoundType,
-                                                    })
+                                            <label
+                                                htmlFor="interview-round"
+                                                className={
+                                                    labelClass
                                                 }
                                             >
-                                                {roundTypes.map((round) => (
-                                                    <option key={round} value={round}>
-                                                        {formatEnum(round)}
-                                                    </option>
-                                                ))}
+                                                Round Type
+                                            </label>
+
+                                            <select
+                                                id="interview-round"
+                                                value={
+                                                    form.roundType
+                                                }
+                                                className={
+                                                    fieldClass
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    updateForm(
+                                                        "roundType",
+                                                        event
+                                                            .target
+                                                            .value as InterviewRoundType
+                                                    )
+                                                }
+                                            >
+                                                {INTERVIEW_ROUND_TYPES.map(
+                                                    (
+                                                        round
+                                                    ) => (
+                                                        <option
+                                                            key={
+                                                                round
+                                                            }
+                                                            value={
+                                                                round
+                                                            }
+                                                        >
+                                                            {formatInterviewEnum(
+                                                                round
+                                                            )}
+                                                        </option>
+                                                    )
+                                                )}
                                             </select>
                                         </div>
 
                                         <div>
-                                            <label className={labelClass}>Result</label>
-                                            <select
-                                                className={inputClass}
-                                                value={form.result}
-                                                onChange={(e) =>
-                                                    setForm({
-                                                        ...form,
-                                                        result: e.target.value as InterviewResult,
-                                                    })
+                                            <label
+                                                htmlFor="interview-result"
+                                                className={
+                                                    labelClass
                                                 }
                                             >
-                                                {results.map((result) => (
-                                                    <option key={result} value={result}>
-                                                        {formatEnum(result)}
-                                                    </option>
-                                                ))}
+                                                Result
+                                            </label>
+
+                                            <select
+                                                id="interview-result"
+                                                value={
+                                                    form.result
+                                                }
+                                                className={
+                                                    fieldClass
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    updateForm(
+                                                        "result",
+                                                        event
+                                                            .target
+                                                            .value as InterviewResult
+                                                    )
+                                                }
+                                            >
+                                                {INTERVIEW_RESULTS.map(
+                                                    (
+                                                        result
+                                                    ) => (
+                                                        <option
+                                                            key={
+                                                                result
+                                                            }
+                                                            value={
+                                                                result
+                                                            }
+                                                        >
+                                                            {formatInterviewEnum(
+                                                                result
+                                                            )}
+                                                        </option>
+                                                    )
+                                                )}
                                             </select>
                                         </div>
 
                                         <div>
-                                            <label className={labelClass}>Date</label>
+                                            <label
+                                                htmlFor="interview-date"
+                                                className={
+                                                    labelClass
+                                                }
+                                            >
+                                                Date
+                                            </label>
+
                                             <input
+                                                id="interview-date"
                                                 type="date"
-                                                className={inputClass}
-                                                value={form.date}
-                                                onChange={(e) =>
-                                                    setForm({ ...form, date: e.target.value })
+                                                value={
+                                                    form.date
+                                                }
+                                                className={
+                                                    fieldClass
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    updateForm(
+                                                        "date",
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
                                                 }
                                             />
                                         </div>
                                     </div>
-                                </div>
+                                </PageSurface>
 
-                                <div className="bg-bg-secondary border border-border rounded-2xl p-6 space-y-5">
-                                    <div className="flex items-start justify-between gap-4">
+                                <PageSurface padding="lg">
+                                    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+                                        <SectionHeader
+                                            title="Question-level replay"
+                                            description="Capture what you answered, what you missed, and what feedback you received."
+                                            icon={
+                                                <HelpCircle
+                                                    size={18}
+                                                    aria-hidden="true"
+                                                />
+                                            }
+                                            compact
+                                        />
+
+                                        <ActionButton
+                                            type="button"
+                                            variant="secondary"
+                                            leadingIcon={
+                                                <Plus
+                                                    size={15}
+                                                    aria-hidden="true"
+                                                />
+                                            }
+                                            onClick={
+                                                addQuestion
+                                            }
+                                        >
+                                            Add Question
+                                        </ActionButton>
+                                    </div>
+
+                                    <div className="mt-5 grid gap-4">
+                                        {questions.map(
+                                            (
+                                                question,
+                                                index
+                                            ) => (
+                                                <PageSurface
+                                                    key={
+                                                        question.localId
+                                                    }
+                                                    as="article"
+                                                    variant="subtle"
+                                                    padding="md"
+                                                >
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <div>
+                                                            <p className="text-sm font-bold text-text-primary">
+                                                                Question{" "}
+                                                                {index +
+                                                                    1}
+                                                            </p>
+
+                                                            <p className="mt-0.5 text-xs text-text-tertiary">
+                                                                {
+                                                                    formatInterviewEnum(
+                                                                        question.status
+                                                                    )
+                                                                }
+                                                            </p>
+                                                        </div>
+
+                                                        <ActionButton
+                                                            type="button"
+                                                            variant="danger"
+                                                            aria-label={`Remove question ${index + 1}`}
+                                                            disabled={
+                                                                questions.length ===
+                                                                1
+                                                            }
+                                                            onClick={() =>
+                                                                removeQuestion(
+                                                                    question.localId
+                                                                )
+                                                            }
+                                                            className="!px-3"
+                                                        >
+                                                            <Trash2
+                                                                size={15}
+                                                                aria-hidden="true"
+                                                            />
+                                                        </ActionButton>
+                                                    </div>
+
+                                                    <div className="mt-4 grid gap-4">
+                                                        <div>
+                                                            <label
+                                                                htmlFor={`question-${question.localId}`}
+                                                                className={
+                                                                    labelClass
+                                                                }
+                                                            >
+                                                                Question Asked
+                                                            </label>
+
+                                                            <textarea
+                                                                id={`question-${question.localId}`}
+                                                                value={
+                                                                    question.question
+                                                                }
+                                                                placeholder="What is SQL indexing and why is it used?"
+                                                                className={
+                                                                    textAreaClass
+                                                                }
+                                                                onChange={(
+                                                                    event
+                                                                ) =>
+                                                                    updateQuestion(
+                                                                        question.localId,
+                                                                        "question",
+                                                                        event
+                                                                            .target
+                                                                            .value
+                                                                    )
+                                                                }
+                                                            />
+                                                        </div>
+
+                                                        <div>
+                                                            <label
+                                                                htmlFor={`answer-${question.localId}`}
+                                                                className={
+                                                                    labelClass
+                                                                }
+                                                            >
+                                                                My Answer
+                                                            </label>
+
+                                                            <textarea
+                                                                id={`answer-${question.localId}`}
+                                                                value={
+                                                                    question.userAnswer
+                                                                }
+                                                                placeholder="Explain what you said, including examples and tradeoffs."
+                                                                className={`${textAreaClass} min-h-28`}
+                                                                onChange={(
+                                                                    event
+                                                                ) =>
+                                                                    updateQuestion(
+                                                                        question.localId,
+                                                                        "userAnswer",
+                                                                        event
+                                                                            .target
+                                                                            .value
+                                                                    )
+                                                                }
+                                                            />
+                                                        </div>
+
+                                                        <div className="grid gap-4 md:grid-cols-2">
+                                                            <div>
+                                                                <label
+                                                                    htmlFor={`missed-${question.localId}`}
+                                                                    className={
+                                                                        labelClass
+                                                                    }
+                                                                >
+                                                                    Missed Points
+                                                                </label>
+
+                                                                <textarea
+                                                                    id={`missed-${question.localId}`}
+                                                                    value={
+                                                                        question.missedPoints
+                                                                    }
+                                                                    placeholder={"B-tree basics\nClustered vs non-clustered\nIndex tradeoffs"}
+                                                                    className={
+                                                                        textAreaClass
+                                                                    }
+                                                                    onChange={(
+                                                                        event
+                                                                    ) =>
+                                                                        updateQuestion(
+                                                                            question.localId,
+                                                                            "missedPoints",
+                                                                            event
+                                                                                .target
+                                                                                .value
+                                                                        )
+                                                                    }
+                                                                />
+
+                                                                <p className={
+                                                                    helperClass
+                                                                }>
+                                                                    Enter one item per line or separate items with commas.
+                                                                </p>
+                                                            </div>
+
+                                                            <div>
+                                                                <label
+                                                                    htmlFor={`feedback-${question.localId}`}
+                                                                    className={
+                                                                        labelClass
+                                                                    }
+                                                                >
+                                                                    Interviewer Feedback
+                                                                </label>
+
+                                                                <textarea
+                                                                    id={`feedback-${question.localId}`}
+                                                                    value={
+                                                                        question.interviewerFeedback
+                                                                    }
+                                                                    placeholder="Revise internals, examples, and when not to use this approach."
+                                                                    className={
+                                                                        textAreaClass
+                                                                    }
+                                                                    onChange={(
+                                                                        event
+                                                                    ) =>
+                                                                        updateQuestion(
+                                                                            question.localId,
+                                                                            "interviewerFeedback",
+                                                                            event
+                                                                                .target
+                                                                                .value
+                                                                        )
+                                                                    }
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid gap-4 md:grid-cols-2">
+                                                            <ScoreField
+                                                                id={`confidence-${question.localId}`}
+                                                                label="Question Confidence"
+                                                                value={
+                                                                    question.confidenceScore
+                                                                }
+                                                                placeholder="5"
+                                                                onChange={(
+                                                                    value
+                                                                ) =>
+                                                                    updateQuestion(
+                                                                        question.localId,
+                                                                        "confidenceScore",
+                                                                        value
+                                                                    )
+                                                                }
+                                                            />
+
+                                                            <div>
+                                                                <label
+                                                                    htmlFor={`status-${question.localId}`}
+                                                                    className={
+                                                                        labelClass
+                                                                    }
+                                                                >
+                                                                    Status
+                                                                </label>
+
+                                                                <select
+                                                                    id={`status-${question.localId}`}
+                                                                    value={
+                                                                        question.status
+                                                                    }
+                                                                    className={
+                                                                        fieldClass
+                                                                    }
+                                                                    onChange={(
+                                                                        event
+                                                                    ) =>
+                                                                        updateQuestion(
+                                                                            question.localId,
+                                                                            "status",
+                                                                            event
+                                                                                .target
+                                                                                .value
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    {QUESTION_STATUSES.map(
+                                                                        (
+                                                                            status
+                                                                        ) => (
+                                                                            <option
+                                                                                key={
+                                                                                    status
+                                                                                }
+                                                                                value={
+                                                                                    status
+                                                                                }
+                                                                            >
+                                                                                {formatInterviewEnum(
+                                                                                    status
+                                                                                )}
+                                                                            </option>
+                                                                        )
+                                                                    )}
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </PageSurface>
+                                            )
+                                        )}
+                                    </div>
+                                </PageSurface>
+
+                                <PageSurface padding="lg">
+                                    <SectionHeader
+                                        title="Overall replay context"
+                                        description="Add topics, overall reflection, and interviewer feedback."
+                                        icon={
+                                            <CheckCircle2
+                                                size={18}
+                                                aria-hidden="true"
+                                            />
+                                        }
+                                        compact
+                                    />
+
+                                    <div className="mt-5 grid gap-4 md:grid-cols-2">
                                         <div>
-                                            <h3 className="text-lg font-semibold text-text-primary">
-                                                Question-level Replay
-                                            </h3>
-                                            <p className="text-sm text-text-tertiary mt-1">
-                                                Add what you answered, what you missed, and what feedback you got.
+                                            <label
+                                                htmlFor="interview-topics"
+                                                className={
+                                                    labelClass
+                                                }
+                                            >
+                                                Topics Covered
+                                            </label>
+
+                                            <textarea
+                                                id="interview-topics"
+                                                value={
+                                                    form.topics
+                                                }
+                                                placeholder={"Java\nOOP\nDBMS\nSQL"}
+                                                className={
+                                                    textAreaClass
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    updateForm(
+                                                        "topics",
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
+                                                }
+                                            />
+
+                                            <p className={
+                                                helperClass
+                                            }>
+                                                {parsedTopics.length} topic
+                                                {parsedTopics.length ===
+                                                    1
+                                                    ? ""
+                                                    : "s"}{" "}
+                                                detected.
                                             </p>
                                         </div>
 
-                                        <button
-                                            onClick={addQuestion}
-                                            className="bg-brand hover:bg-brand-hover text-white px-4 py-2 rounded-xl text-sm transition flex items-center gap-2"
-                                        >
-                                            <Plus size={15} />
-                                            Add Question
-                                        </button>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        {questions.map((question, index) => (
-                                            <div
-                                                key={index}
-                                                className="bg-bg-tertiary border border-border rounded-2xl p-4 space-y-4"
+                                        <div>
+                                            <label
+                                                htmlFor="interview-missed-concepts"
+                                                className={
+                                                    labelClass
+                                                }
                                             >
-                                                <div className="flex items-center justify-between gap-4">
-                                                    <p className="text-sm font-semibold text-text-primary">
-                                                        Question {index + 1}
-                                                    </p>
+                                                Overall Missed Concepts
+                                            </label>
 
-                                                    <button
-                                                        onClick={() => removeQuestion(index)}
-                                                        disabled={questions.length === 1}
-                                                        className="disabled:opacity-30 disabled:cursor-not-allowed text-text-tertiary hover:text-danger transition"
-                                                    >
-                                                        <Trash2 size={15} />
-                                                    </button>
-                                                </div>
-
-                                                <div>
-                                                    <label className={labelClass}>Question Asked</label>
-                                                    <textarea
-                                                        className={`${inputClass} resize-none min-h-20`}
-                                                        placeholder="What is SQL indexing and why is it used?"
-                                                        value={question.question}
-                                                        onChange={(e) =>
-                                                            updateQuestion(index, "question", e.target.value)
-                                                        }
-                                                    />
-                                                </div>
-
-                                                <div>
-                                                    <label className={labelClass}>My Answer</label>
-                                                    <textarea
-                                                        className={`${inputClass} resize-none min-h-24`}
-                                                        placeholder="I said indexing makes search faster but could not explain B-tree or tradeoffs."
-                                                        value={question.userAnswer}
-                                                        onChange={(e) =>
-                                                            updateQuestion(index, "userAnswer", e.target.value)
-                                                        }
-                                                    />
-                                                </div>
-
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className={labelClass}>
-                                                            Missed Points
-                                                        </label>
-                                                        <textarea
-                                                            className={`${inputClass} resize-none min-h-24`}
-                                                            placeholder={`B-tree basics\nClustered vs non-clustered\nIndex tradeoffs`}
-                                                            value={question.missedPoints}
-                                                            onChange={(e) =>
-                                                                updateQuestion(
-                                                                    index,
-                                                                    "missedPoints",
-                                                                    e.target.value
-                                                                )
-                                                            }
-                                                        />
-                                                    </div>
-
-                                                    <div>
-                                                        <label className={labelClass}>
-                                                            Interviewer Feedback
-                                                        </label>
-                                                        <textarea
-                                                            className={`${inputClass} resize-none min-h-24`}
-                                                            placeholder="Revise indexing internals and when not to use indexes."
-                                                            value={question.interviewerFeedback}
-                                                            onChange={(e) =>
-                                                                updateQuestion(
-                                                                    index,
-                                                                    "interviewerFeedback",
-                                                                    e.target.value
-                                                                )
-                                                            }
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className={labelClass}>
-                                                            Question Confidence
-                                                        </label>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            max="10"
-                                                            className={inputClass}
-                                                            placeholder="3"
-                                                            value={question.confidenceScore}
-                                                            onChange={(e) =>
-                                                                updateQuestion(
-                                                                    index,
-                                                                    "confidenceScore",
-                                                                    e.target.value
-                                                                )
-                                                            }
-                                                        />
-                                                    </div>
-
-                                                    <div>
-                                                        <label className={labelClass}>Status</label>
-                                                        <select
-                                                            className={inputClass}
-                                                            value={question.status}
-                                                            onChange={(e) =>
-                                                                updateQuestion(
-                                                                    index,
-                                                                    "status",
-                                                                    e.target.value as InterviewQuestionStatus
-                                                                )
-                                                            }
-                                                        >
-                                                            {questionStatuses.map((status) => (
-                                                                <option key={status} value={status}>
-                                                                    {formatEnum(status)}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="bg-bg-secondary border border-border rounded-2xl p-6 space-y-5">
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-text-primary">
-                                            Overall Replay Context
-                                        </h3>
-                                        <p className="text-sm text-text-tertiary mt-1">
-                                            Add topics, overall reflection, and interviewer feedback.
-                                        </p>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className={labelClass}>Topics Covered</label>
                                             <textarea
-                                                className={`${inputClass} resize-none min-h-24`}
-                                                placeholder={`Java\nOOP\nDBMS\nSQL`}
-                                                value={form.topics}
-                                                onChange={(e) =>
-                                                    setForm({ ...form, topics: e.target.value })
+                                                id="interview-missed-concepts"
+                                                value={
+                                                    form.conceptsMissed
+                                                }
+                                                placeholder={"SQL indexing\nTime complexity\nThread safety"}
+                                                className={
+                                                    textAreaClass
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    updateForm(
+                                                        "conceptsMissed",
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
                                                 }
                                             />
-                                        </div>
 
+                                            <p className={
+                                                helperClass
+                                            }>
+                                                Question-level missed points are merged automatically.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 grid gap-4">
                                         <div>
-                                            <label className={labelClass}>Overall Missed Concepts</label>
+                                            <label
+                                                htmlFor="interview-well"
+                                                className={
+                                                    labelClass
+                                                }
+                                            >
+                                                What Went Well
+                                            </label>
+
                                             <textarea
-                                                className={`${inputClass} resize-none min-h-24`}
-                                                placeholder={`SQL Indexing\nTime Complexity Explanation`}
-                                                value={form.conceptsMissed}
-                                                onChange={(e) =>
-                                                    setForm({ ...form, conceptsMissed: e.target.value })
+                                                id="interview-well"
+                                                value={
+                                                    form.whatWentWell
                                                 }
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className={labelClass}>What Went Well</label>
-                                        <textarea
-                                            className={`${inputClass} resize-none min-h-24`}
-                                            placeholder="I stayed calm and explained basic OOP definitions."
-                                            value={form.whatWentWell}
-                                            onChange={(e) =>
-                                                setForm({ ...form, whatWentWell: e.target.value })
-                                            }
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className={labelClass}>What Went Wrong</label>
-                                        <textarea
-                                            className={`${inputClass} resize-none min-h-24`}
-                                            placeholder="I struggled when asked for deeper DBMS indexing internals and complexity explanation."
-                                            value={form.whatWentWrong}
-                                            onChange={(e) =>
-                                                setForm({ ...form, whatWentWrong: e.target.value })
-                                            }
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className={labelClass}>Overall Feedback</label>
-                                        <textarea
-                                            className={`${inputClass} resize-none min-h-24`}
-                                            placeholder="Move from definition-level preparation to example and tradeoff-level answers."
-                                            value={form.feedback}
-                                            onChange={(e) =>
-                                                setForm({ ...form, feedback: e.target.value })
-                                            }
-                                        />
-                                    </div>
-                                </div>
-                            </section>
-
-                            <aside className="col-span-12 lg:col-span-4 space-y-4">
-                                <div className="bg-bg-secondary border border-border rounded-2xl p-5">
-                                    <h3 className="text-base font-semibold text-text-primary">
-                                        Overall Self Scores
-                                    </h3>
-                                    <p className="text-sm text-text-tertiary mt-1 mb-4">
-                                        Rate the overall interview from 0 to 10.
-                                    </p>
-
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className={labelClass}>Confidence Score</label>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max="10"
-                                                className={inputClass}
-                                                placeholder="6"
-                                                value={form.confidenceScore}
-                                                onChange={(e) =>
-                                                    setForm({
-                                                        ...form,
-                                                        confidenceScore: e.target.value,
-                                                    })
+                                                placeholder="I stayed calm, clarified requirements, and explained core concepts clearly."
+                                                className={
+                                                    textAreaClass
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    updateForm(
+                                                        "whatWentWell",
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
                                                 }
                                             />
                                         </div>
 
                                         <div>
-                                            <label className={labelClass}>Communication Score</label>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max="10"
-                                                className={inputClass}
-                                                placeholder="7"
-                                                value={form.communicationScore}
-                                                onChange={(e) =>
-                                                    setForm({
-                                                        ...form,
-                                                        communicationScore: e.target.value,
-                                                    })
+                                            <label
+                                                htmlFor="interview-wrong"
+                                                className={
+                                                    labelClass
+                                                }
+                                            >
+                                                What Went Wrong
+                                            </label>
+
+                                            <textarea
+                                                id="interview-wrong"
+                                                value={
+                                                    form.whatWentWrong
+                                                }
+                                                placeholder="I struggled with deeper internals, tradeoffs, or structured explanations."
+                                                className={
+                                                    textAreaClass
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    updateForm(
+                                                        "whatWentWrong",
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
                                                 }
                                             />
                                         </div>
 
                                         <div>
-                                            <label className={labelClass}>Technical Score</label>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max="10"
-                                                className={inputClass}
-                                                placeholder="4"
-                                                value={form.technicalScore}
-                                                onChange={(e) =>
-                                                    setForm({
-                                                        ...form,
-                                                        technicalScore: e.target.value,
-                                                    })
+                                            <label
+                                                htmlFor="interview-feedback"
+                                                className={
+                                                    labelClass
+                                                }
+                                            >
+                                                Overall Feedback
+                                            </label>
+
+                                            <textarea
+                                                id="interview-feedback"
+                                                value={
+                                                    form.feedback
+                                                }
+                                                placeholder="Add feedback from the interviewer, mentor, or your own review."
+                                                className={
+                                                    textAreaClass
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    updateForm(
+                                                        "feedback",
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
                                                 }
                                             />
                                         </div>
                                     </div>
-                                </div>
+                                </PageSurface>
+                            </main>
 
-                                <div className="bg-brand-muted border border-brand/10 rounded-2xl p-5">
-                                    <h3 className="text-base font-semibold text-text-primary">
-                                        Why question-level replay matters
-                                    </h3>
-                                    <p className="text-sm text-text-secondary mt-2 leading-6">
-                                        PlacementOS will use every answer, missed point, and feedback
-                                        item to generate a sharper AI diagnosis and action plan.
-                                    </p>
-                                </div>
+                            <aside className="grid content-start gap-4 lg:sticky lg:top-6 lg:self-start">
+                                <PageSurface padding="lg">
+                                    <SectionHeader
+                                        title="Overall self scores"
+                                        description="Rate the complete interview from 0 to 10."
+                                        icon={
+                                            <Target
+                                                size={17}
+                                                aria-hidden="true"
+                                            />
+                                        }
+                                        compact
+                                    />
 
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={loading}
-                                    className="w-full bg-brand hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-4 py-3 rounded-xl transition-all duration-200 text-sm flex items-center justify-center gap-2"
+                                    <div className="mt-5 grid gap-4">
+                                        <ScoreField
+                                            id="overall-confidence"
+                                            label="Confidence"
+                                            value={
+                                                form.confidenceScore
+                                            }
+                                            placeholder="6"
+                                            onChange={(
+                                                value
+                                            ) =>
+                                                updateForm(
+                                                    "confidenceScore",
+                                                    value
+                                                )
+                                            }
+                                        />
+
+                                        <ScoreField
+                                            id="overall-communication"
+                                            label="Communication"
+                                            value={
+                                                form.communicationScore
+                                            }
+                                            placeholder="7"
+                                            onChange={(
+                                                value
+                                            ) =>
+                                                updateForm(
+                                                    "communicationScore",
+                                                    value
+                                                )
+                                            }
+                                        />
+
+                                        <ScoreField
+                                            id="overall-technical"
+                                            label="Technical"
+                                            value={
+                                                form.technicalScore
+                                            }
+                                            placeholder="5"
+                                            onChange={(
+                                                value
+                                            ) =>
+                                                updateForm(
+                                                    "technicalScore",
+                                                    value
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                </PageSurface>
+
+                                <PageSurface
+                                    variant="highlight"
+                                    padding="md"
                                 >
-                                    <Save size={16} />
-                                    {loading ? "Saving Interview..." : "Save Question Replay"}
-                                </button>
-                            </aside>
-                        </div>
+                                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#A5B4FC]">
+                                        Replay summary
+                                    </p>
 
-                    </>
-                )}
-            </div>
-        </AppLayout>
-    );
-};
+                                    <div className="mt-4 grid grid-cols-3 gap-2">
+                                        <div className="rounded-xl border border-border bg-bg-tertiary p-3 text-center">
+                                            <p className="text-lg font-black text-text-primary">
+                                                {
+                                                    completedQuestionCount
+                                                }
+                                            </p>
+
+                                            <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-text-tertiary">
+                                                Questions
+                                            </p>
+                                        </div>
+
+                                        <div className="rounded-xl border border-border bg-bg-tertiary p-3 text-center">
+                                            <p className="text-lg font-black text-text-primary">
+                                                {
+                                                    parsedTopics.length
+                                                }
+                                            </p>
+
+                                            <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-text-tertiary">
+                                                Topics
+                                            </p>
+                                        </div>
+
+                                        <div className="rounded-xl border border-border bg-bg-tertiary p-3 text-center">
+                                            <p className="text-lg font-black text-danger">
+                                                {
+                                                    totalMissedConcepts
+                                                }
+                                            </p>
+
+                                            <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-text-tertiary">
+                                                Gaps
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <p className="mt-4 text-xs leading-5 text-text-secondary">
+                                        Detailed answers and missed points produce a sharper AI diagnosis later.
+                                    </p>
+                                </PageSurface>
+
+                                <ActionButton
+                                    type="submit"
+                                    fullWidth
+                                    loading={
+                                        saving
+                                    }
+                                    loadingText="Saving interview..."
+                                    leadingIcon={
+                                        <Save
+                                            size={16}
+                                            aria-hidden="true"
+                                        />
+                                    }
+                                    disabled={
+                                        !isOnline
+                                    }
+                                >
+                                    Save Question Replay
+                                </ActionButton>
+                            </aside>
+                        </form>
+                    )}
+                </div>
+            </AppLayout>
+        );
+    };
+
+export const NewInterviewPage =
+    () => {
+        return (
+            <InterviewErrorBoundary>
+                <NewInterviewPageContent />
+            </InterviewErrorBoundary>
+        );
+    };

@@ -5,7 +5,7 @@ import {
 } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
-import logo from "../../assets/logo.jpeg";
+import { BrandLogo } from "./BrandLogo";
 
 import {
     primaryNavigationItems,
@@ -46,38 +46,11 @@ export const Sidebar = () => {
                         "focus-visible:ring-2 focus-visible:ring-indigo-400/70",
                     ].join(" ")}
                 >
-                    <div
-                        className={[
-                            "relative flex h-10 w-10 shrink-0 items-center justify-center",
-                            "overflow-hidden rounded-xl",
-                            "border border-indigo-400/25",
-                            "bg-gradient-to-br from-indigo-500 to-violet-600",
-                            "shadow-[0_8px_24px_rgba(99,102,241,0.24)]",
-                            "transition duration-200",
-                            "group-hover:scale-[1.03]",
-                        ].join(" ")}
-                        aria-hidden="true"
-                    >
-                        <img
-                            src={logo}
-                            alt=""
-                            draggable={false}
-                            className="h-full w-full object-cover"
-                        />
-                    </div>
-
-                    <div className="min-w-0">
-                        <p className="truncate text-[15px] font-black tracking-[-0.035em] text-text-primary">
-                            Placement
-                            <span className="text-indigo-400">
-                                OS
-                            </span>
-                        </p>
-
-                        <p className="mt-0.5 truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
-                            Preparation workspace
-                        </p>
-                    </div>
+                    <BrandLogo
+                        variant="sidebar"
+                        priority
+                        className="transition duration-200 group-hover:scale-[1.02]"
+                    />
                 </Link>
             </div>
 

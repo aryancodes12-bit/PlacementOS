@@ -9,6 +9,10 @@ $breakpoint-desktop: 64rem;
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
+.app-safe-top {
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
 .mobile-bottom-nav {
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
@@ -39,6 +43,10 @@ $breakpoint-desktop: 64rem;
 
 .mobile-nav-button:active {
     transform: scale(0.96);
+}
+
+.topbar-mobile-action {
+    min-width: 0;
 }
 
 .onboarding-reveal {
@@ -116,6 +124,29 @@ $breakpoint-desktop: 64rem;
         position: static;
         margin-left: 0;
         margin-right: 0;
+    }
+}
+
+@media (min-width: 40rem) and (max-width: calc(#{$breakpoint-desktop} - 0.02rem)) {
+    .app-shell-topbar {
+        margin-left: -1.5rem;
+        margin-right: -1.5rem;
+    }
+}
+
+@media (max-width: 23.75rem) {
+    .app-shell-content {
+        padding-bottom: calc(#{$app-mobile-nav-height} + env(safe-area-inset-bottom) + 0.85rem);
+    }
+
+    .mobile-bottom-nav {
+        padding-left: 0.35rem;
+        padding-right: 0.35rem;
+    }
+
+    .mobile-bottom-nav .mobile-nav-button {
+        min-height: 3.35rem;
+        border-radius: 0.85rem;
     }
 }
 
