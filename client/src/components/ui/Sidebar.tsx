@@ -1,206 +1,125 @@
 import {
+    Link,
     NavLink,
     useNavigate,
 } from "react-router-dom";
+import { LogOut } from "lucide-react";
+import { useAuthStore } from "../../store/authStore";
+import logo from "../../assets/logo.jpeg";
 
 import {
-    Code2,
-    Crown,
-    FileText,
-    LayoutDashboard,
-    LogOut,
-    Map,
-    Mic,
-    Settings,
-    Sparkles,
-    User,
-} from "lucide-react";
+    primaryNavigationItems,
+    secondaryNavigationItems,
+} from "./navigation";
 
-import {
-    useAuthStore,
-} from "../../store/authStore";
-
-import {
-    BrandLogo,
-} from "./BrandLogo";
-
-const navItems = [
-    {
-        to: "/dashboard",
-        icon: LayoutDashboard,
-        label: "Dashboard",
-    },
-    {
-        to: "/daily-plan",
-        icon: Sparkles,
-        label: "Daily Plan",
-    },
-    {
-        to: "/roadmap",
-        icon: Map,
-        label: "Full-Stack Roadmap",
-    },
-    {
-        to: "/pricing",
-        icon: Crown,
-        label: "Premium",
-    },
-    {
-        to: "/dsa",
-        icon: Code2,
-        label: "DSA Tracker",
-    },
-    {
-        to: "/resume",
-        icon: FileText,
-        label: "Resume",
-    },
-    {
-        to: "/interviews",
-        icon: Mic,
-        label: "Interviews",
-    },
-    {
-        to: "/profile",
-        icon: User,
-        label: "Profile",
-    },
-];
+const linkClassName = ({ isActive }: { isActive: boolean }) =>
+    [
+        "group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5",
+        "text-sm font-medium outline-none transition duration-200",
+        "focus-visible:ring-2 focus-visible:ring-brand/70",
+        isActive
+            ? "bg-brand/15 text-[#A5B4FC] shadow-[inset_0_0_0_1px_rgba(99,102,241,0.18)]"
+            : "text-text-secondary hover:bg-bg-hover hover:text-text-primary",
+    ].join(" ");
 
 export const Sidebar = () => {
-    const user = useAuthStore(
-        (state) => state.user
-    );
-
-    const logout = useAuthStore(
-        (state) => state.logout
-    );
-
+    const user = useAuthStore((state) => state.user);
+    const logout = useAuthStore((state) => state.logout);
     const navigate = useNavigate();
-
-    const userInitial =
-        user?.name
-            ?.trim()
-            .charAt(0)
-            .toUpperCase() || "U";
+    const userInitial = user?.name?.trim().charAt(0).toUpperCase() || "U";
 
     const handleLogout = () => {
         logout();
-
-        navigate("/login", {
-            replace: true,
-        });
+        navigate("/login", { replace: true });
     };
 
     return (
-        <aside className="fixed left-0 top-0 z-50 flex h-screen w-60 flex-col border-r border-[#1E1E2E] bg-[#111118]">
-            <div className="border-b border-[#1E1E2E] px-4 py-4">
-                <button
-                    type="button"
-                    onClick={() =>
-                        navigate("/dashboard")
-                    }
-                    aria-label="Go to PlacementOS dashboard"
-                    className="block w-full rounded-xl transition hover:opacity-95 active:scale-[0.98]"
+        <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-border bg-bg-secondary/95 backdrop-blur-xl lg:flex">
+            <div className="border-b border-border px-4 py-4">
+                <Link
+                    to="/dashboard"
+                    aria-label="Open PlacementOS dashboard"
+                    className={[
+                        "group flex min-h-12 items-center gap-3 rounded-xl px-2",
+                        "outline-none transition duration-200",
+                        "hover:bg-white/[0.035]",
+                        "focus-visible:ring-2 focus-visible:ring-indigo-400/70",
+                    ].join(" ")}
                 >
-                    <BrandLogo
-                        variant="auth"
-                        priority
-                    />
-                </button>
+                    <div
+                        className={[
+                            "relative flex h-10 w-10 shrink-0 items-center justify-center",
+                            "overflow-hidden rounded-xl",
+                            "border border-indigo-400/25",
+                            "bg-gradient-to-br from-indigo-500 to-violet-600",
+                            "shadow-[0_8px_24px_rgba(99,102,241,0.24)]",
+                            "transition duration-200",
+                            "group-hover:scale-[1.03]",
+                        ].join(" ")}
+                        aria-hidden="true"
+                    >
+                        <img
+                            src={logo}
+                            alt=""
+                            draggable={false}
+                            className="h-full w-full object-cover"
+                        />
+                    </div>
+
+                    <div className="min-w-0">
+                        <p className="truncate text-[15px] font-black tracking-[-0.035em] text-text-primary">
+                            Placement
+                            <span className="text-indigo-400">
+                                OS
+                            </span>
+                        </p>
+
+                        <p className="mt-0.5 truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+                            Preparation workspace
+                        </p>
+                    </div>
+                </Link>
             </div>
 
-            <nav
-                aria-label="Primary navigation"
-                className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4"
-            >
-                {navItems.map(
-                    ({
-                        to,
-                        icon: Icon,
-                        label,
-                    }) => (
-                        <NavLink
-                            key={to}
-                            to={to}
-                            className={({
-                                isActive,
-                            }) =>
-                                [
-                                    "flex items-center gap-3 rounded-xl px-3 py-2.5",
-                                    "text-sm font-medium transition-all duration-150",
-                                    isActive
-                                        ? "bg-[#6366F1]/15 text-[#818CF8]"
-                                        : "text-[#9090A8] hover:bg-[#22222F] hover:text-[#F1F1F5]",
-                                ].join(
-                                    " "
-                                )
-                            }
-                        >
-                            <Icon
-                                size={16}
-                                className="shrink-0"
-                                aria-hidden="true"
-                            />
-
-                            <span>
-                                {label}
-                            </span>
+            <nav aria-label="Primary navigation" className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
+                {primaryNavigationItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                        <NavLink key={item.to} to={item.to} className={linkClassName}>
+                            <Icon size={17} className="shrink-0 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
+                            <span className="truncate">{item.label}</span>
                         </NavLink>
-                    )
-                )}
+                    );
+                })}
             </nav>
 
-            <div className="space-y-0.5 border-t border-[#1E1E2E] px-3 py-4">
-                <NavLink
-                    to="/settings"
-                    className={({
-                        isActive,
-                    }) =>
-                        [
-                            "flex items-center gap-3 rounded-xl px-3 py-2.5",
-                            "text-sm font-medium transition-all duration-150",
-                            isActive
-                                ? "bg-[#6366F1]/15 text-[#818CF8]"
-                                : "text-[#9090A8] hover:bg-[#22222F] hover:text-[#F1F1F5]",
-                        ].join(" ")
-                    }
-                >
-                    <Settings
-                        size={16}
-                        aria-hidden="true"
-                    />
-
-                    Settings
-                </NavLink>
+            <div className="space-y-1 border-t border-border px-3 py-4">
+                {secondaryNavigationItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                        <NavLink key={item.to} to={item.to} className={linkClassName}>
+                            <Icon size={17} className="shrink-0" aria-hidden="true" />
+                            <span>{item.label}</span>
+                        </NavLink>
+                    );
+                })}
 
                 <button
                     type="button"
                     onClick={handleLogout}
-                    className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#9090A8] transition-all duration-150 hover:bg-[#EF4444]/10 hover:text-[#EF4444]"
+                    className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-text-secondary outline-none transition duration-200 hover:bg-danger/10 hover:text-danger active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-danger/60"
                 >
-                    <LogOut
-                        size={16}
-                        aria-hidden="true"
-                    />
-
+                    <LogOut size={17} aria-hidden="true" />
                     Logout
                 </button>
 
-                <div className="mt-2 flex items-center gap-3 rounded-xl border border-[#1E1E2E] bg-[#1A1A24] px-3 py-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#6366F1]/25 bg-[#6366F1]/15 text-xs font-bold text-[#818CF8]">
+                <div className="mt-3 flex items-center gap-3 rounded-2xl border border-border bg-bg-tertiary px-3 py-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-brand/25 bg-brand/15 text-xs font-bold text-[#A5B4FC]">
                         {userInitial}
                     </div>
-
                     <div className="min-w-0">
-                        <p className="truncate text-xs font-medium text-[#F1F1F5]">
-                            {user?.name ||
-                                "PlacementOS user"}
-                        </p>
-
-                        <p className="truncate text-[11px] text-[#5A5A72]">
-                            {user?.email}
-                        </p>
+                        <p className="truncate text-xs font-semibold text-text-primary">{user?.name || "PlacementOS user"}</p>
+                        <p className="mt-0.5 truncate text-[11px] text-text-tertiary">{user?.email}</p>
                     </div>
                 </div>
             </div>

@@ -1,0 +1,147 @@
+$app-mobile-nav-height: 4.5rem;
+$breakpoint-desktop: 64rem;
+
+.app-shell-content {
+    padding-bottom: calc(#{$app-mobile-nav-height} + env(safe-area-inset-bottom) + 1.25rem);
+}
+
+.app-safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.mobile-bottom-nav {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+.app-shell-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    margin-left: -1rem;
+    margin-right: -1rem;
+}
+
+.app-shell-enter {
+    animation: app-shell-enter 320ms ease-out both;
+}
+
+.drawer-backdrop {
+    animation: drawer-backdrop-enter 180ms ease-out both;
+}
+
+.drawer-panel {
+    animation: drawer-panel-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mobile-nav-button {
+    -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-nav-button:active {
+    transform: scale(0.96);
+}
+
+.onboarding-reveal {
+    animation: onboarding-reveal 520ms ease-out both;
+}
+
+.onboarding-menu-enter {
+    animation: onboarding-menu-enter 180ms ease-out both;
+}
+
+@keyframes app-shell-enter {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes drawer-backdrop-enter {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes drawer-panel-enter {
+    from {
+        opacity: 0;
+        transform: translateX(-18px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes onboarding-reveal {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes onboarding-menu-enter {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (min-width: $breakpoint-desktop) {
+    .app-shell-content {
+        padding-bottom: 2rem;
+    }
+
+    .app-shell-topbar {
+        position: static;
+        margin-left: 0;
+        margin-right: 0;
+    }
+}
+
+@media (orientation: landscape) and (max-height: 32rem) {
+    .drawer-panel nav {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .drawer-panel a,
+    .drawer-panel button {
+        min-height: 2.75rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .app-shell-enter,
+    .drawer-backdrop,
+    .drawer-panel,
+    .onboarding-reveal,
+    .onboarding-menu-enter {
+        animation: none !important;
+    }
+
+    .mobile-nav-button:active {
+        transform: none;
+    }
+}

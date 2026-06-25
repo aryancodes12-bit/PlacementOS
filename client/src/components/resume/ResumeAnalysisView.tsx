@@ -1,4 +1,12 @@
 import {
+    useState,
+} from "react";
+
+import type {
+    ReactNode,
+} from "react";
+
+import {
     AlertTriangle,
     CheckCircle2,
     ExternalLink,
@@ -9,41 +17,101 @@ import {
     Target,
     TrendingUp,
 } from "lucide-react";
-import type { Resume } from "../../services/resume.service";
-import { resumeService } from "../../services/resume.service";
+
+import {
+    isAxiosError,
+} from "axios";
+
+import {
+    ActionButton,
+} from "../ui/design-system/ActionButton";
+
+import {
+    PageSurface,
+} from "../ui/design-system/PageSurface";
+
+import {
+    SectionHeader,
+} from "../ui/design-system/SectionHeader";
+
+import {
+    StatusNotice,
+} from "../ui/design-system/StatusNotice";
+
+import type {
+    Resume,
+} from "../../services/resume.service";
+
+import {
+    resumeService,
+} from "../../services/resume.service";
+
+import {
+    ResumeAnalysisSkeleton,
+} from "./ResumeAnalysisSkeleton";
+
 interface ResumeAnalysisViewProps {
     resume: Resume;
 }
 
-const getScoreTone = (score?: number | null) => {
-    if (typeof score !== "number") {
+interface ApiErrorResponse {
+    message?: string;
+}
+
+const getScoreTone = (
+    score?: number | null
+) => {
+    if (
+        typeof score !==
+        "number"
+    ) {
         return {
-            text: "text-text-tertiary",
-            bg: "bg-bg-tertiary",
-            label: "Pending",
+            text:
+                "text-text-tertiary",
+            badge:
+                "border-border bg-bg-tertiary text-text-tertiary",
+            bar:
+                "bg-text-tertiary",
+            label:
+                "Pending",
         };
     }
 
     if (score >= 75) {
         return {
-            text: "text-success",
-            bg: "bg-success-muted",
-            label: "Strong",
+            text:
+                "text-success",
+            badge:
+                "border-success/20 bg-success/10 text-success",
+            bar:
+                "bg-success",
+            label:
+                "Strong",
         };
     }
 
     if (score >= 55) {
         return {
-            text: "text-brand",
-            bg: "bg-brand-muted",
-            label: "Average",
+            text:
+                "text-[#A5B4FC]",
+            badge:
+                "border-brand/20 bg-brand/10 text-[#A5B4FC]",
+            bar:
+                "bg-brand",
+            label:
+                "Average",
         };
     }
 
     return {
-        text: "text-danger",
-        bg: "bg-danger-muted",
-        label: "Needs Work",
+        text:
+            "text-danger",
+        badge:
+            "border-danger/20 bg-danger/10 text-danger",
+        bar:
+            "bg-danger",
+        label:
+            "Needs Work",
     };
 };
 
@@ -56,56 +124,99 @@ const ScoreCard = ({
     value?: number | null;
     description: string;
 }) => {
-    const tone = getScoreTone(value);
+    const tone =
+        getScoreTone(value);
+
+    const normalizedScore =
+        typeof value ===
+            "number"
+            ? Math.min(
+                100,
+                Math.max(
+                    0,
+                    value
+                )
+            )
+            : 0;
 
     return (
-        <div className="rounded-2xl border border-border bg-bg-secondary p-5">
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-text-tertiary">
+        <PageSurface
+            as="article"
+            variant="interactive"
+            padding="md"
+        >
+            <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-text-tertiary sm:text-[11px]">
                         {label}
                     </p>
-                    <p className="mt-2 text-3xl font-bold text-text-primary">
-                        {typeof value === "number" ? value : "--"}
-                        <span className="text-sm font-medium text-text-tertiary">/100</span>
+
+                    <p className="mt-2 text-2xl font-black tracking-tight text-text-primary sm:text-3xl">
+                        {typeof value ===
+                            "number"
+                            ? value
+                            : "--"}
+
+                        <span className="ml-1 text-[10px] font-semibold text-text-tertiary sm:text-xs">
+                            /100
+                        </span>
                     </p>
                 </div>
 
                 <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${tone.bg} ${tone.text}`}
+                    className={[
+                        "shrink-0 rounded-full border px-2 py-1 text-[9px] font-bold sm:px-2.5 sm:text-[10px]",
+                        tone.badge,
+                    ].join(
+                        " "
+                    )}
                 >
                     {tone.label}
                 </span>
             </div>
 
-            <p className="mt-3 text-sm leading-5 text-text-secondary">
+            <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-bg-primary">
+                <div
+                    className={[
+                        "h-full rounded-full transition-[width] duration-700",
+                        tone.bar,
+                    ].join(
+                        " "
+                    )}
+                    style={{
+                        width: `${normalizedScore}%`,
+                    }}
+                />
+            </div>
+
+            <p className="mt-3 text-xs leading-5 text-text-secondary">
                 {description}
             </p>
-        </div>
+        </PageSurface>
     );
 };
 
-const SectionCard = ({
+const AnalysisSection = ({
     title,
     icon,
     children,
 }: {
     title: string;
-    icon: React.ReactNode;
-    children: React.ReactNode;
+    icon: ReactNode;
+    children: ReactNode;
 }) => {
     return (
-        <div className="rounded-2xl border border-border bg-bg-secondary p-5">
-            <div className="mb-4 flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-muted text-brand">
-                    {icon}
-                </div>
+        <PageSurface padding="lg">
+            <SectionHeader
+                title={title}
+                icon={icon}
+                compact
+            />
 
-                <h3 className="text-base font-semibold text-text-primary">{title}</h3>
+            <div className="mt-4">
+                {children}
             </div>
-
-            {children}
-        </div>
+        </PageSurface>
     );
 };
 
@@ -114,95 +225,300 @@ const BulletList = ({
     tone = "default",
 }: {
     items: string[];
-    tone?: "default" | "success" | "danger" | "brand";
+    tone?:
+    | "default"
+    | "success"
+    | "danger"
+    | "brand";
 }) => {
     const dotClass =
         tone === "success"
             ? "text-success"
-            : tone === "danger"
+            : tone ===
+                "danger"
                 ? "text-danger"
-                : tone === "brand"
-                    ? "text-brand"
+                : tone ===
+                    "brand"
+                    ? "text-[#A5B4FC]"
                     : "text-text-tertiary";
 
-    if (!items?.length) {
-        return <p className="text-sm text-text-tertiary">No data available.</p>;
+    if (
+        !items?.length
+    ) {
+        return (
+            <p className="text-sm text-text-tertiary">
+                No data available.
+            </p>
+        );
     }
 
     return (
-        <ul className="space-y-2.5">
-            {items.map((item, index) => (
-                <li key={`${item}-${index}`} className="flex items-start gap-2">
-                    <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${dotClass} bg-current`} />
-                    <span className="text-sm leading-5 text-text-secondary">{item}</span>
-                </li>
-            ))}
+        <ul className="grid gap-2.5">
+            {items.map(
+                (
+                    item,
+                    index
+                ) => (
+                    <li
+                        key={`${item}-${index}`}
+                        className="flex items-start gap-2.5"
+                    >
+                        <span
+                            aria-hidden="true"
+                            className={[
+                                "mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-current",
+                                dotClass,
+                            ].join(
+                                " "
+                            )}
+                        />
+
+                        <span className="min-w-0 text-sm leading-6 text-text-secondary">
+                            {item}
+                        </span>
+                    </li>
+                )
+            )}
         </ul>
     );
 };
 
-export const ResumeAnalysisView = ({ resume }: ResumeAnalysisViewProps) => {
-    const ai = resume.aiAnalysis;
-    const handleViewPdf = async () => {
-        try {
-            const { data } = await resumeService.viewPdf(resume.id);
-
-            const pdfBlob = new Blob([data], {
-                type: "application/pdf",
-            });
-
-            const pdfUrl = URL.createObjectURL(pdfBlob);
-
-            window.open(pdfUrl, "_blank", "noopener,noreferrer");
-
-            setTimeout(() => {
-                URL.revokeObjectURL(pdfUrl);
-            }, 60_000);
-        } catch (error) {
-            console.error("Failed to open PDF:", error);
-            alert("Failed to open resume PDF. Please try again.");
-        }
-    };
-    if (!ai) {
+const getPdfErrorMessage = (
+    error: unknown
+) => {
+    if (
+        isAxiosError<ApiErrorResponse>(
+            error
+        )
+    ) {
         return (
-            <div className="rounded-2xl border border-border bg-bg-secondary p-8 text-center">
-                <FileText size={34} className="mx-auto text-text-tertiary" />
-                <h3 className="mt-3 text-base font-semibold text-text-primary">
-                    No analysis available
-                </h3>
-                <p className="mt-1 text-sm text-text-secondary">
-                    Upload a resume to generate ATS and role-fit intelligence.
-                </p>
-            </div>
+            error.response
+                ?.data
+                ?.message ||
+            "Failed to open resume PDF."
         );
     }
 
-    const missingTechnical = ai.missingKeywords?.technical ?? [];
-    const missingTools = ai.missingKeywords?.tools ?? [];
-    const missingRoleSpecific = ai.missingKeywords?.roleSpecific ?? [];
+    return "Failed to open resume PDF.";
+};
+
+export const ResumeAnalysisView = ({
+    resume,
+}: ResumeAnalysisViewProps) => {
+    const ai =
+        resume.aiAnalysis;
+
+    const [
+        isOpeningPdf,
+        setIsOpeningPdf,
+    ] = useState(false);
+
+    const [
+        pdfError,
+        setPdfError,
+    ] = useState("");
+
+    const handleViewPdf =
+        async () => {
+            setPdfError("");
+
+            /*
+             * Open the tab synchronously during the click event.
+             * This prevents popup blockers from rejecting it after
+             * the asynchronous API request finishes.
+             */
+            const pdfWindow =
+                window.open(
+                    "",
+                    "_blank"
+                );
+
+            if (!pdfWindow) {
+                setPdfError(
+                    "Your browser blocked the PDF window. Allow pop-ups for PlacementOS and try again."
+                );
+
+                return;
+            }
+
+            pdfWindow.opener =
+                null;
+
+            try {
+                setIsOpeningPdf(
+                    true
+                );
+
+                pdfWindow.document.title =
+                    "Opening resume PDF...";
+
+                pdfWindow.document.body.innerHTML = `
+                <div style="
+                    min-height:100vh;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    margin:0;
+                    background:#050816;
+                    color:#f8fafc;
+                    font-family:Arial,sans-serif;
+                ">
+                    Opening resume PDF...
+                </div>
+            `;
+
+                const { data } =
+                    await resumeService
+                        .viewPdf(
+                            resume.id
+                        );
+
+                const pdfBlob =
+                    data instanceof Blob
+                        ? data
+                        : new Blob(
+                            [data],
+                            {
+                                type:
+                                    "application/pdf",
+                            }
+                        );
+
+                const pdfUrl =
+                    URL.createObjectURL(
+                        pdfBlob
+                    );
+
+                pdfWindow.location.replace(
+                    pdfUrl
+                );
+
+                window.setTimeout(
+                    () => {
+                        URL.revokeObjectURL(
+                            pdfUrl
+                        );
+                    },
+                    60_000
+                );
+            } catch (error) {
+                pdfWindow.close();
+
+                setPdfError(
+                    getPdfErrorMessage(
+                        error
+                    )
+                );
+            } finally {
+                setIsOpeningPdf(
+                    false
+                );
+            }
+        };
+
+    if (
+        resume.analysisStatus ===
+        "PENDING"
+    ) {
+        return (
+            <ResumeAnalysisSkeleton />
+        );
+    }
+
+    if (
+        resume.analysisStatus ===
+        "FAILED"
+    ) {
+        return (
+            <StatusNotice
+                tone="error"
+                title="Resume analysis failed"
+            >
+                The resume was stored, but the intelligence report could not be generated. Upload a text-based PDF and retry.
+            </StatusNotice>
+        );
+    }
+
+    if (!ai) {
+        return (
+            <PageSurface padding="lg">
+                <div className="py-6 text-center">
+                    <FileText
+                        size={34}
+                        className="mx-auto text-text-tertiary"
+                        aria-hidden="true"
+                    />
+
+                    <h3 className="mt-3 text-base font-bold text-text-primary">
+                        No analysis available
+                    </h3>
+
+                    <p className="mt-1 text-sm text-text-secondary">
+                        Upload a resume to generate ATS and role-fit intelligence.
+                    </p>
+                </div>
+            </PageSurface>
+        );
+    }
+
+    const missingTechnical =
+        ai.missingKeywords
+            ?.technical ??
+        [];
+
+    const missingTools =
+        ai.missingKeywords
+            ?.tools ??
+        [];
+
+    const missingRoleSpecific =
+        ai.missingKeywords
+            ?.roleSpecific ??
+        [];
 
     return (
-        <div className="space-y-5">
-            <div className="rounded-2xl border border-border bg-bg-secondary p-6">
+        <div className="grid min-w-0 gap-4 sm:gap-5">
+            {pdfError && (
+                <StatusNotice
+                    tone="error"
+                    dismissible
+                    onDismiss={() =>
+                        setPdfError("")
+                    }
+                >
+                    {pdfError}
+                </StatusNotice>
+            )}
+
+            <PageSurface
+                variant="highlight"
+                padding="lg"
+            >
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="max-w-3xl">
+                    <div className="min-w-0 max-w-3xl">
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full bg-brand-muted px-3 py-1 text-xs font-medium text-brand">
-                                Resume v{resume.version}
+                            <span className="rounded-full border border-brand/20 bg-brand/10 px-3 py-1 text-xs font-bold text-[#A5B4FC]">
+                                Resume v{
+                                    resume.version
+                                }
                             </span>
 
                             {resume.targetRole && (
-                                <span className="rounded-full bg-bg-tertiary px-3 py-1 text-xs font-medium text-text-secondary">
-                                    {resume.targetRole}
+                                <span className="max-w-full truncate rounded-full border border-border bg-bg-tertiary px-3 py-1 text-xs font-semibold text-text-secondary">
+                                    {
+                                        resume.targetRole
+                                    }
                                 </span>
                             )}
 
-                            <span className="rounded-full bg-bg-tertiary px-3 py-1 text-xs font-medium text-text-tertiary">
-                                {resume.analysisStatus}
+                            <span className="rounded-full border border-success/20 bg-success/10 px-3 py-1 text-xs font-bold text-success">
+                                {
+                                    resume.analysisStatus
+                                }
                             </span>
                         </div>
 
-                        <h2 className="mt-4 text-2xl font-bold text-text-primary">
+                        <h2 className="mt-4 text-2xl font-black tracking-tight text-text-primary">
                             Resume Intelligence Report
                         </h2>
 
@@ -210,199 +526,396 @@ export const ResumeAnalysisView = ({ resume }: ResumeAnalysisViewProps) => {
                             {ai.summary}
                         </p>
 
-                        <div className="mt-4 rounded-xl border border-border bg-bg-tertiary px-4 py-3">
-                            <p className="text-xs font-medium uppercase tracking-wide text-text-tertiary">
-                                Recruiter Verdict
+                        <PageSurface
+                            as="div"
+                            variant="subtle"
+                            padding="sm"
+                            className="mt-4"
+                        >
+                            <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-text-tertiary">
+                                Recruiter verdict
                             </p>
-                            <p className="mt-1 text-sm leading-5 text-text-secondary">
-                                {ai.recruiterVerdict}
+
+                            <p className="mt-1 text-sm leading-6 text-text-secondary">
+                                {
+                                    ai.recruiterVerdict
+                                }
                             </p>
-                        </div>
+                        </PageSurface>
                     </div>
 
-                    <button
-                        onClick={handleViewPdf}
-                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-text-secondary transition hover:border-border-hover hover:bg-bg-hover hover:text-text-primary"
+                    <ActionButton
+                        type="button"
+                        variant="secondary"
+                        fullWidth
+                        loading={
+                            isOpeningPdf
+                        }
+                        loadingText="Opening..."
+                        leadingIcon={
+                            <ExternalLink
+                                size={15}
+                                aria-hidden="true"
+                            />
+                        }
+                        onClick={() =>
+                            void handleViewPdf()
+                        }
+                        className="sm:w-auto"
                     >
                         View PDF
-                        <ExternalLink size={15} />
-                    </button>
+                    </ActionButton>
                 </div>
-            </div>
+            </PageSurface>
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
                 <ScoreCard
                     label="ATS Score"
-                    value={resume.atsScore}
+                    value={
+                        resume.atsScore
+                    }
                     description="Formatting, ATS readability, sections, and recruiter clarity."
                 />
 
                 <ScoreCard
                     label="Role Fit"
-                    value={resume.roleFitScore}
-                    description="How closely the resume matches the selected target role."
+                    value={
+                        resume.roleFitScore
+                    }
+                    description="Alignment with the selected target role."
                 />
 
                 <ScoreCard
                     label="Keywords"
-                    value={resume.keywordScore}
-                    description="Technical, tool, framework, and role-specific keyword strength."
+                    value={
+                        resume.keywordScore
+                    }
+                    description="Technical, tooling, and role-specific keyword strength."
                 />
 
                 <ScoreCard
                     label="Projects"
-                    value={resume.projectScore}
-                    description="Project depth, technical complexity, architecture, and impact."
+                    value={
+                        resume.projectScore
+                    }
+                    description="Technical complexity, architecture, and measurable impact."
                 />
 
                 <ScoreCard
                     label="Readability"
-                    value={resume.readabilityScore}
-                    description="Bullet clarity, grammar, conciseness, and scanability."
+                    value={
+                        resume.readabilityScore
+                    }
+                    description="Clarity, conciseness, grammar, and scanability."
                 />
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-2">
-                <SectionCard
+            <div className="grid gap-4 lg:grid-cols-2">
+                <AnalysisSection
                     title="Top Strengths"
-                    icon={<CheckCircle2 size={16} />}
+                    icon={
+                        <CheckCircle2
+                            size={17}
+                            aria-hidden="true"
+                        />
+                    }
                 >
-                    <BulletList items={ai.topStrengths ?? []} tone="success" />
-                </SectionCard>
+                    <BulletList
+                        items={
+                            ai.topStrengths ??
+                            []
+                        }
+                        tone="success"
+                    />
+                </AnalysisSection>
 
-                <SectionCard
+                <AnalysisSection
                     title="Critical Issues"
-                    icon={<AlertTriangle size={16} />}
+                    icon={
+                        <AlertTriangle
+                            size={17}
+                            aria-hidden="true"
+                        />
+                    }
                 >
-                    <BulletList items={ai.criticalIssues ?? []} tone="danger" />
-                </SectionCard>
+                    <BulletList
+                        items={
+                            ai.criticalIssues ??
+                            []
+                        }
+                        tone="danger"
+                    />
+                </AnalysisSection>
             </div>
 
-            <SectionCard title="Missing Keywords" icon={<Target size={16} />}>
-                <div className="grid gap-4 md:grid-cols-3">
-                    <div className="rounded-xl border border-border bg-bg-tertiary p-4">
-                        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-text-tertiary">
-                            Technical
-                        </p>
-                        <BulletList items={missingTechnical} tone="brand" />
-                    </div>
-
-                    <div className="rounded-xl border border-border bg-bg-tertiary p-4">
-                        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-text-tertiary">
-                            Tools
-                        </p>
-                        <BulletList items={missingTools} tone="brand" />
-                    </div>
-
-                    <div className="rounded-xl border border-border bg-bg-tertiary p-4">
-                        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-text-tertiary">
-                            Role Specific
-                        </p>
-                        <BulletList items={missingRoleSpecific} tone="brand" />
-                    </div>
-                </div>
-            </SectionCard>
-
-            <SectionCard
-                title="Section-by-Section Feedback"
-                icon={<ListChecks size={16} />}
+            <AnalysisSection
+                title="Missing Keywords"
+                icon={
+                    <Target
+                        size={17}
+                        aria-hidden="true"
+                    />
+                }
             >
-                <div className="space-y-4">
-                    {(ai.sectionFeedback ?? []).map((section, index) => {
-                        const tone = getScoreTone(section.score);
-
-                        return (
-                            <div
-                                key={`${section.section}-${index}`}
-                                className="rounded-xl border border-border bg-bg-tertiary p-4"
+                <div className="grid gap-3 md:grid-cols-3">
+                    {[
+                        {
+                            label:
+                                "Technical",
+                            items:
+                                missingTechnical,
+                        },
+                        {
+                            label:
+                                "Tools",
+                            items:
+                                missingTools,
+                        },
+                        {
+                            label:
+                                "Role Specific",
+                            items:
+                                missingRoleSpecific,
+                        },
+                    ].map(
+                        (
+                            group
+                        ) => (
+                            <PageSurface
+                                key={
+                                    group.label
+                                }
+                                as="div"
+                                variant="subtle"
+                                padding="sm"
                             >
-                                <div className="mb-2 flex items-center justify-between gap-3">
-                                    <div>
-                                        <h4 className="text-sm font-semibold text-text-primary">
-                                            {section.section}
-                                        </h4>
-                                        <p className="mt-1 text-sm leading-5 text-text-secondary">
-                                            {section.diagnosis}
-                                        </p>
-                                    </div>
+                                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.13em] text-text-tertiary">
+                                    {
+                                        group.label
+                                    }
+                                </p>
 
-                                    <span className={`text-sm font-bold ${tone.text}`}>
-                                        {section.score}/100
-                                    </span>
-                                </div>
-
-                                <div className="mb-3 h-2 overflow-hidden rounded-full bg-bg-primary">
-                                    <div
-                                        className={`h-full rounded-full ${tone.bg}`}
-                                        style={{ width: `${Math.min(100, Math.max(0, section.score))}%` }}
-                                    />
-                                </div>
-
-                                <BulletList items={section.fixes ?? []} tone="brand" />
-                            </div>
-                        );
-                    })}
-                </div>
-            </SectionCard>
-
-            <SectionCard title="Project Improvements" icon={<TrendingUp size={16} />}>
-                <div className="space-y-4">
-                    {(ai.projectImprovements ?? []).length === 0 ? (
-                        <p className="text-sm text-text-tertiary">
-                            No project improvement suggestions available.
-                        </p>
-                    ) : (
-                        ai.projectImprovements.map((project, index) => (
-                            <div
-                                key={`${project.projectName}-${index}`}
-                                className="rounded-xl border border-border bg-bg-tertiary p-4"
-                            >
-                                <h4 className="text-sm font-semibold text-text-primary">
-                                    {project.projectName}
-                                </h4>
-
-                                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                                    <div>
-                                        <p className="text-xs font-medium uppercase tracking-wide text-text-tertiary">
-                                            Problem
-                                        </p>
-                                        <p className="mt-1 text-sm leading-5 text-text-secondary">
-                                            {project.problem}
-                                        </p>
-                                    </div>
-
-                                    <div>
-                                        <p className="text-xs font-medium uppercase tracking-wide text-text-tertiary">
-                                            Improvement
-                                        </p>
-                                        <p className="mt-1 text-sm leading-5 text-text-secondary">
-                                            {project.improvement}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="mt-4 rounded-xl border border-border bg-bg-secondary p-4">
-                                    <p className="text-xs font-medium uppercase tracking-wide text-text-tertiary">
-                                        Rewritten Bullet
-                                    </p>
-                                    <p className="mt-2 text-sm leading-6 text-text-primary">
-                                        {project.rewrittenBullet}
-                                    </p>
-                                </div>
-                            </div>
-                        ))
+                                <BulletList
+                                    items={
+                                        group.items
+                                    }
+                                    tone="brand"
+                                />
+                            </PageSurface>
+                        )
                     )}
                 </div>
-            </SectionCard>
+            </AnalysisSection>
 
-            <div className="grid gap-5 lg:grid-cols-2">
-                <SectionCard title="Suggested Resume Bullets" icon={<Sparkles size={16} />}>
-                    <BulletList items={ai.suggestedBullets ?? []} tone="brand" />
-                </SectionCard>
+            <AnalysisSection
+                title="Section-by-Section Feedback"
+                icon={
+                    <ListChecks
+                        size={17}
+                        aria-hidden="true"
+                    />
+                }
+            >
+                <div className="grid gap-3">
+                    {(ai.sectionFeedback ??
+                        []).map(
+                            (
+                                section,
+                                index
+                            ) => {
+                                const tone =
+                                    getScoreTone(
+                                        section.score
+                                    );
 
-                <SectionCard title="Action Plan" icon={<Lightbulb size={16} />}>
-                    <BulletList items={ai.actionPlan ?? []} tone="brand" />
-                </SectionCard>
+                                const normalizedScore =
+                                    Math.min(
+                                        100,
+                                        Math.max(
+                                            0,
+                                            section.score
+                                        )
+                                    );
+
+                                return (
+                                    <PageSurface
+                                        key={`${section.section}-${index}`}
+                                        as="article"
+                                        variant="subtle"
+                                        padding="sm"
+                                    >
+                                        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                                            <div className="min-w-0">
+                                                <h4 className="text-sm font-bold text-text-primary">
+                                                    {
+                                                        section.section
+                                                    }
+                                                </h4>
+
+                                                <p className="mt-1 text-sm leading-6 text-text-secondary">
+                                                    {
+                                                        section.diagnosis
+                                                    }
+                                                </p>
+                                            </div>
+
+                                            <span
+                                                className={[
+                                                    "shrink-0 text-sm font-black",
+                                                    tone.text,
+                                                ].join(
+                                                    " "
+                                                )}
+                                            >
+                                                {
+                                                    section.score
+                                                }
+                                                /100
+                                            </span>
+                                        </div>
+
+                                        <div className="my-3 h-1.5 overflow-hidden rounded-full bg-bg-primary">
+                                            <div
+                                                className={[
+                                                    "h-full rounded-full transition-[width] duration-700",
+                                                    tone.bar,
+                                                ].join(
+                                                    " "
+                                                )}
+                                                style={{
+                                                    width: `${normalizedScore}%`,
+                                                }}
+                                            />
+                                        </div>
+
+                                        <BulletList
+                                            items={
+                                                section.fixes ??
+                                                []
+                                            }
+                                            tone="brand"
+                                        />
+                                    </PageSurface>
+                                );
+                            }
+                        )}
+                </div>
+            </AnalysisSection>
+
+            <AnalysisSection
+                title="Project Improvements"
+                icon={
+                    <TrendingUp
+                        size={17}
+                        aria-hidden="true"
+                    />
+                }
+            >
+                {(ai.projectImprovements ??
+                    []).length ===
+                    0 ? (
+                    <p className="text-sm text-text-tertiary">
+                        No project improvement suggestions available.
+                    </p>
+                ) : (
+                    <div className="grid gap-4">
+                        {ai.projectImprovements.map(
+                            (
+                                project,
+                                index
+                            ) => (
+                                <PageSurface
+                                    key={`${project.projectName}-${index}`}
+                                    as="article"
+                                    variant="subtle"
+                                    padding="sm"
+                                >
+                                    <h4 className="text-sm font-bold text-text-primary">
+                                        {
+                                            project.projectName
+                                        }
+                                    </h4>
+
+                                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                                        <div>
+                                            <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-text-tertiary">
+                                                Problem
+                                            </p>
+
+                                            <p className="mt-1 text-sm leading-6 text-text-secondary">
+                                                {
+                                                    project.problem
+                                                }
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-text-tertiary">
+                                                Improvement
+                                            </p>
+
+                                            <p className="mt-1 text-sm leading-6 text-text-secondary">
+                                                {
+                                                    project.improvement
+                                                }
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 rounded-xl border border-brand/15 bg-brand/5 p-4">
+                                        <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-[#A5B4FC]">
+                                            Rewritten bullet
+                                        </p>
+
+                                        <p className="mt-2 text-sm leading-6 text-text-primary">
+                                            {
+                                                project.rewrittenBullet
+                                            }
+                                        </p>
+                                    </div>
+                                </PageSurface>
+                            )
+                        )}
+                    </div>
+                )}
+            </AnalysisSection>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+                <AnalysisSection
+                    title="Suggested Resume Bullets"
+                    icon={
+                        <Sparkles
+                            size={17}
+                            aria-hidden="true"
+                        />
+                    }
+                >
+                    <BulletList
+                        items={
+                            ai.suggestedBullets ??
+                            []
+                        }
+                        tone="brand"
+                    />
+                </AnalysisSection>
+
+                <AnalysisSection
+                    title="Action Plan"
+                    icon={
+                        <Lightbulb
+                            size={17}
+                            aria-hidden="true"
+                        />
+                    }
+                >
+                    <BulletList
+                        items={
+                            ai.actionPlan ??
+                            []
+                        }
+                        tone="brand"
+                    />
+                </AnalysisSection>
             </div>
         </div>
     );
