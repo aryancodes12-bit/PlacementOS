@@ -1,7 +1,9 @@
 import type {
     FFmpeg,
 } from "@ffmpeg/ffmpeg";
-
+import {
+    runInterviewFfmpegOperation,
+} from "./interviewFfmpegOperation";
 import {
     loadInterviewFfmpeg,
 } from "./interviewFfmpeg";
@@ -35,27 +37,6 @@ export interface ExtractedInterviewAudio {
     bitrateKbps: number;
 }
 
-let ffmpegOperationQueue:
-    Promise<void> =
-    Promise.resolve();
-
-const enqueueFfmpegOperation = <T>(
-    operation: () => Promise<T>
-): Promise<T> => {
-    const result =
-        ffmpegOperationQueue.then(
-            operation,
-            operation
-        );
-
-    ffmpegOperationQueue =
-        result.then(
-            () => undefined,
-            () => undefined
-        );
-
-    return result;
-};
 
 const getFileExtension = (
     fileName: string
@@ -274,7 +255,7 @@ export const extractInterviewAudioFromVideo =
             videoFile
         );
 
-        return enqueueFfmpegOperation(
+        return runInterviewFfmpegOperation(
             async () => {
                 const ffmpeg =
                     await loadInterviewFfmpeg();
