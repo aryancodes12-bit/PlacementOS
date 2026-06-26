@@ -148,9 +148,10 @@ export const uploadInterviewExtractedAudio =
                 )
             );
         },
-    }); export const MAX_INTERVIEW_AUDIO_CHUNKS =
-        100;
+    });
 
+export const MAX_INTERVIEW_AUDIO_CHUNKS =
+    100;
 /**
  * Accepts multiple browser-generated audio chunks.
  * Every chunk has its own 24 MB limit.

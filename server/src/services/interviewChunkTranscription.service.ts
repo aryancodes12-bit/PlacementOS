@@ -1,10 +1,10 @@
 import {
-    transcribeInterviewAudio,
-} from "./openaiInterview.service";
-
-import {
     combineInterviewChunkTranscripts,
 } from "../utils/interviewTranscript.utils";
+
+import {
+    transcribeInterviewAudio,
+} from "./openaiInterview.service";
 
 const INTERVIEW_AUDIO_UPLOAD_LIMIT_BYTES =
     24 * 1024 * 1024;
@@ -29,9 +29,7 @@ export class InterviewChunkValidationError
     constructor(
         message: string
     ) {
-        super(
-            message
-        );
+        super(message);
 
         this.name =
             "InterviewChunkValidationError";
@@ -66,19 +64,15 @@ const parseInterviewAudioChunk = (
 
     if (!match) {
         throw new InterviewChunkValidationError(
-            `Invalid chunk filename "${file.originalname}". Expected a name containing part-001-of-003.`
+            `Invalid chunk filename "${file.originalname}". Expected a filename containing part-001-of-003.`
         );
     }
 
     const partNumber =
-        Number(
-            match[1]
-        );
+        Number(match[1]);
 
     const totalParts =
-        Number(
-            match[2]
-        );
+        Number(match[2]);
 
     if (
         !Number.isInteger(
@@ -108,8 +102,7 @@ const orderInterviewAudioChunks = (
     files: Express.Multer.File[]
 ): ParsedInterviewAudioChunk[] => {
     if (
-        files.length ===
-        0
+        files.length === 0
     ) {
         throw new InterviewChunkValidationError(
             "At least one interview audio chunk is required."
@@ -206,9 +199,9 @@ export const transcribeInterviewAudioChunks =
             [];
 
         /*
-         * Sequential processing avoids unnecessary
-         * transcription API concurrency and preserves
-         * deterministic chunk order.
+         * Sequential transcription keeps chunk ordering
+         * deterministic and avoids unnecessary concurrent
+         * requests to the transcription provider.
          */
         for (
             const chunk

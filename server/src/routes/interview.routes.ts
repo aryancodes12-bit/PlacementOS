@@ -1,16 +1,15 @@
-import {
+﻿import {
     Router,
 } from "express";
 
 import {
     protect,
-    MAX_INTERVIEW_AUDIO_CHUNKS,
-    uploadInterviewAudioChunks,
 } from "../middlewares/auth.middleware";
 
 import {
     analyzeInterviewWithAI,
     createAudioInterview,
+    createChunkedInterview,
     createInterview,
     createVideoInterview,
     deleteInterview,
@@ -18,11 +17,12 @@ import {
     getInterviews,
     getInterviewStats,
     updateInterview,
-    createChunkedInterview,
 } from "../controllers/interview.controller";
 
 import {
+    MAX_INTERVIEW_AUDIO_CHUNKS,
     upload,
+    uploadInterviewAudioChunks,
     uploadInterviewExtractedAudio,
 } from "../middlewares/upload.middleware";
 
@@ -63,6 +63,7 @@ router.post(
     ),
     createVideoInterview
 );
+
 router.post(
     "/chunks",
     uploadInterviewAudioChunks.array(
@@ -71,6 +72,7 @@ router.post(
     ),
     createChunkedInterview
 );
+
 router.post(
     "/:id/analyze",
     analyzeInterviewWithAI
