@@ -148,7 +148,7 @@ const mediaConfig: Record<
         fileFieldName:
             "video",
         fileHelp:
-            "MP4, WEBM, or MOV up to 50 MB and 30 minutes",
+            "MP4, WEBM, or MOV, maximum 30 minutes.",
         fileLabel:
             "Video file",
         Icon:
@@ -966,10 +966,10 @@ export const InterviewMediaUploader = ({
                         uploading
                     }
                     className={`group relative mt-3 flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-bg-tertiary px-5 py-7 text-center transition ${uploading ||
-                            validatingMedia ||
-                            extractingVideoAudio
-                            ? "cursor-not-allowed opacity-70"
-                            : "cursor-pointer hover:border-brand"
+                        validatingMedia ||
+                        extractingVideoAudio
+                        ? "cursor-not-allowed opacity-70"
+                        : "cursor-pointer hover:border-brand"
                         }`}
                 >
                     <input
