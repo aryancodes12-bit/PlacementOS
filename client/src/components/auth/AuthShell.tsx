@@ -41,19 +41,32 @@ export const AuthShell = ({
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(99,102,241,0.18),transparent_38%),radial-gradient(circle_at_80%_80%,rgba(139,92,246,0.12),transparent_35%)]" />
 
                     <div className="relative z-10">
-                        <Link
-                            to="/"
-                            aria-label="Go to PlacementOS home"
-                            className="inline-flex items-center rounded-xl transition hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-                        >
-                            <BrandLogo
-                                variant="loader"
-                                priority
-                                className="items-start text-left"
-                            />
-                        </Link>
+                        <div className="flex flex-col items-start gap-6">
+                            <Link
+                                to="/"
+                                aria-label="Go to PlacementOS home"
+                                className="inline-flex items-center rounded-xl transition hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                            >
+                                <BrandLogo
+                                    variant="loader"
+                                    priority
+                                    className="items-start text-left"
+                                />
+                            </Link>
 
-                        <div className="mt-24 max-w-xl">
+                            <Link
+                                to="/"
+                                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:border-indigo-400/30 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                            >
+                                <ArrowLeft
+                                    size={15}
+                                    aria-hidden="true"
+                                />
+                                Back to home
+                            </Link>
+                        </div>
+
+                        <div className="mt-20 max-w-xl">
                             <div className="inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-200">
                                 <Target
                                     size={13}

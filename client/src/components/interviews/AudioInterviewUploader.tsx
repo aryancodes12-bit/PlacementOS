@@ -2,8 +2,23 @@ import {
     InterviewMediaUploader,
 } from "./InterviewMediaUploader";
 
-export const AudioInterviewUploader = () => {
+import type {
+    InterviewAnalysisLoadingHandler,
+} from "./InterviewMediaUploader";
+
+interface AudioInterviewUploaderProps {
+    onAnalysisLoadingChange?: InterviewAnalysisLoadingHandler;
+}
+
+export const AudioInterviewUploader = ({
+    onAnalysisLoadingChange,
+}: AudioInterviewUploaderProps) => {
     return (
-        <InterviewMediaUploader mediaType="audio" />
+        <InterviewMediaUploader
+            mediaType="audio"
+            onAnalysisLoadingChange={
+                onAnalysisLoadingChange
+            }
+        />
     );
 };

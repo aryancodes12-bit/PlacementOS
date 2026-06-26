@@ -70,6 +70,10 @@ import {
 } from "../ui/design-system/StatusNotice";
 
 import {
+    InterviewPageSkeleton,
+} from "./InterviewPageSkeleton";
+
+import {
     formatInterviewEnum,
     formatMediaSize,
     getInterviewApiError,
@@ -82,8 +86,12 @@ type MediaType =
     | "audio"
     | "video";
 
+export type InterviewAnalysisLoadingHandler =
+    (isLoading: boolean) => void;
+
 interface InterviewMediaUploaderProps {
     mediaType: MediaType;
+    onAnalysisLoadingChange?: InterviewAnalysisLoadingHandler;
 }
 
 interface MediaConfig {
@@ -275,6 +283,7 @@ const getUploadLoadingText = (
 
 export const InterviewMediaUploader = ({
     mediaType,
+    onAnalysisLoadingChange,
 }: InterviewMediaUploaderProps) => {
     const navigate =
         useNavigate();
@@ -374,6 +383,25 @@ export const InterviewMediaUploader = ({
                 1;
         };
     }, []);
+
+    useEffect(() => {
+        onAnalysisLoadingChange?.(
+            uploading
+        );
+
+        return () => {
+            if (
+                uploading
+            ) {
+                onAnalysisLoadingChange?.(
+                    false
+                );
+            }
+        };
+    }, [
+        onAnalysisLoadingChange,
+        uploading,
+    ]);
 
     const updateField = (
         field: keyof MediaUploadForm,
@@ -802,6 +830,19 @@ export const InterviewMediaUploader = ({
             extractingVideoAudio,
             uploadStage
         );
+
+    if (
+        uploading
+    ) {
+        return (
+            <InterviewPageSkeleton
+                variant="detail"
+                label={
+                    loadingText
+                }
+            />
+        );
+    }
 
     return (
         <form

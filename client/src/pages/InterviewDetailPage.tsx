@@ -16,6 +16,7 @@ import {
     TrendingUp,
 } from "lucide-react";
 import { AppLayout } from "../components/ui/AppLayout";
+import { InterviewPageSkeleton } from "../components/interviews/InterviewPageSkeleton";
 import { interviewService } from "../services/interview.service";
 
 import type { InterviewReplay } from "../services/interview.service";
@@ -117,9 +118,7 @@ export const InterviewDetailPage = () => {
     if (loading) {
         return (
             <AppLayout title="Interview Replay" description="Loading interview...">
-                <div className="bg-bg-secondary border border-border rounded-2xl p-6 text-text-secondary">
-                    Loading interview replay...
-                </div>
+                <InterviewPageSkeleton variant="detail" />
             </AppLayout>
         );
     }
@@ -197,6 +196,26 @@ export const InterviewDetailPage = () => {
         ai?.technicalScore ??
         derivedTechnicalScore ??
         null;
+
+    if (analyzing) {
+        return (
+            <AppLayout
+                title={`${interview.company} Interview Replay`}
+                description="Generating fresh AI analysis for this replay."
+            >
+                <InterviewPageSkeleton
+                    variant="detail"
+                    label={
+                        interview.analysisStatus ===
+                            "ANALYZED"
+                            ? "Re-analyzing interview replay"
+                            : "Analyzing interview replay"
+                    }
+                />
+            </AppLayout>
+        );
+    }
+
     return (
         <AppLayout
             title={`${interview.company} Interview Replay`}

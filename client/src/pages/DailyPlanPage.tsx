@@ -22,6 +22,10 @@ import {
 } from "../components/ui/AppLayout";
 
 import {
+    DailyPlanSkeleton,
+} from "../components/dashboard/DailyPlanSkeleton";
+
+import {
     dailyPlanService,
 } from "../services/dsa.service";
 
@@ -323,16 +327,7 @@ export const DailyPlanPage = () => {
             )}
 
             {loading || regenerating ? (
-                <div className="space-y-4">
-                    {[1, 2, 3].map(
-                        (item) => (
-                            <div
-                                key={item}
-                                className="h-40 animate-pulse rounded-2xl border border-border bg-bg-secondary"
-                            />
-                        )
-                    )}
-                </div>
+                <DailyPlanSkeleton />
             ) : !plan ? (
                 <div className="rounded-2xl border border-border bg-bg-secondary p-8 text-center">
                     <AlertCircle className="mx-auto text-text-tertiary" />

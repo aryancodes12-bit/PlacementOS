@@ -217,8 +217,18 @@ const Reveal = ({
             prefersReducedMotion ||
             !("IntersectionObserver" in window)
         ) {
-            setVisible(true);
-            return;
+            const frameId =
+                window.requestAnimationFrame(
+                    () => {
+                        setVisible(true);
+                    }
+                );
+
+            return () => {
+                window.cancelAnimationFrame(
+                    frameId
+                );
+            };
         }
 
         const observer =
@@ -1576,30 +1586,30 @@ export const StudentSuccessStories = () => {
     ];
 
     return (
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3">
             {stories.map((story) => (
                 <div
                     key={story.name}
-                    className="flex flex-col justify-between rounded-2xl border border-white/[0.07] bg-[#0b1020]/80 p-6 transition duration-300 hover:-translate-y-1 hover:border-indigo-400/25 hover:bg-[#0e1427] hover:shadow-xl text-left"
+                    className="flex h-full min-w-0 flex-col rounded-2xl border border-white/[0.07] bg-[#0b1020]/80 p-5 text-left transition duration-300 hover:-translate-y-1 hover:border-indigo-400/25 hover:bg-[#0e1427] hover:shadow-xl sm:p-6"
                 >
-                    <div className="space-y-4">
+                    <div className="min-w-0 flex-1 space-y-4">
                         <div className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 text-[10px] font-bold text-indigo-300">
                             Placed at {story.company}
                         </div>
-                        <p className="text-xs leading-relaxed text-slate-300 italic">
+                        <p className="break-words text-xs leading-6 text-slate-300 italic">
                             &ldquo;{story.quote}&rdquo;
                         </p>
                     </div>
 
-                    <div className="mt-6 flex items-center gap-3 border-t border-white/[0.05] pt-4">
+                    <div className="mt-6 flex min-w-0 items-center gap-3 border-t border-white/[0.05] pt-4">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 text-xs font-bold text-white">
                             {story.avatar}
                         </div>
-                        <div>
-                            <h4 className="text-xs font-bold text-white">
+                        <div className="min-w-0">
+                            <h4 className="truncate text-xs font-bold text-white">
                                 {story.name}
                             </h4>
-                            <p className="text-[10px] text-slate-500">
+                            <p className="truncate text-[10px] text-slate-500">
                                 {story.role} @ {story.company}
                             </p>
                         </div>
@@ -2357,6 +2367,19 @@ export const OnboardingPage = () => {
                                 className="text-sm text-slate-500 transition hover:text-white"
                             >
                                 Features
+                            </a>
+
+                            <a
+                                href="https://www.linkedin.com/in/aryanjaiswal30/"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 text-sm text-slate-500 transition hover:text-white"
+                            >
+                                <ArrowRight
+                                    size={14}
+                                    aria-hidden="true"
+                                />
+                                Connect with Developer
                             </a>
                         </nav>
                     </div>

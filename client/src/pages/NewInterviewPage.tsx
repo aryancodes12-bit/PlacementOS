@@ -195,12 +195,14 @@ const SourceOption = ({
     title,
     description,
     onClick,
+    disabled = false,
 }: {
     active: boolean;
     icon: ReactNode;
     title: string;
     description: string;
     onClick: () => void;
+    disabled?: boolean;
 }) => {
     return (
         <button
@@ -209,10 +211,14 @@ const SourceOption = ({
                 active
             }
             onClick={onClick}
+            disabled={
+                disabled
+            }
             className={[
                 "group rounded-2xl border p-4 text-left outline-none",
                 "transition duration-200 active:scale-[0.99]",
                 "focus-visible:ring-2 focus-visible:ring-brand/70",
+                "disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100",
                 active
                     ? "border-brand/50 bg-brand/10 shadow-[0_0_0_1px_rgba(99,102,241,0.08)]"
                     : "border-border bg-bg-tertiary hover:border-border-hover hover:bg-bg-hover",
@@ -339,6 +345,12 @@ const NewInterviewPageContent =
         const [
             saving,
             setSaving,
+        ] =
+            useState(false);
+
+        const [
+            mediaAnalyzing,
+            setMediaAnalyzing,
         ] =
             useState(false);
 
@@ -750,7 +762,8 @@ const NewInterviewPageContent =
             nextMode: InterviewEntryMode
         ) => {
             if (
-                saving
+                saving ||
+                mediaAnalyzing
             ) {
                 return;
             }
@@ -779,6 +792,10 @@ const NewInterviewPageContent =
                             navigate(
                                 "/interviews"
                             )
+                        }
+                        disabled={
+                            saving ||
+                            mediaAnalyzing
                         }
                     >
                         Back
@@ -835,6 +852,9 @@ const NewInterviewPageContent =
                                         "manual"
                                     )
                                 }
+                                disabled={
+                                    mediaAnalyzing
+                                }
                             />
 
                             <SourceOption
@@ -854,6 +874,9 @@ const NewInterviewPageContent =
                                     switchMode(
                                         "audio"
                                     )
+                                }
+                                disabled={
+                                    mediaAnalyzing
                                 }
                             />
 
@@ -875,16 +898,27 @@ const NewInterviewPageContent =
                                         "video"
                                     )
                                 }
+                                disabled={
+                                    mediaAnalyzing
+                                }
                             />
                         </div>
                     </PageSurface>
 
                     {mode ===
                         "audio" ? (
-                        <AudioInterviewUploader />
+                        <AudioInterviewUploader
+                            onAnalysisLoadingChange={
+                                setMediaAnalyzing
+                            }
+                        />
                     ) : mode ===
                         "video" ? (
-                        <VideoInterviewUploader />
+                        <VideoInterviewUploader
+                            onAnalysisLoadingChange={
+                                setMediaAnalyzing
+                            }
+                        />
                     ) : (
                         <form
                             onSubmit={

@@ -9,6 +9,7 @@ import {
     Sparkles,
 } from "lucide-react";
 import { dailyPlanService } from "../../services/dsa.service";
+import { DailyPlanSkeleton } from "./DailyPlanSkeleton";
 
 const iconMap: Record<string, any> = {
     code: Code2,
@@ -96,14 +97,7 @@ export const DailyPlanCard = () => {
             </div>
 
             {loading || regenerating ? (
-                <div className="space-y-3">
-                    {[1, 2, 3].map((item) => (
-                        <div
-                            key={item}
-                            className="h-14 animate-pulse rounded-xl bg-bg-tertiary"
-                        />
-                    ))}
-                </div>
+                <DailyPlanSkeleton compact />
             ) : (
                 <>
                     {plan?.focusMessage && (

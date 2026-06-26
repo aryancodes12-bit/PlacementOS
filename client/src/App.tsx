@@ -25,6 +25,10 @@ import {
 import {
   BrandLogo,
 } from "./components/ui/BrandLogo";
+
+import {
+  AppErrorBoundary,
+} from "./components/ui/AppErrorBoundary";
 const OnboardingPage = lazy(() =>
   import("./pages/OnboardingPage").then(
     (module) => ({
@@ -180,9 +184,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <NotificationProvider>
-          <Suspense fallback={<RouteLoader />}>
-            <Routes>
+        <AppErrorBoundary>
+          <NotificationProvider>
+            <Suspense fallback={<RouteLoader />}>
+              <Routes>
 
               <Route
                 path="/"
@@ -324,10 +329,11 @@ function App() {
                   />
                 }
               />
-            </Routes>
-          </Suspense>
-        </NotificationProvider>
-        <CookieConsent />
+              </Routes>
+            </Suspense>
+          </NotificationProvider>
+          <CookieConsent />
+        </AppErrorBoundary>
       </BrowserRouter>
     </QueryClientProvider>
   );

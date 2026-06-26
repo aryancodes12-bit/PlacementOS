@@ -11,14 +11,20 @@ interface InterviewPageSkeletonProps {
     variant?:
     | "list"
     | "detail";
+    label?: string;
 }
 
 export const InterviewPageSkeleton = ({
     variant = "list",
+    label,
 }: InterviewPageSkeletonProps) => {
     if (
         variant === "detail"
     ) {
+        const loadingLabel =
+            label ??
+            "Loading interview replay";
+
         return (
             <div
                 className="grid gap-4"
@@ -27,7 +33,9 @@ export const InterviewPageSkeleton = ({
                 aria-busy="true"
             >
                 <span className="sr-only">
-                    Loading interview replay
+                    {
+                        loadingLabel
+                    }
                 </span>
 
                 <PageSurface padding="lg">
@@ -108,6 +116,10 @@ export const InterviewPageSkeleton = ({
         );
     }
 
+    const loadingLabel =
+        label ??
+        "Loading interviews";
+
     return (
         <div
             className="grid gap-4"
@@ -116,7 +128,9 @@ export const InterviewPageSkeleton = ({
             aria-busy="true"
         >
             <span className="sr-only">
-                Loading interviews
+                {
+                    loadingLabel
+                }
             </span>
 
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
