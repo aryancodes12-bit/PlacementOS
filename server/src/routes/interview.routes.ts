@@ -7,6 +7,10 @@ import {
 } from "../middlewares/auth.middleware";
 
 import {
+    preventConcurrentInterviewProcessing,
+} from "../middlewares/interviewProcessingLock.middleware";
+
+import {
     analyzeInterviewWithAI,
     createAudioInterview,
     createChunkedInterview,
@@ -25,9 +29,7 @@ import {
     uploadInterviewAudioChunks,
     uploadInterviewExtractedAudio,
 } from "../middlewares/upload.middleware";
-import {
-    preventConcurrentInterviewProcessing,
-} from "../middlewares/interviewProcessingLock.middleware";
+
 const router =
     Router();
 
