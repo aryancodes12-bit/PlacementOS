@@ -70,7 +70,9 @@ import {
     INTERVIEW_ROUND_TYPES,
     validateInterviewMedia,
 } from "./interview-ui.utils";
-
+import {
+    extractInterviewAudioFromVideo,
+} from "../../lib/media/interviewAudioExtraction";
 type MediaType =
     | "audio"
     | "video";
@@ -307,7 +309,11 @@ export const InterviewMediaUploader = ({
         setValidatingBeforeUpload,
     ] =
         useState(false);
-
+    const [
+        extractingVideoAudio,
+        setExtractingVideoAudio,
+    ] =
+        useState(false);
     const [
         error,
         setError,
@@ -492,9 +498,7 @@ export const InterviewMediaUploader = ({
         ) => {
             event.preventDefault();
 
-            if (
-                validatingMedia
-            ) {
+            if (validatingMedia) {
                 setError(
                     `Please wait while the ${mediaType} file is being validated.`
                 );
@@ -528,9 +532,7 @@ export const InterviewMediaUploader = ({
                     mediaType
                 );
 
-            if (
-                validationError
-            ) {
+            if (validationError) {
                 setError(
                     validationError
                 );
@@ -587,6 +589,60 @@ export const InterviewMediaUploader = ({
                 false
             );
 
+            let uploadFile:
+                File =
+                mediaFile;
+
+            let uploadFieldName:
+                MediaType =
+                config.fileFieldName;
+
+            if (
+                mediaType ===
+                "video"
+            ) {
+                setExtractingVideoAudio(
+                    true
+                );
+
+                try {
+                    const extractedAudio =
+                        await extractInterviewAudioFromVideo(
+                            mediaFile
+                        );
+
+                    uploadFile =
+                        extractedAudio.file;
+
+                    /*
+                     * The original video remains on the device.
+                     * Only browser-extracted audio is added
+                     * to the multipart request.
+                     */
+                    uploadFieldName =
+                        "audio";
+                } catch (
+                extractionError
+                ) {
+                    setError(
+                        getMetadataErrorMessage(
+                            extractionError,
+                            "video"
+                        )
+                    );
+
+                    setUploading(
+                        false
+                    );
+
+                    return;
+                } finally {
+                    setExtractingVideoAudio(
+                        false
+                    );
+                }
+            }
+
             try {
                 const formData =
                     new FormData();
@@ -627,9 +683,27 @@ export const InterviewMediaUploader = ({
                 );
 
                 formData.append(
-                    config.fileFieldName,
-                    mediaFile
+                    uploadFieldName,
+                    uploadFile
                 );
+
+                if (
+                    mediaType ===
+                    "video"
+                ) {
+                    formData.append(
+                        "sourceVideoName",
+                        mediaFile.name
+                    );
+
+                    formData.append(
+                        "sourceVideoDurationSeconds",
+                        String(
+                            refreshedMetadata
+                                .durationSeconds
+                        )
+                    );
+                }
 
                 const {
                     data,
@@ -661,6 +735,10 @@ export const InterviewMediaUploader = ({
                 );
 
                 setValidatingBeforeUpload(
+                    false
+                );
+
+                setExtractingVideoAudio(
                     false
                 );
             }
@@ -883,10 +961,13 @@ export const InterviewMediaUploader = ({
                         fileInputId
                     }
                     aria-busy={
-                        validatingMedia
+                        validatingMedia ||
+                        extractingVideoAudio ||
+                        uploading
                     }
                     className={`group relative mt-3 flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-bg-tertiary px-5 py-7 text-center transition ${uploading ||
-                            validatingMedia
+                            validatingMedia ||
+                            extractingVideoAudio
                             ? "cursor-not-allowed opacity-70"
                             : "cursor-pointer hover:border-brand"
                         }`}
@@ -907,7 +988,8 @@ export const InterviewMediaUploader = ({
                         }
                         disabled={
                             uploading ||
-                            validatingMedia
+                            validatingMedia ||
+                            extractingVideoAudio
                         }
                         className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
                         aria-label={
@@ -955,7 +1037,8 @@ export const InterviewMediaUploader = ({
                     }
                     disabled={
                         uploading ||
-                        validatingMedia
+                        validatingMedia ||
+                        extractingVideoAudio
                     }
                 >
                     Cancel
@@ -965,9 +1048,11 @@ export const InterviewMediaUploader = ({
                     type="submit"
                     disabled={
                         validatingMedia ||
+
                         uploading ||
                         !mediaFile ||
-                        !mediaMetadata
+                        !mediaMetadata ||
+                        extractingVideoAudio
                     }
                     loading={
                         uploading
@@ -975,7 +1060,9 @@ export const InterviewMediaUploader = ({
                     loadingText={
                         validatingBeforeUpload
                             ? "Validating media..."
-                            : "Uploading & analyzing..."
+                            : extractingVideoAudio
+                                ? "Extracting audio locally..."
+                                : "Uploading & analyzing..."
                     }
                     leadingIcon={
                         <Sparkles

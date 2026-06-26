@@ -1,36 +1,151 @@
 import multer from "multer";
 
-export const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: {
-        fileSize: 50 * 1024 * 1024,
-    },
-    fileFilter: (_req, file, cb) => {
-        const allowedMimeTypes = [
-            "audio/mpeg",
-            "audio/mp3",
-            "audio/mp4",
-            "audio/wav",
-            "audio/webm",
-            "audio/ogg",
-            "audio/x-m4a",
-            "video/mp4",
-            "video/webm",
-            "video/quicktime",
-            "application/pdf",
-            "application/octet-stream",
-        ];
+const MEGABYTE =
+    1024 * 1024;
 
-        const allowedExtensions = /\.(mp3|mp4|wav|webm|ogg|m4a|mov|pdf)$/i;
+export const INTERVIEW_AUDIO_UPLOAD_LIMIT_BYTES =
+    24 * MEGABYTE;
 
-        if (
-            allowedMimeTypes.includes(file.mimetype) ||
-            allowedExtensions.test(file.originalname)
-        ) {
-            cb(null, true);
-            return;
-        }
+const memoryStorage =
+    multer.memoryStorage();
 
-        cb(new Error("Only audio, video, or PDF files are allowed"));
-    },
-});
+const generalAllowedMimeTypes =
+    new Set([
+        "audio/mpeg",
+        "audio/mp3",
+        "audio/mp4",
+        "audio/wav",
+        "audio/x-wav",
+        "audio/webm",
+        "audio/ogg",
+        "audio/x-m4a",
+
+        "video/mp4",
+        "video/webm",
+        "video/quicktime",
+
+        "application/pdf",
+        "application/octet-stream",
+    ]);
+
+const generalAllowedExtensions =
+    /\.(mp3|mp4|wav|webm|ogg|m4a|mov|pdf)$/i;
+
+const extractedAudioMimeTypes =
+    new Set([
+        "audio/mpeg",
+        "audio/mp3",
+        "audio/mp4",
+        "audio/wav",
+        "audio/x-wav",
+        "audio/webm",
+        "audio/ogg",
+        "audio/x-m4a",
+    ]);
+
+const extractedAudioExtensions =
+    /\.(mp3|wav|webm|ogg|m4a)$/i;
+
+export const upload =
+    multer({
+        storage:
+            memoryStorage,
+
+        limits: {
+            fileSize:
+                50 * MEGABYTE,
+        },
+
+        fileFilter: (
+            _req,
+            file,
+            callback
+        ) => {
+            const hasAllowedMimeType =
+                generalAllowedMimeTypes.has(
+                    file.mimetype
+                        .trim()
+                        .toLowerCase()
+                );
+
+            const hasAllowedExtension =
+                generalAllowedExtensions.test(
+                    file.originalname
+                );
+
+            if (
+                hasAllowedMimeType ||
+                hasAllowedExtension
+            ) {
+                callback(
+                    null,
+                    true
+                );
+                return;
+            }
+
+            callback(
+                new Error(
+                    "Only audio, video, or PDF files are allowed"
+                )
+            );
+        },
+    });
+
+/**
+ * Strict uploader for browser-extracted interview audio.
+ *
+ * The original video must never reach this middleware.
+ * Each uploaded audio file must stay below the safe
+ * 24 MB transcription limit.
+ */
+export const uploadInterviewExtractedAudio =
+    multer({
+        storage:
+            memoryStorage,
+
+        limits: {
+            fileSize:
+                INTERVIEW_AUDIO_UPLOAD_LIMIT_BYTES,
+            files:
+                1,
+        },
+
+        fileFilter: (
+            _req,
+            file,
+            callback
+        ) => {
+            const normalizedMimeType =
+                file.mimetype
+                    .trim()
+                    .toLowerCase();
+
+            const hasAllowedMimeType =
+                extractedAudioMimeTypes.has(
+                    normalizedMimeType
+                );
+
+            const hasAllowedExtension =
+                extractedAudioExtensions.test(
+                    file.originalname
+                );
+
+            if (
+                hasAllowedMimeType ||
+                hasAllowedExtension
+            ) {
+                callback(
+                    null,
+                    true
+                );
+                return;
+            }
+
+            callback(
+                new Error(
+                    "Only extracted interview audio files are allowed"
+                )
+            );
+        },
+    });

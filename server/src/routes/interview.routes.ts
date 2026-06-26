@@ -1,29 +1,84 @@
-import { Router } from "express";
-import { protect } from "../middlewares/auth.middleware";
+import {
+    Router,
+} from "express";
+
+import {
+    protect,
+} from "../middlewares/auth.middleware";
+
 import {
     analyzeInterviewWithAI,
+    createAudioInterview,
     createInterview,
+    createVideoInterview,
     deleteInterview,
     getInterviewById,
     getInterviews,
     getInterviewStats,
     updateInterview,
-    createAudioInterview,
-    createVideoInterview,
 } from "../controllers/interview.controller";
-import { upload } from "../middlewares/upload.middleware";
-const router = Router();
 
-router.use(protect);
+import {
+    upload,
+    uploadInterviewExtractedAudio,
+} from "../middlewares/upload.middleware";
 
-router.get("/stats", getInterviewStats);
-router.get("/", getInterviews);
-router.post("/", createInterview);
-router.post("/audio", upload.single("audio"), createAudioInterview);
-router.post("/video", upload.single("video"), createVideoInterview);
-router.post("/:id/analyze", analyzeInterviewWithAI);
-router.get("/:id", getInterviewById);
-router.put("/:id", updateInterview);
-router.delete("/:id", deleteInterview);
+const router =
+    Router();
+
+router.use(
+    protect
+);
+
+router.get(
+    "/stats",
+    getInterviewStats
+);
+
+router.get(
+    "/",
+    getInterviews
+);
+
+router.post(
+    "/",
+    createInterview
+);
+
+router.post(
+    "/audio",
+    upload.single(
+        "audio"
+    ),
+    createAudioInterview
+);
+
+router.post(
+    "/video",
+    uploadInterviewExtractedAudio.single(
+        "audio"
+    ),
+    createVideoInterview
+);
+
+router.post(
+    "/:id/analyze",
+    analyzeInterviewWithAI
+);
+
+router.get(
+    "/:id",
+    getInterviewById
+);
+
+router.put(
+    "/:id",
+    updateInterview
+);
+
+router.delete(
+    "/:id",
+    deleteInterview
+);
 
 export default router;
