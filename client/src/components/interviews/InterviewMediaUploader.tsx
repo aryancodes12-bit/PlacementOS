@@ -1,5 +1,7 @@
 import {
+    useEffect,
     useId,
+    useRef,
     useState,
 } from "react";
 
@@ -17,6 +19,10 @@ import {
 } from "lucide-react";
 
 import {
+    useNavigate,
+} from "react-router-dom";
+
+import {
     interviewService,
 } from "../../services/interview.service";
 
@@ -25,6 +31,14 @@ import type {
     InterviewRoundType,
     InterviewUploadResponse,
 } from "../../services/interview.service";
+
+import {
+    readInterviewMediaMetadata,
+} from "../../lib/media/interviewMediaMetadata";
+
+import type {
+    InterviewMediaMetadata,
+} from "../../lib/media/interviewMediaMetadata";
 
 import {
     ActionButton,
@@ -56,10 +70,6 @@ import {
     INTERVIEW_ROUND_TYPES,
     validateInterviewMedia,
 } from "./interview-ui.utils";
-
-import {
-    useNavigate,
-} from "react-router-dom";
 
 type MediaType =
     | "audio"
@@ -110,12 +120,14 @@ const mediaConfig: Record<
             "Upload a mock or real interview audio. PlacementOS will transcribe it, analyze weak concepts, generate scores, and save the replay.",
         emptyFileLabel:
             "Choose an audio file",
-        fileFieldName: "audio",
+        fileFieldName:
+            "audio",
         fileHelp:
             "MP3, WAV, M4A, WEBM, or OGG up to 50 MB",
         fileLabel:
             "Audio file",
-        Icon: FileAudio,
+        Icon:
+            FileAudio,
         submitLabel:
             "Upload & Analyze",
         title:
@@ -123,19 +135,22 @@ const mediaConfig: Record<
         upload:
             interviewService.uploadAudio,
     },
+
     video: {
         accept:
             "video/*,.mp4,.webm,.mov",
         description:
-            "Upload a mock or real interview video. PlacementOS will save the video, transcribe the audio, analyze weak concepts, and generate a question-level replay.",
+            "Upload a mock or real interview video. PlacementOS will validate its duration before processing the interview replay.",
         emptyFileLabel:
             "Choose a video file",
-        fileFieldName: "video",
+        fileFieldName:
+            "video",
         fileHelp:
-            "MP4, WEBM, or MOV up to 50 MB",
+            "MP4, WEBM, or MOV up to 50 MB and 30 minutes",
         fileLabel:
             "Video file",
-        Icon: Video,
+        Icon:
+            Video,
         submitLabel:
             "Upload Video & Analyze",
         title:
@@ -173,15 +188,61 @@ const createInitialForm =
     (): MediaUploadForm => ({
         company: "",
         role: "",
-        roundType: "TECHNICAL",
+        roundType:
+            "TECHNICAL",
         date:
             new Date()
                 .toISOString()
-                .slice(0, 10),
-        result: "PENDING",
+                .slice(
+                    0,
+                    10
+                ),
+        result:
+            "PENDING",
         topics: "",
         notes: "",
     });
+
+const getMetadataErrorMessage = (
+    error: unknown,
+    mediaType: MediaType
+): string => {
+    if (
+        error instanceof Error &&
+        error.message
+    ) {
+        return error.message;
+    }
+
+    return `Unable to validate the selected ${mediaType} file.`;
+};
+
+const formatSelectedMediaDetails = (
+    file: File,
+    metadata: InterviewMediaMetadata
+): string => {
+    const details = [
+        formatMediaSize(
+            file.size
+        ),
+        metadata.durationLabel,
+    ];
+
+    if (
+        metadata.mediaType ===
+        "video" &&
+        metadata.width &&
+        metadata.height
+    ) {
+        details.push(
+            `${metadata.width}×${metadata.height}`
+        );
+    }
+
+    return details.join(
+        " • "
+    );
+};
 
 export const InterviewMediaUploader = ({
     mediaType,
@@ -192,29 +253,76 @@ export const InterviewMediaUploader = ({
     const fileInputId =
         useId();
 
+    const fileInputRef =
+        useRef<HTMLInputElement | null>(
+            null
+        );
+
+    const mediaValidationRequestRef =
+        useRef(0);
+
     const config =
         mediaConfig[
-            mediaType
+        mediaType
         ];
 
-    const [form, setForm] =
+    const [
+        form,
+        setForm,
+    ] =
         useState<MediaUploadForm>(
             createInitialForm
         );
 
-    const [mediaFile, setMediaFile] =
+    const [
+        mediaFile,
+        setMediaFile,
+    ] =
         useState<File | null>(
             null
         );
 
-    const [uploading, setUploading] =
+    const [
+        mediaMetadata,
+        setMediaMetadata,
+    ] =
+        useState<InterviewMediaMetadata | null>(
+            null
+        );
+
+    const [
+        validatingMedia,
+        setValidatingMedia,
+    ] =
         useState(false);
 
-    const [error, setError] =
+    const [
+        uploading,
+        setUploading,
+    ] =
+        useState(false);
+
+    const [
+        validatingBeforeUpload,
+        setValidatingBeforeUpload,
+    ] =
+        useState(false);
+
+    const [
+        error,
+        setError,
+    ] =
         useState("");
 
     const Icon =
         config.Icon;
+
+    useEffect(() => {
+        return () => {
+            mediaValidationRequestRef.current +=
+                1;
+        };
+    }, []);
 
     const updateField = (
         field: keyof MediaUploadForm,
@@ -229,141 +337,343 @@ export const InterviewMediaUploader = ({
         );
     };
 
-    const handleFileChange = (
-        event: ChangeEvent<HTMLInputElement>
-    ) => {
-        const nextFile =
-            event.currentTarget
-                .files?.[0] ??
-            null;
+    const resetSelectedMedia =
+        () => {
+            mediaValidationRequestRef.current +=
+                1;
 
-        if (!nextFile) {
-            setMediaFile(null);
-            return;
-        }
-
-        const validationError =
-            validateInterviewMedia(
-                nextFile,
-                mediaType
+            setMediaFile(
+                null
             );
 
-        if (validationError) {
-            setMediaFile(null);
-            setError(
+            setMediaMetadata(
+                null
+            );
+
+            setValidatingMedia(
+                false
+            );
+
+            if (
+                fileInputRef.current
+            ) {
+                fileInputRef.current.value =
+                    "";
+            }
+        };
+
+    const handleFileChange =
+        async (
+            event: ChangeEvent<HTMLInputElement>
+        ) => {
+            const inputElement =
+                event.currentTarget;
+
+            const nextFile =
+                inputElement.files?.[0] ??
+                null;
+
+            const requestId =
+                mediaValidationRequestRef.current +
+                1;
+
+            mediaValidationRequestRef.current =
+                requestId;
+
+            setMediaFile(
+                null
+            );
+
+            setMediaMetadata(
+                null
+            );
+
+            setError("");
+
+            if (!nextFile) {
+                setValidatingMedia(
+                    false
+                );
+                return;
+            }
+
+            const validationError =
+                validateInterviewMedia(
+                    nextFile,
+                    mediaType
+                );
+
+            if (
                 validationError
+            ) {
+                setValidatingMedia(
+                    false
+                );
+
+                setError(
+                    validationError
+                );
+
+                inputElement.value =
+                    "";
+
+                return;
+            }
+
+            setValidatingMedia(
+                true
             );
-            event.currentTarget.value =
-                "";
-            return;
-        }
 
-        setMediaFile(
-            nextFile
-        );
-        setError("");
-    };
+            try {
+                const metadata =
+                    await readInterviewMediaMetadata(
+                        nextFile,
+                        mediaType
+                    );
 
-    const handleSubmit = async (
-        event: FormEvent<HTMLFormElement>
-    ) => {
-        event.preventDefault();
+                if (
+                    mediaValidationRequestRef.current !==
+                    requestId
+                ) {
+                    return;
+                }
 
-        if (
-            !form.company.trim() ||
-            !form.role.trim() ||
-            !form.date
-        ) {
-            setError(
-                "Company, role, and date are required."
+                setMediaFile(
+                    nextFile
+                );
+
+                setMediaMetadata(
+                    metadata
+                );
+
+                setError("");
+            } catch (
+            metadataError
+            ) {
+                if (
+                    mediaValidationRequestRef.current !==
+                    requestId
+                ) {
+                    return;
+                }
+
+                inputElement.value =
+                    "";
+
+                setMediaFile(
+                    null
+                );
+
+                setMediaMetadata(
+                    null
+                );
+
+                setError(
+                    getMetadataErrorMessage(
+                        metadataError,
+                        mediaType
+                    )
+                );
+            } finally {
+                if (
+                    mediaValidationRequestRef.current ===
+                    requestId
+                ) {
+                    setValidatingMedia(
+                        false
+                    );
+                }
+            }
+        };
+
+    const handleSubmit =
+        async (
+            event: FormEvent<HTMLFormElement>
+        ) => {
+            event.preventDefault();
+
+            if (
+                validatingMedia
+            ) {
+                setError(
+                    `Please wait while the ${mediaType} file is being validated.`
+                );
+                return;
+            }
+
+            if (
+                !form.company.trim() ||
+                !form.role.trim() ||
+                !form.date
+            ) {
+                setError(
+                    "Company, role, and date are required."
+                );
+                return;
+            }
+
+            if (
+                !mediaFile ||
+                !mediaMetadata
+            ) {
+                setError(
+                    `Please select a valid ${mediaType} file.`
+                );
+                return;
+            }
+
+            const validationError =
+                validateInterviewMedia(
+                    mediaFile,
+                    mediaType
+                );
+
+            if (
+                validationError
+            ) {
+                setError(
+                    validationError
+                );
+                return;
+            }
+
+            setUploading(
+                true
             );
-            return;
-        }
 
-        if (!mediaFile) {
-            setError(
-                `Please select a ${mediaType} file.`
+            setValidatingBeforeUpload(
+                true
             );
-            return;
-        }
 
-        const validationError =
-            validateInterviewMedia(
+            setError("");
+
+            let refreshedMetadata:
+                InterviewMediaMetadata;
+
+            try {
+                refreshedMetadata =
+                    await readInterviewMediaMetadata(
+                        mediaFile,
+                        mediaType
+                    );
+
+                setMediaMetadata(
+                    refreshedMetadata
+                );
+            } catch (
+            metadataError
+            ) {
+                resetSelectedMedia();
+
+                setError(
+                    getMetadataErrorMessage(
+                        metadataError,
+                        mediaType
+                    )
+                );
+
+                setUploading(
+                    false
+                );
+
+                setValidatingBeforeUpload(
+                    false
+                );
+
+                return;
+            }
+
+            setValidatingBeforeUpload(
+                false
+            );
+
+            try {
+                const formData =
+                    new FormData();
+
+                formData.append(
+                    "company",
+                    form.company.trim()
+                );
+
+                formData.append(
+                    "role",
+                    form.role.trim()
+                );
+
+                formData.append(
+                    "roundType",
+                    form.roundType
+                );
+
+                formData.append(
+                    "date",
+                    form.date
+                );
+
+                formData.append(
+                    "result",
+                    form.result
+                );
+
+                formData.append(
+                    "topics",
+                    form.topics.trim()
+                );
+
+                formData.append(
+                    "notes",
+                    form.notes.trim()
+                );
+
+                formData.append(
+                    config.fileFieldName,
+                    mediaFile
+                );
+
+                const {
+                    data,
+                } =
+                    await config.upload(
+                        formData
+                    );
+
+                navigate(
+                    `/interviews/${data.interview.id}`
+                );
+            } catch (
+            uploadError
+            ) {
+                console.error(
+                    `${mediaType} upload failed:`,
+                    uploadError
+                );
+
+                setError(
+                    getInterviewApiError(
+                        uploadError,
+                        `Failed to upload and analyze ${mediaType} interview.`
+                    )
+                );
+            } finally {
+                setUploading(
+                    false
+                );
+
+                setValidatingBeforeUpload(
+                    false
+                );
+            }
+        };
+
+    const selectedMediaDetails =
+        mediaFile &&
+            mediaMetadata
+            ? formatSelectedMediaDetails(
                 mediaFile,
-                mediaType
-            );
-
-        if (validationError) {
-            setError(
-                validationError
-            );
-            return;
-        }
-
-        setUploading(true);
-        setError("");
-
-        try {
-            const formData =
-                new FormData();
-
-            formData.append(
-                "company",
-                form.company.trim()
-            );
-            formData.append(
-                "role",
-                form.role.trim()
-            );
-            formData.append(
-                "roundType",
-                form.roundType
-            );
-            formData.append(
-                "date",
-                form.date
-            );
-            formData.append(
-                "result",
-                form.result
-            );
-            formData.append(
-                "topics",
-                form.topics.trim()
-            );
-            formData.append(
-                "notes",
-                form.notes.trim()
-            );
-            formData.append(
-                config.fileFieldName,
-                mediaFile
-            );
-
-            const {
-                data,
-            } = await config.upload(
-                formData
-            );
-
-            navigate(
-                `/interviews/${data.interview.id}`
-            );
-        } catch (uploadError) {
-            console.error(
-                `${mediaType} upload failed:`,
-                uploadError
-            );
-            setError(
-                getInterviewApiError(
-                    uploadError,
-                    `Failed to upload and analyze ${mediaType} interview.`
-                )
-            );
-        } finally {
-            setUploading(false);
-        }
-    };
+                mediaMetadata
+            )
+            : null;
 
     return (
         <form
@@ -381,7 +691,9 @@ export const InterviewMediaUploader = ({
                                 size="sm"
                             >
                                 <Icon
-                                    size={17}
+                                    size={
+                                        17
+                                    }
                                     aria-hidden="true"
                                 />
                             </IconTile>
@@ -423,7 +735,8 @@ export const InterviewMediaUploader = ({
                         ) =>
                             updateField(
                                 "company",
-                                event.target
+                                event
+                                    .target
                                     .value
                             )
                         }
@@ -441,7 +754,8 @@ export const InterviewMediaUploader = ({
                         ) =>
                             updateField(
                                 "role",
-                                event.target
+                                event
+                                    .target
                                     .value
                             )
                         }
@@ -459,7 +773,8 @@ export const InterviewMediaUploader = ({
                         ) =>
                             updateField(
                                 "roundType",
-                                event.target
+                                event
+                                    .target
                                     .value as InterviewRoundType
                             )
                         }
@@ -478,7 +793,8 @@ export const InterviewMediaUploader = ({
                         ) =>
                             updateField(
                                 "result",
-                                event.target
+                                event
+                                    .target
                                     .value as InterviewResult
                             )
                         }
@@ -498,13 +814,16 @@ export const InterviewMediaUploader = ({
                         ) =>
                             updateField(
                                 "date",
-                                event.target
+                                event
+                                    .target
                                     .value
                             )
                         }
                         leadingIcon={
                             <CalendarDays
-                                size={16}
+                                size={
+                                    16
+                                }
                                 aria-hidden="true"
                             />
                         }
@@ -521,7 +840,8 @@ export const InterviewMediaUploader = ({
                         ) =>
                             updateField(
                                 "topics",
-                                event.target
+                                event
+                                    .target
                                     .value
                             )
                         }
@@ -540,7 +860,9 @@ export const InterviewMediaUploader = ({
                     ) =>
                         updateField(
                             "notes",
-                            event.target.value
+                            event
+                                .target
+                                .value
                         )
                     }
                     placeholder="Optional context about this interview..."
@@ -560,9 +882,19 @@ export const InterviewMediaUploader = ({
                     htmlFor={
                         fileInputId
                     }
-                    className="group relative mt-3 flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-bg-tertiary px-5 py-7 text-center transition hover:border-brand"
+                    aria-busy={
+                        validatingMedia
+                    }
+                    className={`group relative mt-3 flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-bg-tertiary px-5 py-7 text-center transition ${uploading ||
+                            validatingMedia
+                            ? "cursor-not-allowed opacity-70"
+                            : "cursor-pointer hover:border-brand"
+                        }`}
                 >
                     <input
+                        ref={
+                            fileInputRef
+                        }
                         id={
                             fileInputId
                         }
@@ -573,7 +905,11 @@ export const InterviewMediaUploader = ({
                         onChange={
                             handleFileChange
                         }
-                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        disabled={
+                            uploading ||
+                            validatingMedia
+                        }
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
                         aria-label={
                             config.fileLabel
                         }
@@ -584,25 +920,26 @@ export const InterviewMediaUploader = ({
                         size="lg"
                     >
                         <Upload
-                            size={22}
+                            size={
+                                22
+                            }
                             aria-hidden="true"
                         />
                     </IconTile>
 
                     <p className="mt-4 max-w-full break-words text-sm font-semibold text-text-primary">
-                        {mediaFile
-                            ? mediaFile.name
-                            : config.emptyFileLabel}
+                        {validatingMedia
+                            ? "Reading media details..."
+                            : mediaFile
+                                ? mediaFile.name
+                                : config.emptyFileLabel}
                     </p>
 
                     <p className="mt-1 text-xs text-text-tertiary">
-                        {
-                            mediaFile
-                                ? formatMediaSize(
-                                    mediaFile.size
-                                )
-                                : config.fileHelp
-                        }
+                        {validatingMedia
+                            ? "Checking format and duration..."
+                            : selectedMediaDetails ??
+                            config.fileHelp}
                     </p>
                 </label>
             </PageSurface>
@@ -617,7 +954,8 @@ export const InterviewMediaUploader = ({
                         )
                     }
                     disabled={
-                        uploading
+                        uploading ||
+                        validatingMedia
                     }
                 >
                     Cancel
@@ -625,13 +963,25 @@ export const InterviewMediaUploader = ({
 
                 <ActionButton
                     type="submit"
+                    disabled={
+                        validatingMedia ||
+                        uploading ||
+                        !mediaFile ||
+                        !mediaMetadata
+                    }
                     loading={
                         uploading
                     }
-                    loadingText="Uploading & analyzing..."
+                    loadingText={
+                        validatingBeforeUpload
+                            ? "Validating media..."
+                            : "Uploading & analyzing..."
+                    }
                     leadingIcon={
                         <Sparkles
-                            size={16}
+                            size={
+                                16
+                            }
                             aria-hidden="true"
                         />
                     }
