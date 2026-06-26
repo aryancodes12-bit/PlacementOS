@@ -25,7 +25,9 @@ import {
     uploadInterviewAudioChunks,
     uploadInterviewExtractedAudio,
 } from "../middlewares/upload.middleware";
-
+import {
+    preventConcurrentInterviewProcessing,
+} from "../middlewares/interviewProcessingLock.middleware";
 const router =
     Router();
 
@@ -50,6 +52,7 @@ router.post(
 
 router.post(
     "/audio",
+    preventConcurrentInterviewProcessing,
     upload.single(
         "audio"
     ),
@@ -58,6 +61,7 @@ router.post(
 
 router.post(
     "/video",
+    preventConcurrentInterviewProcessing,
     uploadInterviewExtractedAudio.single(
         "audio"
     ),
@@ -66,6 +70,7 @@ router.post(
 
 router.post(
     "/chunks",
+    preventConcurrentInterviewProcessing,
     uploadInterviewAudioChunks.array(
         "chunks",
         MAX_INTERVIEW_AUDIO_CHUNKS
@@ -75,6 +80,7 @@ router.post(
 
 router.post(
     "/:id/analyze",
+    preventConcurrentInterviewProcessing,
     analyzeInterviewWithAI
 );
 
