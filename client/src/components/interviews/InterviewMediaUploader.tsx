@@ -22,15 +22,14 @@ import {
     useNavigate,
 } from "react-router-dom";
 
-import {
-    interviewService,
-} from "../../services/interview.service";
-
 import type {
     InterviewResult,
     InterviewRoundType,
-    InterviewUploadResponse,
 } from "../../services/interview.service";
+
+import {
+    extractInterviewAudioFromVideo,
+} from "../../lib/media/interviewAudioExtraction";
 
 import {
     readInterviewMediaMetadata,
@@ -39,6 +38,14 @@ import {
 import type {
     InterviewMediaMetadata,
 } from "../../lib/media/interviewMediaMetadata";
+
+import {
+    uploadProcessedInterviewAudio,
+} from "../../lib/media/interviewProcessedAudioUpload";
+
+import type {
+    InterviewProcessedAudioUploadStage,
+} from "../../lib/media/interviewProcessedAudioUpload";
 
 import {
     ActionButton,
@@ -70,17 +77,10 @@ import {
     INTERVIEW_ROUND_TYPES,
     validateInterviewMedia,
 } from "./interview-ui.utils";
-import {
-    extractInterviewAudioFromVideo,
-} from "../../lib/media/interviewAudioExtraction";
+
 type MediaType =
     | "audio"
     | "video";
-
-type UploadResponse =
-    Promise<{
-        data: InterviewUploadResponse;
-    }>;
 
 interface InterviewMediaUploaderProps {
     mediaType: MediaType;
@@ -90,15 +90,11 @@ interface MediaConfig {
     accept: string;
     description: string;
     emptyFileLabel: string;
-    fileFieldName: MediaType;
     fileHelp: string;
     fileLabel: string;
     Icon: typeof FileAudio;
     submitLabel: string;
     title: string;
-    upload: (
-        data: FormData
-    ) => UploadResponse;
 }
 
 interface MediaUploadForm {
@@ -119,11 +115,9 @@ const mediaConfig: Record<
         accept:
             "audio/*,.mp3,.wav,.m4a,.webm,.ogg",
         description:
-            "Upload a mock or real interview audio. PlacementOS will transcribe it, analyze weak concepts, generate scores, and save the replay.",
+            "Upload a mock or real interview audio. PlacementOS automatically uses a single upload or safe overlapping chunks before transcription and AI analysis.",
         emptyFileLabel:
             "Choose an audio file",
-        fileFieldName:
-            "audio",
         fileHelp:
             "MP3, WAV, M4A, WEBM, or OGG up to 50 MB",
         fileLabel:
@@ -134,31 +128,25 @@ const mediaConfig: Record<
             "Upload & Analyze",
         title:
             "Upload Audio Interview",
-        upload:
-            interviewService.uploadAudio,
     },
 
     video: {
         accept:
             "video/*,.mp4,.webm,.mov",
         description:
-            "Upload a mock or real interview video. PlacementOS will validate its duration before processing the interview replay.",
+            "Select a mock or real interview video. PlacementOS extracts compressed audio locally, while the original video stays on your device.",
         emptyFileLabel:
             "Choose a video file",
-        fileFieldName:
-            "video",
         fileHelp:
-            "MP4, WEBM, or MOV, maximum 30 minutes.",
+            "MP4, WEBM, or MOV, maximum 30 minutes. The original video stays on your device.",
         fileLabel:
             "Video file",
         Icon:
             Video,
         submitLabel:
-            "Upload Video & Analyze",
+            "Process Video & Analyze",
         title:
             "Upload Video Interview",
-        upload:
-            interviewService.uploadVideo,
     },
 };
 
@@ -205,7 +193,7 @@ const createInitialForm =
         notes: "",
     });
 
-const getMetadataErrorMessage = (
+const getMediaProcessingError = (
     error: unknown,
     mediaType: MediaType
 ): string => {
@@ -216,7 +204,7 @@ const getMetadataErrorMessage = (
         return error.message;
     }
 
-    return `Unable to validate the selected ${mediaType} file.`;
+    return `Unable to process the selected ${mediaType} file.`;
 };
 
 const formatSelectedMediaDetails = (
@@ -244,6 +232,45 @@ const formatSelectedMediaDetails = (
     return details.join(
         " • "
     );
+};
+
+const getUploadLoadingText = (
+    validatingBeforeUpload: boolean,
+    extractingVideoAudio: boolean,
+    uploadStage:
+        | InterviewProcessedAudioUploadStage
+        | null
+): string => {
+    if (
+        validatingBeforeUpload
+    ) {
+        return "Validating media...";
+    }
+
+    if (
+        extractingVideoAudio
+    ) {
+        return "Extracting audio locally...";
+    }
+
+    switch (
+    uploadStage
+    ) {
+        case "preparing":
+            return "Preparing audio...";
+
+        case "generating-chunks":
+            return "Creating safe audio chunks...";
+
+        case "uploading-chunks":
+            return "Uploading audio chunks...";
+
+        case "uploading-single":
+            return "Uploading & analyzing...";
+
+        default:
+            return "Uploading & analyzing...";
+    }
 };
 
 export const InterviewMediaUploader = ({
@@ -309,11 +336,24 @@ export const InterviewMediaUploader = ({
         setValidatingBeforeUpload,
     ] =
         useState(false);
+
     const [
         extractingVideoAudio,
         setExtractingVideoAudio,
     ] =
         useState(false);
+
+    const [
+        uploadStage,
+        setUploadStage,
+    ] =
+        useState<
+            InterviewProcessedAudioUploadStage |
+            null
+        >(
+            null
+        );
+
     const [
         error,
         setError,
@@ -322,6 +362,11 @@ export const InterviewMediaUploader = ({
 
     const Icon =
         config.Icon;
+
+    const isBusy =
+        validatingMedia ||
+        uploading ||
+        extractingVideoAudio;
 
     useEffect(() => {
         return () => {
@@ -391,6 +436,10 @@ export const InterviewMediaUploader = ({
             );
 
             setMediaMetadata(
+                null
+            );
+
+            setUploadStage(
                 null
             );
 
@@ -475,7 +524,7 @@ export const InterviewMediaUploader = ({
                 );
 
                 setError(
-                    getMetadataErrorMessage(
+                    getMediaProcessingError(
                         metadataError,
                         mediaType
                     )
@@ -498,7 +547,9 @@ export const InterviewMediaUploader = ({
         ) => {
             event.preventDefault();
 
-            if (validatingMedia) {
+            if (
+                validatingMedia
+            ) {
                 setError(
                     `Please wait while the ${mediaType} file is being validated.`
                 );
@@ -532,7 +583,9 @@ export const InterviewMediaUploader = ({
                     mediaType
                 );
 
-            if (validationError) {
+            if (
+                validationError
+            ) {
                 setError(
                     validationError
                 );
@@ -545,6 +598,14 @@ export const InterviewMediaUploader = ({
 
             setValidatingBeforeUpload(
                 true
+            );
+
+            setExtractingVideoAudio(
+                false
+            );
+
+            setUploadStage(
+                null
             );
 
             setError("");
@@ -568,7 +629,7 @@ export const InterviewMediaUploader = ({
                 resetSelectedMedia();
 
                 setError(
-                    getMetadataErrorMessage(
+                    getMediaProcessingError(
                         metadataError,
                         mediaType
                     )
@@ -589,13 +650,8 @@ export const InterviewMediaUploader = ({
                 false
             );
 
-            let uploadFile:
-                File =
+            let processedAudioFile =
                 mediaFile;
-
-            let uploadFieldName:
-                MediaType =
-                config.fileFieldName;
 
             if (
                 mediaType ===
@@ -611,27 +667,23 @@ export const InterviewMediaUploader = ({
                             mediaFile
                         );
 
-                    uploadFile =
+                    processedAudioFile =
                         extractedAudio.file;
-
-                    /*
-                     * The original video remains on the device.
-                     * Only browser-extracted audio is added
-                     * to the multipart request.
-                     */
-                    uploadFieldName =
-                        "audio";
                 } catch (
                 extractionError
                 ) {
                     setError(
-                        getMetadataErrorMessage(
+                        getMediaProcessingError(
                             extractionError,
                             "video"
                         )
                     );
 
                     setUploading(
+                        false
+                    );
+
+                    setExtractingVideoAudio(
                         false
                     );
 
@@ -644,89 +696,76 @@ export const InterviewMediaUploader = ({
             }
 
             try {
-                const formData =
-                    new FormData();
+                const result =
+                    await uploadProcessedInterviewAudio({
+                        audioFile:
+                            processedAudioFile,
 
-                formData.append(
-                    "company",
-                    form.company.trim()
-                );
-
-                formData.append(
-                    "role",
-                    form.role.trim()
-                );
-
-                formData.append(
-                    "roundType",
-                    form.roundType
-                );
-
-                formData.append(
-                    "date",
-                    form.date
-                );
-
-                formData.append(
-                    "result",
-                    form.result
-                );
-
-                formData.append(
-                    "topics",
-                    form.topics.trim()
-                );
-
-                formData.append(
-                    "notes",
-                    form.notes.trim()
-                );
-
-                formData.append(
-                    uploadFieldName,
-                    uploadFile
-                );
-
-                if (
-                    mediaType ===
-                    "video"
-                ) {
-                    formData.append(
-                        "sourceVideoName",
-                        mediaFile.name
-                    );
-
-                    formData.append(
-                        "sourceVideoDurationSeconds",
-                        String(
+                        durationSeconds:
                             refreshedMetadata
-                                .durationSeconds
-                        )
-                    );
-                }
+                                .durationSeconds,
 
-                const {
-                    data,
-                } =
-                    await config.upload(
-                        formData
-                    );
+                        sourceType:
+                            mediaType ===
+                                "video"
+                                ? "VIDEO"
+                                : "AUDIO",
+
+                        fields: {
+                            company:
+                                form.company,
+
+                            role:
+                                form.role,
+
+                            roundType:
+                                form.roundType,
+
+                            date:
+                                form.date,
+
+                            result:
+                                form.result,
+
+                            topics:
+                                form.topics,
+
+                            notes:
+                                form.notes,
+                        },
+
+                        originalMediaName:
+                            mediaType ===
+                                "video"
+                                ? mediaFile.name
+                                : undefined,
+
+                        originalMediaDurationSeconds:
+                            mediaType ===
+                                "video"
+                                ? refreshedMetadata
+                                    .durationSeconds
+                                : undefined,
+
+                        onStageChange:
+                            setUploadStage,
+                    });
 
                 navigate(
-                    `/interviews/${data.interview.id}`
+                    `/interviews/${result.data.interview.id}`
                 );
             } catch (
             uploadError
             ) {
                 console.error(
-                    `${mediaType} upload failed:`,
+                    `${mediaType} processing failed:`,
                     uploadError
                 );
 
                 setError(
                     getInterviewApiError(
                         uploadError,
-                        `Failed to upload and analyze ${mediaType} interview.`
+                        `Failed to process and analyze ${mediaType} interview.`
                     )
                 );
             } finally {
@@ -741,6 +780,10 @@ export const InterviewMediaUploader = ({
                 setExtractingVideoAudio(
                     false
                 );
+
+                setUploadStage(
+                    null
+                );
             }
         };
 
@@ -752,6 +795,13 @@ export const InterviewMediaUploader = ({
                 mediaMetadata
             )
             : null;
+
+    const loadingText =
+        getUploadLoadingText(
+            validatingBeforeUpload,
+            extractingVideoAudio,
+            uploadStage
+        );
 
     return (
         <form
@@ -813,9 +863,7 @@ export const InterviewMediaUploader = ({
                         ) =>
                             updateField(
                                 "company",
-                                event
-                                    .target
-                                    .value
+                                event.target.value
                             )
                         }
                         placeholder="TCS, Infosys, Amazon"
@@ -832,9 +880,7 @@ export const InterviewMediaUploader = ({
                         ) =>
                             updateField(
                                 "role",
-                                event
-                                    .target
-                                    .value
+                                event.target.value
                             )
                         }
                         placeholder="Java Developer Intern"
@@ -851,8 +897,7 @@ export const InterviewMediaUploader = ({
                         ) =>
                             updateField(
                                 "roundType",
-                                event
-                                    .target
+                                event.target
                                     .value as InterviewRoundType
                             )
                         }
@@ -871,8 +916,7 @@ export const InterviewMediaUploader = ({
                         ) =>
                             updateField(
                                 "result",
-                                event
-                                    .target
+                                event.target
                                     .value as InterviewResult
                             )
                         }
@@ -892,9 +936,7 @@ export const InterviewMediaUploader = ({
                         ) =>
                             updateField(
                                 "date",
-                                event
-                                    .target
-                                    .value
+                                event.target.value
                             )
                         }
                         leadingIcon={
@@ -918,9 +960,7 @@ export const InterviewMediaUploader = ({
                         ) =>
                             updateField(
                                 "topics",
-                                event
-                                    .target
-                                    .value
+                                event.target.value
                             )
                         }
                         placeholder="Java, OOP, DBMS"
@@ -938,9 +978,7 @@ export const InterviewMediaUploader = ({
                     ) =>
                         updateField(
                             "notes",
-                            event
-                                .target
-                                .value
+                            event.target.value
                         )
                     }
                     placeholder="Optional context about this interview..."
@@ -961,15 +999,11 @@ export const InterviewMediaUploader = ({
                         fileInputId
                     }
                     aria-busy={
-                        validatingMedia ||
-                        extractingVideoAudio ||
-                        uploading
+                        isBusy
                     }
-                    className={`group relative mt-3 flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-bg-tertiary px-5 py-7 text-center transition ${uploading ||
-                        validatingMedia ||
-                        extractingVideoAudio
-                        ? "cursor-not-allowed opacity-70"
-                        : "cursor-pointer hover:border-brand"
+                    className={`group relative mt-3 flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-bg-tertiary px-5 py-7 text-center transition ${isBusy
+                            ? "cursor-not-allowed opacity-70"
+                            : "cursor-pointer hover:border-brand"
                         }`}
                 >
                     <input
@@ -987,9 +1021,7 @@ export const InterviewMediaUploader = ({
                             handleFileChange
                         }
                         disabled={
-                            uploading ||
-                            validatingMedia ||
-                            extractingVideoAudio
+                            isBusy
                         }
                         className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
                         aria-label={
@@ -1036,9 +1068,7 @@ export const InterviewMediaUploader = ({
                         )
                     }
                     disabled={
-                        uploading ||
-                        validatingMedia ||
-                        extractingVideoAudio
+                        isBusy
                     }
                 >
                     Cancel
@@ -1047,22 +1077,15 @@ export const InterviewMediaUploader = ({
                 <ActionButton
                     type="submit"
                     disabled={
-                        validatingMedia ||
-
-                        uploading ||
+                        isBusy ||
                         !mediaFile ||
-                        !mediaMetadata ||
-                        extractingVideoAudio
+                        !mediaMetadata
                     }
                     loading={
                         uploading
                     }
                     loadingText={
-                        validatingBeforeUpload
-                            ? "Validating media..."
-                            : extractingVideoAudio
-                                ? "Extracting audio locally..."
-                                : "Uploading & analyzing..."
+                        loadingText
                     }
                     leadingIcon={
                         <Sparkles
