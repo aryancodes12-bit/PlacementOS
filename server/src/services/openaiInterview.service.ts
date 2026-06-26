@@ -2,6 +2,10 @@ import Groq from "groq-sdk";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import {
+    executeGroqRequestWithRetry,
+    runGroqTranscriptionTask,
+} from "./groqResilience.service";
 const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY,
 });
@@ -171,12 +175,30 @@ export const transcribeInterviewAudio = async (
     fs.writeFileSync(tempPath, audioBuffer);
 
     try {
-        const transcription = await groq.audio.transcriptions.create({
-            file: fs.createReadStream(tempPath),
-            model: "whisper-large-v3",
-        });
+        const transcription =
+            await runGroqTranscriptionTask(
+                "interview-audio-transcription",
+                () =>
+                    groq.audio.transcriptions.create({
+                        /*
+                         * A fresh stream is created on every retry.
+                         * Reusing the previous stream would upload
+                         * an already-consumed or closed stream.
+                         */
+                        file:
+                            fs.createReadStream(
+                                tempPath
+                            ),
 
-        return transcription.text || "";
+                        model:
+                            "whisper-large-v3",
+                    })
+            );
+
+        return (
+            transcription.text ||
+            ""
+        );
     } finally {
         if (fs.existsSync(tempPath)) {
             fs.unlinkSync(tempPath);
@@ -321,25 +343,46 @@ export const analyzeInterviewReplay = async (input: {
         },
     };
 
-    const response = await groq.chat.completions.create({
-        model,
-        messages: [
-            {
-                role: "system",
-                content:
-                    "You are PlacementOS Interview Coach. Diagnose why a candidate may fail or pass a placement interview and generate specific actions. Do not use personal names from the transcript. Refer to the person as the candidate or the student. Extract the candidate's actual answer for each question when transcript evidence is available. Output only valid JSON.",
-            },
-            {
-                role: "user",
-                content: JSON.stringify(prompt, null, 2),
-            },
-        ],
-        temperature: 0.35,
-        response_format: {
-            type: "json_object",
-        },
-    });
+    const response =
+        await executeGroqRequestWithRetry(
+            () =>
+                groq.chat.completions.create({
+                    model,
 
+                    messages: [
+                        {
+                            role:
+                                "system",
+
+                            content:
+                                "You are PlacementOS Interview Coach. Diagnose why a candidate may fail or pass a placement interview and generate specific actions. Do not use personal names from the transcript. Refer to the person as the candidate or the student. Extract the candidate's actual answer for each question when transcript evidence is available. Output only valid JSON.",
+                        },
+                        {
+                            role:
+                                "user",
+
+                            content:
+                                JSON.stringify(
+                                    prompt,
+                                    null,
+                                    2
+                                ),
+                        },
+                    ],
+
+                    temperature:
+                        0.35,
+
+                    response_format: {
+                        type:
+                            "json_object",
+                    },
+                }),
+            {
+                operationName:
+                    "interview-replay-analysis",
+            }
+        );
     const text = response.choices[0]?.message?.content || "{}";
 
     return parseJsonSafely(text);
