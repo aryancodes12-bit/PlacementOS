@@ -14,6 +14,9 @@ import {
     InterviewChunkValidationError,
     transcribeInterviewAudioChunks,
 } from "../services/interviewChunkTranscription.service";
+import {
+    getGroqHttpErrorResponse,
+} from "../services/groqResilience.service";
 type InterviewUploadedMediaSource =
     | "AUDIO"
     | "VIDEO";
@@ -116,6 +119,31 @@ const getInterviewMediaDurationError = ({
     }
 
     return null;
+};
+const sendGroqHttpError = (
+    res: Response,
+    error: unknown
+): Response | null => {
+    const groqError =
+        getGroqHttpErrorResponse(
+            error
+        );
+
+    if (!groqError) {
+        return null;
+    }
+
+    return res
+        .status(
+            groqError.statusCode
+        )
+        .json({
+            code:
+                groqError.code,
+
+            message:
+                groqError.message,
+        });
 };
 const normalizeEnum = (value: unknown, fallback: string) => {
     if (!value) return fallback;
@@ -970,12 +998,30 @@ export const analyzeInterviewWithAI = async (
         });
 
 
-    } catch (error: any) {
-        console.error("analyzeInterviewWithAI error:", error);
+    } catch (
+    error: unknown
+    ) {
+        const groqResponse =
+            sendGroqHttpError(
+                res,
+                error
+            );
 
-        return res.status(500).json({
-            message: error.message || "Failed to analyze interview replay with Groq",
-        });
+        if (groqResponse) {
+            return groqResponse;
+        }
+
+        console.error(
+            "analyzeInterviewWithAI error:",
+            error
+        );
+
+        return res
+            .status(500)
+            .json({
+                message:
+                    "Failed to analyze interview replay.",
+            });
     }
 };
 export const createAudioInterview = async (
@@ -1169,14 +1215,30 @@ export const createAudioInterview = async (
             analysis,
             interview,
         });
-    } catch (error: any) {
-        console.error("createAudioInterview error:", error);
+    } catch (
+    error: unknown
+    ) {
+        const groqResponse =
+            sendGroqHttpError(
+                res,
+                error
+            );
 
-        return res.status(500).json({
-            message:
-                error.message ||
-                "Failed to upload, transcribe, and analyze audio interview",
-        });
+        if (groqResponse) {
+            return groqResponse;
+        }
+
+        console.error(
+            "createAudioInterview error:",
+            error
+        );
+
+        return res
+            .status(500)
+            .json({
+                message:
+                    "Failed to process the audio interview.",
+            });
     }
 };
 export const createVideoInterview = async (
@@ -1579,8 +1641,18 @@ export const createVideoInterview = async (
                 interview,
             });
     } catch (
-    error: any
+    error: unknown
     ) {
+        const groqResponse =
+            sendGroqHttpError(
+                res,
+                error
+            );
+
+        if (groqResponse) {
+            return groqResponse;
+        }
+
         console.error(
             "createVideoInterview error:",
             error
@@ -1590,11 +1662,12 @@ export const createVideoInterview = async (
             .status(500)
             .json({
                 message:
-                    error.message ||
-                    "Failed to transcribe and analyze video interview",
+                    "Failed to process the video interview.",
             });
     }
-}; export const createChunkedInterview = async (
+};
+
+export const createChunkedInterview = async (
     req: AuthRequest,
     res: Response
 ) => {
@@ -2013,20 +2086,26 @@ export const createVideoInterview = async (
                 });
         }
 
+        const groqResponse =
+            sendGroqHttpError(
+                res,
+                error
+            );
+
+        if (groqResponse) {
+            return groqResponse;
+        }
+
         console.error(
             "createChunkedInterview error:",
             error
         );
 
-        const message =
-            error instanceof Error
-                ? error.message
-                : "Failed to process chunked interview audio";
-
         return res
             .status(500)
             .json({
-                message,
+                message:
+                    "Failed to process chunked interview audio.",
             });
     }
 };

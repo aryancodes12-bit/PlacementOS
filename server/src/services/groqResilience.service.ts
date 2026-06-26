@@ -67,7 +67,47 @@ const readNumericValue = (
 
     return null;
 };
+export class GroqProviderError extends Error {
+    readonly providerStatus:
+        number | null;
 
+    readonly operationName:
+        string;
+
+    readonly originalError:
+        unknown;
+
+    constructor({
+        providerStatus,
+        operationName,
+        originalError,
+    }: {
+        providerStatus:
+        number | null;
+
+        operationName:
+        string;
+
+        originalError:
+        unknown;
+    }) {
+        super(
+            "The Groq provider request failed."
+        );
+
+        this.name =
+            "GroqProviderError";
+
+        this.providerStatus =
+            providerStatus;
+
+        this.operationName =
+            operationName;
+
+        this.originalError =
+            originalError;
+    }
+}
 export const getGroqErrorStatus = (
     error: unknown
 ): number | null => {
@@ -448,7 +488,16 @@ export const executeGroqRequestWithRetry =
                         }
                     );
 
-                    throw error;
+                    throw new GroqProviderError({
+                        providerStatus:
+                            status,
+
+                        operationName:
+                            options.operationName,
+
+                        originalError:
+                            error,
+                    });
                 }
 
                 retryNumber +=
@@ -618,4 +667,70 @@ export const runGroqTranscriptionTask =
 
 export const getGroqTranscriptionQueueStats =
     () =>
-        groqTranscriptionQueue.getStats();
+        groqTranscriptionQueue.getStats(); export interface GroqHttpErrorResponse {
+    statusCode:
+    | 429
+    | 503;
+
+    code:
+    | "AI_RATE_LIMITED"
+    | "AI_PROVIDER_UNAVAILABLE";
+
+    message: string;
+}
+
+/**
+ * Converts retry-exhausted Groq errors into safe API responses.
+ *
+ * Unknown application errors return null and should continue
+ * through the controller's normal 500 handling.
+ */
+export const getGroqHttpErrorResponse = (
+    error: unknown
+): GroqHttpErrorResponse | null => {
+    if (
+        !(error instanceof GroqProviderError)
+    ) {
+        return null;
+    }
+
+    const providerStatus =
+        error.providerStatus;
+    if (
+        providerStatus ===
+        429
+    ) {
+        return {
+            statusCode:
+                429,
+
+            code:
+                "AI_RATE_LIMITED",
+
+            message:
+                "AI processing is temporarily busy. Please wait briefly and try again.",
+        };
+    }
+
+    if (
+        providerStatus !==
+        null &&
+        providerStatus >=
+        500 &&
+        providerStatus <=
+        599
+    ) {
+        return {
+            statusCode:
+                503,
+
+            code:
+                "AI_PROVIDER_UNAVAILABLE",
+
+            message:
+                "AI processing is temporarily unavailable. Please try again shortly.",
+        };
+    }
+
+    return null;
+};
