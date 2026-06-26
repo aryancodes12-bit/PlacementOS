@@ -201,6 +201,7 @@ export interface InterviewUploadResponse {
     message?: string;
     transcript?: string;
     analysis?: InterviewAiSummary;
+    chunkCount?: number;
     interview: InterviewReplay;
 }
 
@@ -246,7 +247,13 @@ export const interviewService = {
             "/interviews/video",
             data
         ),
-
+    uploadChunks: (
+        data: FormData
+    ) =>
+        api.post<InterviewUploadResponse>(
+            "/interviews/chunks",
+            data
+        ),
     update: (
         id: string,
         data: Partial<CreateInterviewInput>

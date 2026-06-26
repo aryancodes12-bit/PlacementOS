@@ -33,7 +33,7 @@ export const INTERVIEW_RESULTS: InterviewResult[] = [
     "NO_RESPONSE",
 ];
 
-export const MAX_INTERVIEW_MEDIA_SIZE =
+export const MAX_INTERVIEW_AUDIO_SIZE_BYTES =
     50 * 1024 * 1024;
 
 export const formatInterviewEnum = (
@@ -332,19 +332,22 @@ export const validateInterviewMedia = (
         return "The selected file is empty.";
     }
 
-    if (
-        file.size >
-        MAX_INTERVIEW_MEDIA_SIZE
-    ) {
-        return "File size must be below 50 MB.";
-    }
-
     const fileName =
-        file.name.toLowerCase();
+        file.name
+            .trim()
+            .toLowerCase();
 
     if (
-        type === "audio"
+        type ===
+        "audio"
     ) {
+        if (
+            file.size >
+            MAX_INTERVIEW_AUDIO_SIZE_BYTES
+        ) {
+            return "Audio file size must be below 50 MB.";
+        }
+
         const supported =
             file.type.startsWith(
                 "audio/"

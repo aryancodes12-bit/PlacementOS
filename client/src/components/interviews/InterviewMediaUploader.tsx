@@ -1,5 +1,7 @@
 import {
+    useEffect,
     useId,
+    useRef,
     useState,
 } from "react";
 
@@ -17,14 +19,33 @@ import {
 } from "lucide-react";
 
 import {
-    interviewService,
-} from "../../services/interview.service";
+    useNavigate,
+} from "react-router-dom";
 
 import type {
     InterviewResult,
     InterviewRoundType,
-    InterviewUploadResponse,
 } from "../../services/interview.service";
+
+import {
+    extractInterviewAudioFromVideo,
+} from "../../lib/media/interviewAudioExtraction";
+
+import {
+    readInterviewMediaMetadata,
+} from "../../lib/media/interviewMediaMetadata";
+
+import type {
+    InterviewMediaMetadata,
+} from "../../lib/media/interviewMediaMetadata";
+
+import {
+    uploadProcessedInterviewAudio,
+} from "../../lib/media/interviewProcessedAudioUpload";
+
+import type {
+    InterviewProcessedAudioUploadStage,
+} from "../../lib/media/interviewProcessedAudioUpload";
 
 import {
     ActionButton,
@@ -57,18 +78,9 @@ import {
     validateInterviewMedia,
 } from "./interview-ui.utils";
 
-import {
-    useNavigate,
-} from "react-router-dom";
-
 type MediaType =
     | "audio"
     | "video";
-
-type UploadResponse =
-    Promise<{
-        data: InterviewUploadResponse;
-    }>;
 
 interface InterviewMediaUploaderProps {
     mediaType: MediaType;
@@ -78,15 +90,11 @@ interface MediaConfig {
     accept: string;
     description: string;
     emptyFileLabel: string;
-    fileFieldName: MediaType;
     fileHelp: string;
     fileLabel: string;
     Icon: typeof FileAudio;
     submitLabel: string;
     title: string;
-    upload: (
-        data: FormData
-    ) => UploadResponse;
 }
 
 interface MediaUploadForm {
@@ -107,41 +115,38 @@ const mediaConfig: Record<
         accept:
             "audio/*,.mp3,.wav,.m4a,.webm,.ogg",
         description:
-            "Upload a mock or real interview audio. PlacementOS will transcribe it, analyze weak concepts, generate scores, and save the replay.",
+            "Upload a mock or real interview audio. PlacementOS automatically uses a single upload or safe overlapping chunks before transcription and AI analysis.",
         emptyFileLabel:
             "Choose an audio file",
-        fileFieldName: "audio",
         fileHelp:
-            "MP3, WAV, M4A, WEBM, or OGG up to 50 MB",
+            "MP3, WAV, M4A, WEBM, or OGG, maximum 50 MB and 60 minutes.",
         fileLabel:
             "Audio file",
-        Icon: FileAudio,
+        Icon:
+            FileAudio,
         submitLabel:
             "Upload & Analyze",
         title:
             "Upload Audio Interview",
-        upload:
-            interviewService.uploadAudio,
     },
+
     video: {
         accept:
             "video/*,.mp4,.webm,.mov",
         description:
-            "Upload a mock or real interview video. PlacementOS will save the video, transcribe the audio, analyze weak concepts, and generate a question-level replay.",
+            "Select a mock or real interview video. PlacementOS extracts compressed audio locally, while the original video stays on your device.",
         emptyFileLabel:
             "Choose a video file",
-        fileFieldName: "video",
         fileHelp:
-            "MP4, WEBM, or MOV up to 50 MB",
+            "MP4, WEBM, or MOV, maximum 30 minutes. The original video stays on your device.",
         fileLabel:
             "Video file",
-        Icon: Video,
+        Icon:
+            Video,
         submitLabel:
-            "Upload Video & Analyze",
+            "Process Video & Analyze",
         title:
             "Upload Video Interview",
-        upload:
-            interviewService.uploadVideo,
     },
 };
 
@@ -173,15 +178,100 @@ const createInitialForm =
     (): MediaUploadForm => ({
         company: "",
         role: "",
-        roundType: "TECHNICAL",
+        roundType:
+            "TECHNICAL",
         date:
             new Date()
                 .toISOString()
-                .slice(0, 10),
-        result: "PENDING",
+                .slice(
+                    0,
+                    10
+                ),
+        result:
+            "PENDING",
         topics: "",
         notes: "",
     });
+
+const getMediaProcessingError = (
+    error: unknown,
+    mediaType: MediaType
+): string => {
+    if (
+        error instanceof Error &&
+        error.message
+    ) {
+        return error.message;
+    }
+
+    return `Unable to process the selected ${mediaType} file.`;
+};
+
+const formatSelectedMediaDetails = (
+    file: File,
+    metadata: InterviewMediaMetadata
+): string => {
+    const details = [
+        formatMediaSize(
+            file.size
+        ),
+        metadata.durationLabel,
+    ];
+
+    if (
+        metadata.mediaType ===
+        "video" &&
+        metadata.width &&
+        metadata.height
+    ) {
+        details.push(
+            `${metadata.width}×${metadata.height}`
+        );
+    }
+
+    return details.join(
+        " • "
+    );
+};
+
+const getUploadLoadingText = (
+    validatingBeforeUpload: boolean,
+    extractingVideoAudio: boolean,
+    uploadStage:
+        | InterviewProcessedAudioUploadStage
+        | null
+): string => {
+    if (
+        validatingBeforeUpload
+    ) {
+        return "Validating media...";
+    }
+
+    if (
+        extractingVideoAudio
+    ) {
+        return "Extracting audio locally...";
+    }
+
+    switch (
+    uploadStage
+    ) {
+        case "preparing":
+            return "Preparing audio...";
+
+        case "generating-chunks":
+            return "Creating safe audio chunks...";
+
+        case "uploading-chunks":
+            return "Uploading audio chunks...";
+
+        case "uploading-single":
+            return "Uploading & analyzing...";
+
+        default:
+            return "Uploading & analyzing...";
+    }
+};
 
 export const InterviewMediaUploader = ({
     mediaType,
@@ -192,29 +282,98 @@ export const InterviewMediaUploader = ({
     const fileInputId =
         useId();
 
+    const fileInputRef =
+        useRef<HTMLInputElement | null>(
+            null
+        );
+
+    const mediaValidationRequestRef =
+        useRef(0);
+
     const config =
         mediaConfig[
-            mediaType
+        mediaType
         ];
 
-    const [form, setForm] =
+    const [
+        form,
+        setForm,
+    ] =
         useState<MediaUploadForm>(
             createInitialForm
         );
 
-    const [mediaFile, setMediaFile] =
+    const [
+        mediaFile,
+        setMediaFile,
+    ] =
         useState<File | null>(
             null
         );
 
-    const [uploading, setUploading] =
+    const [
+        mediaMetadata,
+        setMediaMetadata,
+    ] =
+        useState<InterviewMediaMetadata | null>(
+            null
+        );
+
+    const [
+        validatingMedia,
+        setValidatingMedia,
+    ] =
         useState(false);
 
-    const [error, setError] =
+    const [
+        uploading,
+        setUploading,
+    ] =
+        useState(false);
+
+    const [
+        validatingBeforeUpload,
+        setValidatingBeforeUpload,
+    ] =
+        useState(false);
+
+    const [
+        extractingVideoAudio,
+        setExtractingVideoAudio,
+    ] =
+        useState(false);
+
+    const [
+        uploadStage,
+        setUploadStage,
+    ] =
+        useState<
+            InterviewProcessedAudioUploadStage |
+            null
+        >(
+            null
+        );
+
+    const [
+        error,
+        setError,
+    ] =
         useState("");
 
     const Icon =
         config.Icon;
+
+    const isBusy =
+        validatingMedia ||
+        uploading ||
+        extractingVideoAudio;
+
+    useEffect(() => {
+        return () => {
+            mediaValidationRequestRef.current +=
+                1;
+        };
+    }, []);
 
     const updateField = (
         field: keyof MediaUploadForm,
@@ -229,141 +388,420 @@ export const InterviewMediaUploader = ({
         );
     };
 
-    const handleFileChange = (
-        event: ChangeEvent<HTMLInputElement>
-    ) => {
-        const nextFile =
-            event.currentTarget
-                .files?.[0] ??
-            null;
+    const resetSelectedMedia =
+        () => {
+            mediaValidationRequestRef.current +=
+                1;
 
-        if (!nextFile) {
-            setMediaFile(null);
-            return;
-        }
-
-        const validationError =
-            validateInterviewMedia(
-                nextFile,
-                mediaType
+            setMediaFile(
+                null
             );
 
-        if (validationError) {
-            setMediaFile(null);
-            setError(
+            setMediaMetadata(
+                null
+            );
+
+            setValidatingMedia(
+                false
+            );
+
+            if (
+                fileInputRef.current
+            ) {
+                fileInputRef.current.value =
+                    "";
+            }
+        };
+
+    const handleFileChange =
+        async (
+            event: ChangeEvent<HTMLInputElement>
+        ) => {
+            const inputElement =
+                event.currentTarget;
+
+            const nextFile =
+                inputElement.files?.[0] ??
+                null;
+
+            const requestId =
+                mediaValidationRequestRef.current +
+                1;
+
+            mediaValidationRequestRef.current =
+                requestId;
+
+            setMediaFile(
+                null
+            );
+
+            setMediaMetadata(
+                null
+            );
+
+            setUploadStage(
+                null
+            );
+
+            setError("");
+
+            if (!nextFile) {
+                setValidatingMedia(
+                    false
+                );
+                return;
+            }
+
+            const validationError =
+                validateInterviewMedia(
+                    nextFile,
+                    mediaType
+                );
+
+            if (
                 validationError
+            ) {
+                setValidatingMedia(
+                    false
+                );
+
+                setError(
+                    validationError
+                );
+
+                inputElement.value =
+                    "";
+
+                return;
+            }
+
+            setValidatingMedia(
+                true
             );
-            event.currentTarget.value =
-                "";
-            return;
-        }
 
-        setMediaFile(
-            nextFile
-        );
-        setError("");
-    };
+            try {
+                const metadata =
+                    await readInterviewMediaMetadata(
+                        nextFile,
+                        mediaType
+                    );
 
-    const handleSubmit = async (
-        event: FormEvent<HTMLFormElement>
-    ) => {
-        event.preventDefault();
+                if (
+                    mediaValidationRequestRef.current !==
+                    requestId
+                ) {
+                    return;
+                }
 
-        if (
-            !form.company.trim() ||
-            !form.role.trim() ||
-            !form.date
-        ) {
-            setError(
-                "Company, role, and date are required."
+                setMediaFile(
+                    nextFile
+                );
+
+                setMediaMetadata(
+                    metadata
+                );
+
+                setError("");
+            } catch (
+            metadataError
+            ) {
+                if (
+                    mediaValidationRequestRef.current !==
+                    requestId
+                ) {
+                    return;
+                }
+
+                inputElement.value =
+                    "";
+
+                setMediaFile(
+                    null
+                );
+
+                setMediaMetadata(
+                    null
+                );
+
+                setError(
+                    getMediaProcessingError(
+                        metadataError,
+                        mediaType
+                    )
+                );
+            } finally {
+                if (
+                    mediaValidationRequestRef.current ===
+                    requestId
+                ) {
+                    setValidatingMedia(
+                        false
+                    );
+                }
+            }
+        };
+
+    const handleSubmit =
+        async (
+            event: FormEvent<HTMLFormElement>
+        ) => {
+            event.preventDefault();
+
+            if (
+                validatingMedia
+            ) {
+                setError(
+                    `Please wait while the ${mediaType} file is being validated.`
+                );
+                return;
+            }
+
+            if (
+                !form.company.trim() ||
+                !form.role.trim() ||
+                !form.date
+            ) {
+                setError(
+                    "Company, role, and date are required."
+                );
+                return;
+            }
+
+            if (
+                !mediaFile ||
+                !mediaMetadata
+            ) {
+                setError(
+                    `Please select a valid ${mediaType} file.`
+                );
+                return;
+            }
+
+            const validationError =
+                validateInterviewMedia(
+                    mediaFile,
+                    mediaType
+                );
+
+            if (
+                validationError
+            ) {
+                setError(
+                    validationError
+                );
+                return;
+            }
+
+            setUploading(
+                true
             );
-            return;
-        }
 
-        if (!mediaFile) {
-            setError(
-                `Please select a ${mediaType} file.`
+            setValidatingBeforeUpload(
+                true
             );
-            return;
-        }
 
-        const validationError =
-            validateInterviewMedia(
+            setExtractingVideoAudio(
+                false
+            );
+
+            setUploadStage(
+                null
+            );
+
+            setError("");
+
+            let refreshedMetadata:
+                InterviewMediaMetadata;
+
+            try {
+                refreshedMetadata =
+                    await readInterviewMediaMetadata(
+                        mediaFile,
+                        mediaType
+                    );
+
+                setMediaMetadata(
+                    refreshedMetadata
+                );
+            } catch (
+            metadataError
+            ) {
+                resetSelectedMedia();
+
+                setError(
+                    getMediaProcessingError(
+                        metadataError,
+                        mediaType
+                    )
+                );
+
+                setUploading(
+                    false
+                );
+
+                setValidatingBeforeUpload(
+                    false
+                );
+
+                return;
+            }
+
+            setValidatingBeforeUpload(
+                false
+            );
+
+            let processedAudioFile =
+                mediaFile;
+
+            if (
+                mediaType ===
+                "video"
+            ) {
+                setExtractingVideoAudio(
+                    true
+                );
+
+                try {
+                    const extractedAudio =
+                        await extractInterviewAudioFromVideo(
+                            mediaFile
+                        );
+
+                    processedAudioFile =
+                        extractedAudio.file;
+                } catch (
+                extractionError
+                ) {
+                    setError(
+                        getMediaProcessingError(
+                            extractionError,
+                            "video"
+                        )
+                    );
+
+                    setUploading(
+                        false
+                    );
+
+                    setExtractingVideoAudio(
+                        false
+                    );
+
+                    return;
+                } finally {
+                    setExtractingVideoAudio(
+                        false
+                    );
+                }
+            }
+
+            try {
+                const result =
+                    await uploadProcessedInterviewAudio({
+                        audioFile:
+                            processedAudioFile,
+
+                        durationSeconds:
+                            refreshedMetadata
+                                .durationSeconds,
+
+                        sourceType:
+                            mediaType ===
+                                "video"
+                                ? "VIDEO"
+                                : "AUDIO",
+
+                        fields: {
+                            company:
+                                form.company,
+
+                            role:
+                                form.role,
+
+                            roundType:
+                                form.roundType,
+
+                            date:
+                                form.date,
+
+                            result:
+                                form.result,
+
+                            topics:
+                                form.topics,
+
+                            notes:
+                                form.notes,
+                        },
+
+                        originalMediaName:
+                            mediaType ===
+                                "video"
+                                ? mediaFile.name
+                                : undefined,
+
+                        originalMediaDurationSeconds:
+                            mediaType ===
+                                "video"
+                                ? refreshedMetadata
+                                    .durationSeconds
+                                : undefined,
+
+                        onStageChange:
+                            setUploadStage,
+                    });
+
+                navigate(
+                    `/interviews/${result.data.interview.id}`
+                );
+            } catch (
+            uploadError
+            ) {
+                console.error(
+                    `${mediaType} processing failed:`,
+                    uploadError
+                );
+
+                setError(
+                    getInterviewApiError(
+                        uploadError,
+                        `Failed to process and analyze ${mediaType} interview.`
+                    )
+                );
+            } finally {
+                setUploading(
+                    false
+                );
+
+                setValidatingBeforeUpload(
+                    false
+                );
+
+                setExtractingVideoAudio(
+                    false
+                );
+
+                setUploadStage(
+                    null
+                );
+            }
+        };
+
+    const selectedMediaDetails =
+        mediaFile &&
+            mediaMetadata
+            ? formatSelectedMediaDetails(
                 mediaFile,
-                mediaType
-            );
+                mediaMetadata
+            )
+            : null;
 
-        if (validationError) {
-            setError(
-                validationError
-            );
-            return;
-        }
-
-        setUploading(true);
-        setError("");
-
-        try {
-            const formData =
-                new FormData();
-
-            formData.append(
-                "company",
-                form.company.trim()
-            );
-            formData.append(
-                "role",
-                form.role.trim()
-            );
-            formData.append(
-                "roundType",
-                form.roundType
-            );
-            formData.append(
-                "date",
-                form.date
-            );
-            formData.append(
-                "result",
-                form.result
-            );
-            formData.append(
-                "topics",
-                form.topics.trim()
-            );
-            formData.append(
-                "notes",
-                form.notes.trim()
-            );
-            formData.append(
-                config.fileFieldName,
-                mediaFile
-            );
-
-            const {
-                data,
-            } = await config.upload(
-                formData
-            );
-
-            navigate(
-                `/interviews/${data.interview.id}`
-            );
-        } catch (uploadError) {
-            console.error(
-                `${mediaType} upload failed:`,
-                uploadError
-            );
-            setError(
-                getInterviewApiError(
-                    uploadError,
-                    `Failed to upload and analyze ${mediaType} interview.`
-                )
-            );
-        } finally {
-            setUploading(false);
-        }
-    };
+    const loadingText =
+        getUploadLoadingText(
+            validatingBeforeUpload,
+            extractingVideoAudio,
+            uploadStage
+        );
 
     return (
         <form
@@ -381,7 +819,9 @@ export const InterviewMediaUploader = ({
                                 size="sm"
                             >
                                 <Icon
-                                    size={17}
+                                    size={
+                                        17
+                                    }
                                     aria-hidden="true"
                                 />
                             </IconTile>
@@ -423,8 +863,7 @@ export const InterviewMediaUploader = ({
                         ) =>
                             updateField(
                                 "company",
-                                event.target
-                                    .value
+                                event.target.value
                             )
                         }
                         placeholder="TCS, Infosys, Amazon"
@@ -441,8 +880,7 @@ export const InterviewMediaUploader = ({
                         ) =>
                             updateField(
                                 "role",
-                                event.target
-                                    .value
+                                event.target.value
                             )
                         }
                         placeholder="Java Developer Intern"
@@ -498,13 +936,14 @@ export const InterviewMediaUploader = ({
                         ) =>
                             updateField(
                                 "date",
-                                event.target
-                                    .value
+                                event.target.value
                             )
                         }
                         leadingIcon={
                             <CalendarDays
-                                size={16}
+                                size={
+                                    16
+                                }
                                 aria-hidden="true"
                             />
                         }
@@ -521,8 +960,7 @@ export const InterviewMediaUploader = ({
                         ) =>
                             updateField(
                                 "topics",
-                                event.target
-                                    .value
+                                event.target.value
                             )
                         }
                         placeholder="Java, OOP, DBMS"
@@ -560,9 +998,18 @@ export const InterviewMediaUploader = ({
                     htmlFor={
                         fileInputId
                     }
-                    className="group relative mt-3 flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-bg-tertiary px-5 py-7 text-center transition hover:border-brand"
+                    aria-busy={
+                        isBusy
+                    }
+                    className={`group relative mt-3 flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-bg-tertiary px-5 py-7 text-center transition ${isBusy
+                        ? "cursor-not-allowed opacity-70"
+                        : "cursor-pointer hover:border-brand"
+                        }`}
                 >
                     <input
+                        ref={
+                            fileInputRef
+                        }
                         id={
                             fileInputId
                         }
@@ -573,7 +1020,10 @@ export const InterviewMediaUploader = ({
                         onChange={
                             handleFileChange
                         }
-                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        disabled={
+                            isBusy
+                        }
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
                         aria-label={
                             config.fileLabel
                         }
@@ -584,25 +1034,26 @@ export const InterviewMediaUploader = ({
                         size="lg"
                     >
                         <Upload
-                            size={22}
+                            size={
+                                22
+                            }
                             aria-hidden="true"
                         />
                     </IconTile>
 
                     <p className="mt-4 max-w-full break-words text-sm font-semibold text-text-primary">
-                        {mediaFile
-                            ? mediaFile.name
-                            : config.emptyFileLabel}
+                        {validatingMedia
+                            ? "Reading media details..."
+                            : mediaFile
+                                ? mediaFile.name
+                                : config.emptyFileLabel}
                     </p>
 
                     <p className="mt-1 text-xs text-text-tertiary">
-                        {
-                            mediaFile
-                                ? formatMediaSize(
-                                    mediaFile.size
-                                )
-                                : config.fileHelp
-                        }
+                        {validatingMedia
+                            ? "Checking format and duration..."
+                            : selectedMediaDetails ??
+                            config.fileHelp}
                     </p>
                 </label>
             </PageSurface>
@@ -617,7 +1068,7 @@ export const InterviewMediaUploader = ({
                         )
                     }
                     disabled={
-                        uploading
+                        isBusy
                     }
                 >
                     Cancel
@@ -625,13 +1076,22 @@ export const InterviewMediaUploader = ({
 
                 <ActionButton
                     type="submit"
+                    disabled={
+                        isBusy ||
+                        !mediaFile ||
+                        !mediaMetadata
+                    }
                     loading={
                         uploading
                     }
-                    loadingText="Uploading & analyzing..."
+                    loadingText={
+                        loadingText
+                    }
                     leadingIcon={
                         <Sparkles
-                            size={16}
+                            size={
+                                16
+                            }
                             aria-hidden="true"
                         />
                     }

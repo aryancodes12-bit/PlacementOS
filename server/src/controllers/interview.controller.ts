@@ -10,6 +10,141 @@ import {
     publishInterviewAnalysisReadyNotification,
 } from "../services/interviewAnalysisNotification.service";
 import { updateReadiness } from "../services/readiness.service";
+import {
+    InterviewChunkValidationError,
+    transcribeInterviewAudioChunks,
+} from "../services/interviewChunkTranscription.service";
+import {
+    getGroqHttpErrorResponse,
+} from "../services/groqResilience.service";
+type InterviewUploadedMediaSource =
+    | "AUDIO"
+    | "VIDEO";
+
+const MAX_INTERVIEW_AUDIO_DURATION_SECONDS =
+    60 * 60;
+
+const MAX_INTERVIEW_VIDEO_DURATION_SECONDS =
+    30 * 60;
+
+const parseMediaDurationSeconds = (
+    value: unknown
+): number | null => {
+    if (
+        typeof value ===
+        "number" &&
+        Number.isFinite(
+            value
+        ) &&
+        value > 0
+    ) {
+        return value;
+    }
+
+    if (
+        typeof value !==
+        "string" ||
+        !value.trim()
+    ) {
+        return null;
+    }
+
+    const parsedValue =
+        Number(
+            value
+        );
+
+    if (
+        !Number.isFinite(
+            parsedValue
+        ) ||
+        parsedValue <= 0
+    ) {
+        return null;
+    }
+
+    return parsedValue;
+};
+
+const getInterviewMediaDurationError = ({
+    sourceType,
+    audioDurationSeconds,
+    sourceVideoDurationSeconds,
+}: {
+    sourceType: InterviewUploadedMediaSource;
+    audioDurationSeconds: unknown;
+    sourceVideoDurationSeconds?: unknown;
+}): string | null => {
+    const audioDuration =
+        parseMediaDurationSeconds(
+            audioDurationSeconds
+        );
+
+    const videoDuration =
+        parseMediaDurationSeconds(
+            sourceVideoDurationSeconds
+        );
+
+    const durationSeconds =
+        sourceType ===
+            "VIDEO"
+            ? videoDuration ??
+            audioDuration
+            : audioDuration;
+
+    if (
+        durationSeconds ===
+        null
+    ) {
+        return sourceType ===
+            "VIDEO"
+            ? "A valid video duration is required."
+            : "A valid audio duration is required.";
+    }
+
+    const maximumDurationSeconds =
+        sourceType ===
+            "VIDEO"
+            ? MAX_INTERVIEW_VIDEO_DURATION_SECONDS
+            : MAX_INTERVIEW_AUDIO_DURATION_SECONDS;
+
+    if (
+        durationSeconds >
+        maximumDurationSeconds
+    ) {
+        return sourceType ===
+            "VIDEO"
+            ? "Video interviews must be 30 minutes or shorter."
+            : "Audio interviews must be 60 minutes or shorter.";
+    }
+
+    return null;
+};
+const sendGroqHttpError = (
+    res: Response,
+    error: unknown
+): Response | null => {
+    const groqError =
+        getGroqHttpErrorResponse(
+            error
+        );
+
+    if (!groqError) {
+        return null;
+    }
+
+    return res
+        .status(
+            groqError.statusCode
+        )
+        .json({
+            code:
+                groqError.code,
+
+            message:
+                groqError.message,
+        });
+};
 const normalizeEnum = (value: unknown, fallback: string) => {
     if (!value) return fallback;
     return String(value).trim().toUpperCase().replace(/\s+/g, "_");
@@ -863,12 +998,30 @@ export const analyzeInterviewWithAI = async (
         });
 
 
-    } catch (error: any) {
-        console.error("analyzeInterviewWithAI error:", error);
+    } catch (
+    error: unknown
+    ) {
+        const groqResponse =
+            sendGroqHttpError(
+                res,
+                error
+            );
 
-        return res.status(500).json({
-            message: error.message || "Failed to analyze interview replay with Groq",
-        });
+        if (groqResponse) {
+            return groqResponse;
+        }
+
+        console.error(
+            "analyzeInterviewWithAI error:",
+            error
+        );
+
+        return res
+            .status(500)
+            .json({
+                message:
+                    "Failed to analyze interview replay.",
+            });
     }
 };
 export const createAudioInterview = async (
@@ -877,7 +1030,6 @@ export const createAudioInterview = async (
 ) => {
     try {
         const userId = req.user!.id;
-
         const {
             company,
             role,
@@ -887,8 +1039,8 @@ export const createAudioInterview = async (
             topics,
             conceptsMissed,
             notes,
+            audioDurationSeconds,
         } = req.body;
-
         if (!company || !role || !date) {
             return res.status(400).json({
                 message: "Company, role, and date are required",
@@ -900,7 +1052,24 @@ export const createAudioInterview = async (
                 message: "Audio file is required",
             });
         }
+        const durationValidationError =
+            getInterviewMediaDurationError({
+                sourceType:
+                    "AUDIO",
 
+                audioDurationSeconds,
+            });
+
+        if (
+            durationValidationError
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        durationValidationError,
+                });
+        }
         const normalizedRoundType = normalizeEnum(roundType, "TECHNICAL");
         const normalizedResult = normalizeEnum(result, "PENDING");
 
@@ -1046,14 +1215,30 @@ export const createAudioInterview = async (
             analysis,
             interview,
         });
-    } catch (error: any) {
-        console.error("createAudioInterview error:", error);
+    } catch (
+    error: unknown
+    ) {
+        const groqResponse =
+            sendGroqHttpError(
+                res,
+                error
+            );
 
-        return res.status(500).json({
-            message:
-                error.message ||
-                "Failed to upload, transcribe, and analyze audio interview",
-        });
+        if (groqResponse) {
+            return groqResponse;
+        }
+
+        console.error(
+            "createAudioInterview error:",
+            error
+        );
+
+        return res
+            .status(500)
+            .json({
+                message:
+                    "Failed to process the audio interview.",
+            });
     }
 };
 export const createVideoInterview = async (
@@ -1061,7 +1246,8 @@ export const createVideoInterview = async (
     res: Response
 ) => {
     try {
-        const userId = req.user!.id;
+        const userId =
+            req.user!.id;
 
         const {
             company,
@@ -1072,168 +1258,855 @@ export const createVideoInterview = async (
             topics,
             conceptsMissed,
             notes,
-        } = req.body;
+            audioDurationSeconds,
+            sourceVideoDurationSeconds,
+        } =
+            req.body;
 
-        if (!company || !role || !date) {
-            return res.status(400).json({
-                message: "Company, role, and date are required",
-            });
+        if (
+            !company ||
+            !role ||
+            !date
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Company, role, and date are required",
+                });
         }
 
         if (!req.file) {
-            return res.status(400).json({
-                message: "Video file is required",
-            });
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Extracted video audio file is required",
+                });
         }
 
-        const normalizedRoundType = normalizeEnum(roundType, "TECHNICAL");
-        const normalizedResult = normalizeEnum(result, "PENDING");
+        const isAudioMimeType =
+            req.file.mimetype
+                .toLowerCase()
+                .startsWith(
+                    "audio/"
+                );
 
-        const parsedDate = new Date(date);
+        const hasAudioExtension =
+            /\.(mp3|wav|webm|ogg|m4a)$/i.test(
+                req.file.originalname
+            );
 
-        if (Number.isNaN(parsedDate.getTime())) {
-            return res.status(400).json({
-                message: "Invalid interview date",
+        if (
+            !isAudioMimeType &&
+            !hasAudioExtension
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "The video endpoint only accepts browser-extracted audio",
+                });
+        }
+        const durationValidationError =
+            getInterviewMediaDurationError({
+                sourceType:
+                    "VIDEO",
+
+                audioDurationSeconds,
+
+                sourceVideoDurationSeconds,
             });
+
+        if (
+            durationValidationError
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        durationValidationError,
+                });
+        }
+        const normalizedRoundType =
+            normalizeEnum(
+                roundType,
+                "TECHNICAL"
+            );
+
+        const normalizedResult =
+            normalizeEnum(
+                result,
+                "PENDING"
+            );
+
+        const parsedDate =
+            new Date(
+                date
+            );
+
+        if (
+            Number.isNaN(
+                parsedDate.getTime()
+            )
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Invalid interview date",
+                });
         }
 
-        const uploadedVideo = await uploadToCloudinary(
-            req.file.buffer,
-            "placementos/interviews/video",
-            "video"
-        );
+        /*
+         * req.file contains only the locally extracted
+         * compressed audio. The original video is never
+         * uploaded to this server or Cloudinary.
+         */
+        const transcript =
+            await transcribeInterviewAudio(
+                req.file.buffer,
+                req.file.originalname
+            );
 
-        const transcript = await transcribeInterviewAudio(
-            req.file.buffer,
-            req.file.originalname
-        );
+        const analysis =
+            await analyzeInterviewReplay({
+                company:
+                    String(
+                        company
+                    ).trim(),
 
-        const analysis = await analyzeInterviewReplay({
-            company: String(company).trim(),
-            role: String(role).trim(),
-            roundType: normalizedRoundType,
-            result: normalizedResult,
-            transcript,
-            questionsAsked: [],
-            topics: toStringArray(topics),
-            conceptsMissed: toStringArray(conceptsMissed),
-            whatWentWell: null,
-            whatWentWrong: null,
-            feedback: notes || null,
-            confidenceScore: null,
-            communicationScore: null,
-            technicalScore: null,
-            previousWeakTopics: [],
-            questionReplays: [],
-        });
+                role:
+                    String(
+                        role
+                    ).trim(),
 
-        const questionsAsked =
-            analysis.questionBreakdown
-                ?.map((item) => item.question)
-                .filter(Boolean) ?? [];
+                roundType:
+                    normalizedRoundType,
 
-        const finalTopics = Array.from(
-            new Set([...toStringArray(topics), ...analysis.repeatedRiskTopics])
-        );
+                result:
+                    normalizedResult,
 
-        const finalMissedConcepts = Array.from(
-            new Set([...toStringArray(conceptsMissed), ...analysis.missedConcepts])
-        );
-
-        const interview = await prisma.interviewSession.create({
-            data: {
-                userId,
-                company: String(company).trim(),
-                role: String(role).trim(),
-                roundType: normalizedRoundType as any,
-                date: parsedDate,
-                result: normalizedResult as any,
-
-                sourceType: "VIDEO",
-                videoUrl: uploadedVideo.url,
                 transcript,
-                notes: notes || null,
 
-                questionsAsked,
-                topics: finalTopics,
-                conceptsMissed: finalMissedConcepts,
+                questionsAsked:
+                    [],
+
+                topics:
+                    toStringArray(
+                        topics
+                    ),
+
+                conceptsMissed:
+                    toStringArray(
+                        conceptsMissed
+                    ),
+
+                whatWentWell:
+                    null,
+
+                whatWentWrong:
+                    null,
+
+                feedback:
+                    notes ||
+                    null,
+
+                confidenceScore:
+                    null,
+
+                communicationScore:
+                    null,
+
+                technicalScore:
+                    null,
+
+                previousWeakTopics:
+                    [],
 
                 questionReplays:
-                    analysis.questionBreakdown?.length > 0
-                        ? {
-                            create: analysis.questionBreakdown
-                                .filter((item) => item.question)
-                                .map((item) => ({
-                                    question: item.question,
-                                    userAnswer: null,
-                                    missedPoints: item.likelyGap ? [item.likelyGap] : [],
-                                    interviewerFeedback: null,
-                                    confidenceScore: analysis.confidenceScore,
-                                    status: "PARTIAL" as any,
-                                })),
-                        }
-                        : undefined,
+                    [],
+            });
 
-                confidenceScore: analysis.confidenceScore,
-                communicationScore: analysis.communicationScore,
-                technicalScore: analysis.technicalScore,
-                overallScore: Math.round(analysis.estimatedReadinessScore / 10),
+        const questionsAsked =
+            analysis
+                .questionBreakdown
+                ?.map(
+                    (item) =>
+                        item.question
+                )
+                .filter(
+                    Boolean
+                ) ??
+            [];
 
-                aiSummary: analysis as any,
-                nextActions: analysis.nextActions,
-                actionPlan: analysis.nextActions.join("\n"),
-                analysisStatus: "ANALYZED",
-            },
-            include: {
-                questionReplays: {
-                    orderBy: {
-                        createdAt: "asc",
+        const finalTopics =
+            Array.from(
+                new Set([
+                    ...toStringArray(
+                        topics
+                    ),
+
+                    ...analysis
+                        .repeatedRiskTopics,
+                ])
+            );
+
+        const finalMissedConcepts =
+            Array.from(
+                new Set([
+                    ...toStringArray(
+                        conceptsMissed
+                    ),
+
+                    ...analysis
+                        .missedConcepts,
+                ])
+            );
+
+        const interview =
+            await prisma
+                .interviewSession
+                .create({
+                    data: {
+                        userId,
+
+                        company:
+                            String(
+                                company
+                            ).trim(),
+
+                        role:
+                            String(
+                                role
+                            ).trim(),
+
+                        roundType:
+                            normalizedRoundType as any,
+
+                        date:
+                            parsedDate,
+
+                        result:
+                            normalizedResult as any,
+
+                        /*
+                         * VIDEO indicates how the interview
+                         * was captured. videoUrl intentionally
+                         * remains null because the original
+                         * video stays on the user's device.
+                         */
+                        sourceType:
+                            "VIDEO",
+
+                        transcript,
+
+                        notes:
+                            notes ||
+                            null,
+
+                        questionsAsked,
+
+                        topics:
+                            finalTopics,
+
+                        conceptsMissed:
+                            finalMissedConcepts,
+
+                        questionReplays:
+                            analysis
+                                .questionBreakdown
+                                ?.length >
+                                0
+                                ? {
+                                    create:
+                                        analysis
+                                            .questionBreakdown
+                                            .filter(
+                                                (
+                                                    item
+                                                ) =>
+                                                    item.question
+                                            )
+                                            .map(
+                                                (
+                                                    item
+                                                ) => ({
+                                                    question:
+                                                        item.question,
+
+                                                    userAnswer:
+                                                        item.candidateAnswer ||
+                                                        null,
+
+                                                    missedPoints:
+                                                        item
+                                                            .missedPoints
+                                                            ?.length >
+                                                            0
+                                                            ? item.missedPoints
+                                                            : item.likelyGap
+                                                                ? [
+                                                                    item.likelyGap,
+                                                                ]
+                                                                : [],
+
+                                                    interviewerFeedback:
+                                                        item.practiceTask ||
+                                                        null,
+
+                                                    confidenceScore:
+                                                        analysis.confidenceScore,
+
+                                                    status:
+                                                        "PARTIAL" as any,
+                                                })
+                                            ),
+                                }
+                                : undefined,
+
+                        confidenceScore:
+                            analysis.confidenceScore,
+
+                        communicationScore:
+                            analysis.communicationScore,
+
+                        technicalScore:
+                            analysis.technicalScore,
+
+                        overallScore:
+                            Math.round(
+                                analysis.estimatedReadinessScore /
+                                10
+                            ),
+
+                        aiSummary:
+                            analysis as any,
+
+                        nextActions:
+                            analysis.nextActions,
+
+                        actionPlan:
+                            analysis.nextActions.join(
+                                "\n"
+                            ),
+
+                        analysisStatus:
+                            "ANALYZED",
                     },
-                },
-            },
-        });
+
+                    include: {
+                        questionReplays: {
+                            orderBy: {
+                                createdAt:
+                                    "asc",
+                            },
+                        },
+                    },
+                });
 
         await recalculateInterviewReadiness(
             userId
         );
 
-        await publishInterviewAnalysisReadyNotification(
-            {
-                userId,
+        await publishInterviewAnalysisReadyNotification({
+            userId,
 
-                interviewId:
-                    interview.id,
+            interviewId:
+                interview.id,
 
-                company:
-                    interview.company,
+            company:
+                interview.company,
 
-                role:
-                    interview.role,
+            role:
+                interview.role,
 
-                sourceType:
-                    interview.sourceType,
+            sourceType:
+                interview.sourceType,
 
-                analysisCompletedAt:
-                    new Date(),
-            }
+            analysisCompletedAt:
+                new Date(),
+        });
+
+        return res
+            .status(201)
+            .json({
+                message:
+                    "Video interview audio transcribed and analyzed successfully",
+
+                transcript,
+
+                analysis,
+
+                interview,
+            });
+    } catch (
+    error: unknown
+    ) {
+        const groqResponse =
+            sendGroqHttpError(
+                res,
+                error
+            );
+
+        if (groqResponse) {
+            return groqResponse;
+        }
+
+        console.error(
+            "createVideoInterview error:",
+            error
         );
 
-        return res.status(201).json({
-            message:
-                "Video interview uploaded, transcribed, and analyzed successfully",
+        return res
+            .status(500)
+            .json({
+                message:
+                    "Failed to process the video interview.",
+            });
+    }
+};
 
+export const createChunkedInterview = async (
+    req: AuthRequest,
+    res: Response
+) => {
+    try {
+        const userId =
+            req.user!.id;
+
+        const {
+            company,
+            role,
+            roundType,
+            date,
+            result,
+            topics,
+            conceptsMissed,
+            notes,
+            sourceType,
+            audioDurationSeconds,
+            sourceVideoDurationSeconds,
+        } =
+            req.body;
+
+        if (
+            !company ||
+            !role ||
+            !date
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Company, role, and date are required",
+                });
+        }
+
+        const normalizedSourceType =
+            normalizeEnum(
+                sourceType,
+                "AUDIO"
+            );
+
+        if (
+            normalizedSourceType !==
+            "AUDIO" &&
+            normalizedSourceType !==
+            "VIDEO"
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Chunked interview source type must be AUDIO or VIDEO",
+                });
+        }
+
+        const files =
+            Array.isArray(
+                req.files
+            )
+                ? req.files
+                : [];
+
+        if (
+            files.length ===
+            0
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Interview audio chunks are required",
+                });
+        }
+        const durationValidationError =
+            getInterviewMediaDurationError({
+                sourceType:
+                    normalizedSourceType,
+
+                audioDurationSeconds,
+
+                sourceVideoDurationSeconds,
+            });
+
+        if (
+            durationValidationError
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        durationValidationError,
+                });
+        }
+        const normalizedRoundType =
+            normalizeEnum(
+                roundType,
+                "TECHNICAL"
+            );
+
+        const normalizedResult =
+            normalizeEnum(
+                result,
+                "PENDING"
+            );
+
+        const parsedDate =
+            new Date(
+                date
+            );
+
+        if (
+            Number.isNaN(
+                parsedDate.getTime()
+            )
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Invalid interview date",
+                });
+        }
+
+        const {
             transcript,
-            analysis,
-            interview,
-        });
-    } catch (error: any) {
-        console.error("createVideoInterview error:", error);
+            chunkCount,
+        } =
+            await transcribeInterviewAudioChunks(
+                files
+            );
 
-        return res.status(500).json({
-            message:
-                error.message ||
-                "Failed to upload, transcribe, and analyze video interview",
+        const analysis =
+            await analyzeInterviewReplay({
+                company:
+                    String(
+                        company
+                    ).trim(),
+
+                role:
+                    String(
+                        role
+                    ).trim(),
+
+                roundType:
+                    normalizedRoundType,
+
+                result:
+                    normalizedResult,
+
+                transcript,
+
+                questionsAsked:
+                    [],
+
+                topics:
+                    toStringArray(
+                        topics
+                    ),
+
+                conceptsMissed:
+                    toStringArray(
+                        conceptsMissed
+                    ),
+
+                whatWentWell:
+                    null,
+
+                whatWentWrong:
+                    null,
+
+                feedback:
+                    notes ||
+                    null,
+
+                confidenceScore:
+                    null,
+
+                communicationScore:
+                    null,
+
+                technicalScore:
+                    null,
+
+                previousWeakTopics:
+                    [],
+
+                questionReplays:
+                    [],
+            });
+
+        const questionsAsked =
+            analysis
+                .questionBreakdown
+                ?.map(
+                    (item) =>
+                        item.question
+                )
+                .filter(
+                    Boolean
+                ) ??
+            [];
+
+        const finalTopics =
+            Array.from(
+                new Set([
+                    ...toStringArray(
+                        topics
+                    ),
+
+                    ...analysis
+                        .repeatedRiskTopics,
+                ])
+            );
+
+        const finalMissedConcepts =
+            Array.from(
+                new Set([
+                    ...toStringArray(
+                        conceptsMissed
+                    ),
+
+                    ...analysis
+                        .missedConcepts,
+                ])
+            );
+
+        const interview =
+            await prisma
+                .interviewSession
+                .create({
+                    data: {
+                        userId,
+
+                        company:
+                            String(
+                                company
+                            ).trim(),
+
+                        role:
+                            String(
+                                role
+                            ).trim(),
+
+                        roundType:
+                            normalizedRoundType as any,
+
+                        date:
+                            parsedDate,
+
+                        result:
+                            normalizedResult as any,
+
+                        sourceType:
+                            normalizedSourceType as any,
+
+                        /*
+                         * Chunked media is not stored remotely.
+                         * AUDIO and VIDEO URLs intentionally
+                         * remain null.
+                         */
+                        transcript,
+
+                        notes:
+                            notes ||
+                            null,
+
+                        questionsAsked,
+
+                        topics:
+                            finalTopics,
+
+                        conceptsMissed:
+                            finalMissedConcepts,
+
+                        questionReplays:
+                            analysis
+                                .questionBreakdown
+                                ?.length >
+                                0
+                                ? {
+                                    create:
+                                        analysis
+                                            .questionBreakdown
+                                            .filter(
+                                                (
+                                                    item
+                                                ) =>
+                                                    item.question
+                                            )
+                                            .map(
+                                                (
+                                                    item
+                                                ) => ({
+                                                    question:
+                                                        item.question,
+
+                                                    userAnswer:
+                                                        item.candidateAnswer ||
+                                                        null,
+
+                                                    missedPoints:
+                                                        item
+                                                            .missedPoints
+                                                            ?.length >
+                                                            0
+                                                            ? item.missedPoints
+                                                            : item.likelyGap
+                                                                ? [
+                                                                    item.likelyGap,
+                                                                ]
+                                                                : [],
+
+                                                    interviewerFeedback:
+                                                        item.practiceTask ||
+                                                        null,
+
+                                                    confidenceScore:
+                                                        analysis.confidenceScore,
+
+                                                    status:
+                                                        "PARTIAL" as any,
+                                                })
+                                            ),
+                                }
+                                : undefined,
+
+                        confidenceScore:
+                            analysis.confidenceScore,
+
+                        communicationScore:
+                            analysis.communicationScore,
+
+                        technicalScore:
+                            analysis.technicalScore,
+
+                        overallScore:
+                            Math.round(
+                                analysis.estimatedReadinessScore /
+                                10
+                            ),
+
+                        aiSummary:
+                            analysis as any,
+
+                        nextActions:
+                            analysis.nextActions,
+
+                        actionPlan:
+                            analysis.nextActions.join(
+                                "\n"
+                            ),
+
+                        analysisStatus:
+                            "ANALYZED",
+                    },
+
+                    include: {
+                        questionReplays: {
+                            orderBy: {
+                                createdAt:
+                                    "asc",
+                            },
+                        },
+                    },
+                });
+
+        await recalculateInterviewReadiness(
+            userId
+        );
+
+        await publishInterviewAnalysisReadyNotification({
+            userId,
+
+            interviewId:
+                interview.id,
+
+            company:
+                interview.company,
+
+            role:
+                interview.role,
+
+            sourceType:
+                interview.sourceType,
+
+            analysisCompletedAt:
+                new Date(),
         });
+
+        return res
+            .status(201)
+            .json({
+                message:
+                    `${chunkCount} audio chunks transcribed, combined, and analyzed successfully`,
+
+                chunkCount,
+
+                transcript,
+
+                analysis,
+
+                interview,
+            });
+    } catch (
+    error: unknown
+    ) {
+        if (
+            error instanceof
+            InterviewChunkValidationError
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        error.message,
+                });
+        }
+
+        const groqResponse =
+            sendGroqHttpError(
+                res,
+                error
+            );
+
+        if (groqResponse) {
+            return groqResponse;
+        }
+
+        console.error(
+            "createChunkedInterview error:",
+            error
+        );
+
+        return res
+            .status(500)
+            .json({
+                message:
+                    "Failed to process chunked interview audio.",
+            });
     }
 };
 export const getInterviewStats = async (req: AuthRequest, res: Response) => {
