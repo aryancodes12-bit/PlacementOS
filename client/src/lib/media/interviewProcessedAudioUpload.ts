@@ -259,7 +259,12 @@ export const uploadProcessedInterviewAudio =
                 "audio",
                 audioFile
             );
-
+            formData.append(
+                "audioDurationSeconds",
+                String(
+                    durationSeconds
+                )
+            );
             appendOriginalMediaMetadata(
                 formData,
                 sourceType,
@@ -343,7 +348,12 @@ export const uploadProcessedInterviewAudio =
             "sourceType",
             sourceType
         );
-
+        formData.append(
+            "audioDurationSeconds",
+            String(
+                durationSeconds
+            )
+        );
         appendOriginalMediaMetadata(
             formData,
             sourceType,

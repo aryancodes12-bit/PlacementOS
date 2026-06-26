@@ -119,7 +119,7 @@ const mediaConfig: Record<
         emptyFileLabel:
             "Choose an audio file",
         fileHelp:
-            "MP3, WAV, M4A, WEBM, or OGG up to 50 MB",
+            "MP3, WAV, M4A, WEBM, or OGG, maximum 50 MB and 60 minutes.",
         fileLabel:
             "Audio file",
         Icon:
@@ -1002,8 +1002,8 @@ export const InterviewMediaUploader = ({
                         isBusy
                     }
                     className={`group relative mt-3 flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-bg-tertiary px-5 py-7 text-center transition ${isBusy
-                            ? "cursor-not-allowed opacity-70"
-                            : "cursor-pointer hover:border-brand"
+                        ? "cursor-not-allowed opacity-70"
+                        : "cursor-pointer hover:border-brand"
                         }`}
                 >
                     <input

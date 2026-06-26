@@ -13,6 +13,9 @@ export interface InterviewMediaMetadata {
     height: number | null;
 }
 
+export const MAX_INTERVIEW_AUDIO_DURATION_SECONDS =
+    60 * 60;
+
 export const MAX_INTERVIEW_VIDEO_DURATION_SECONDS =
     30 * 60;
 
@@ -362,7 +365,19 @@ export const readInterviewMediaMetadata =
                                 );
                                 return;
                             }
-
+                            if (
+                                mediaType ===
+                                "audio" &&
+                                durationSeconds >
+                                MAX_INTERVIEW_AUDIO_DURATION_SECONDS
+                            ) {
+                                finishWithError(
+                                    new Error(
+                                        "Audio interviews must be 60 minutes or shorter."
+                                    )
+                                );
+                                return;
+                            }
                             if (
                                 mediaType ===
                                 "video" &&

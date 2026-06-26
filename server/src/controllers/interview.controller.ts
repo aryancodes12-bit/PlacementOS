@@ -14,7 +14,109 @@ import {
     InterviewChunkValidationError,
     transcribeInterviewAudioChunks,
 } from "../services/interviewChunkTranscription.service";
+type InterviewUploadedMediaSource =
+    | "AUDIO"
+    | "VIDEO";
 
+const MAX_INTERVIEW_AUDIO_DURATION_SECONDS =
+    60 * 60;
+
+const MAX_INTERVIEW_VIDEO_DURATION_SECONDS =
+    30 * 60;
+
+const parseMediaDurationSeconds = (
+    value: unknown
+): number | null => {
+    if (
+        typeof value ===
+        "number" &&
+        Number.isFinite(
+            value
+        ) &&
+        value > 0
+    ) {
+        return value;
+    }
+
+    if (
+        typeof value !==
+        "string" ||
+        !value.trim()
+    ) {
+        return null;
+    }
+
+    const parsedValue =
+        Number(
+            value
+        );
+
+    if (
+        !Number.isFinite(
+            parsedValue
+        ) ||
+        parsedValue <= 0
+    ) {
+        return null;
+    }
+
+    return parsedValue;
+};
+
+const getInterviewMediaDurationError = ({
+    sourceType,
+    audioDurationSeconds,
+    sourceVideoDurationSeconds,
+}: {
+    sourceType: InterviewUploadedMediaSource;
+    audioDurationSeconds: unknown;
+    sourceVideoDurationSeconds?: unknown;
+}): string | null => {
+    const audioDuration =
+        parseMediaDurationSeconds(
+            audioDurationSeconds
+        );
+
+    const videoDuration =
+        parseMediaDurationSeconds(
+            sourceVideoDurationSeconds
+        );
+
+    const durationSeconds =
+        sourceType ===
+            "VIDEO"
+            ? videoDuration ??
+            audioDuration
+            : audioDuration;
+
+    if (
+        durationSeconds ===
+        null
+    ) {
+        return sourceType ===
+            "VIDEO"
+            ? "A valid video duration is required."
+            : "A valid audio duration is required.";
+    }
+
+    const maximumDurationSeconds =
+        sourceType ===
+            "VIDEO"
+            ? MAX_INTERVIEW_VIDEO_DURATION_SECONDS
+            : MAX_INTERVIEW_AUDIO_DURATION_SECONDS;
+
+    if (
+        durationSeconds >
+        maximumDurationSeconds
+    ) {
+        return sourceType ===
+            "VIDEO"
+            ? "Video interviews must be 30 minutes or shorter."
+            : "Audio interviews must be 60 minutes or shorter.";
+    }
+
+    return null;
+};
 const normalizeEnum = (value: unknown, fallback: string) => {
     if (!value) return fallback;
     return String(value).trim().toUpperCase().replace(/\s+/g, "_");
@@ -882,7 +984,6 @@ export const createAudioInterview = async (
 ) => {
     try {
         const userId = req.user!.id;
-
         const {
             company,
             role,
@@ -892,8 +993,8 @@ export const createAudioInterview = async (
             topics,
             conceptsMissed,
             notes,
+            audioDurationSeconds,
         } = req.body;
-
         if (!company || !role || !date) {
             return res.status(400).json({
                 message: "Company, role, and date are required",
@@ -905,7 +1006,24 @@ export const createAudioInterview = async (
                 message: "Audio file is required",
             });
         }
+        const durationValidationError =
+            getInterviewMediaDurationError({
+                sourceType:
+                    "AUDIO",
 
+                audioDurationSeconds,
+            });
+
+        if (
+            durationValidationError
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        durationValidationError,
+                });
+        }
         const normalizedRoundType = normalizeEnum(roundType, "TECHNICAL");
         const normalizedResult = normalizeEnum(result, "PENDING");
 
@@ -1078,6 +1196,8 @@ export const createVideoInterview = async (
             topics,
             conceptsMissed,
             notes,
+            audioDurationSeconds,
+            sourceVideoDurationSeconds,
         } =
             req.body;
 
@@ -1126,7 +1246,26 @@ export const createVideoInterview = async (
                         "The video endpoint only accepts browser-extracted audio",
                 });
         }
+        const durationValidationError =
+            getInterviewMediaDurationError({
+                sourceType:
+                    "VIDEO",
 
+                audioDurationSeconds,
+
+                sourceVideoDurationSeconds,
+            });
+
+        if (
+            durationValidationError
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        durationValidationError,
+                });
+        }
         const normalizedRoundType =
             normalizeEnum(
                 roundType,
@@ -1473,6 +1612,8 @@ export const createVideoInterview = async (
             conceptsMissed,
             notes,
             sourceType,
+            audioDurationSeconds,
+            sourceVideoDurationSeconds,
         } =
             req.body;
 
@@ -1527,7 +1668,26 @@ export const createVideoInterview = async (
                         "Interview audio chunks are required",
                 });
         }
+        const durationValidationError =
+            getInterviewMediaDurationError({
+                sourceType:
+                    normalizedSourceType,
 
+                audioDurationSeconds,
+
+                sourceVideoDurationSeconds,
+            });
+
+        if (
+            durationValidationError
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        durationValidationError,
+                });
+        }
         const normalizedRoundType =
             normalizeEnum(
                 roundType,
