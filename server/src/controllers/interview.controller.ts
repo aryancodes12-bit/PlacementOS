@@ -10,6 +10,10 @@ import {
     publishInterviewAnalysisReadyNotification,
 } from "../services/interviewAnalysisNotification.service";
 import { updateReadiness } from "../services/readiness.service";
+import {
+    InterviewChunkValidationError,
+    transcribeInterviewAudioChunks,
+} from "../services/interviewChunkTranscription.service";
 const normalizeEnum = (value: unknown, fallback: string) => {
     if (!value) return fallback;
     return String(value).trim().toUpperCase().replace(/\s+/g, "_");
@@ -1448,6 +1452,420 @@ export const createVideoInterview = async (
                 message:
                     error.message ||
                     "Failed to transcribe and analyze video interview",
+            });
+    }
+}; export const createChunkedInterview = async (
+    req: AuthRequest,
+    res: Response
+) => {
+    try {
+        const userId =
+            req.user!.id;
+
+        const {
+            company,
+            role,
+            roundType,
+            date,
+            result,
+            topics,
+            conceptsMissed,
+            notes,
+            sourceType,
+        } =
+            req.body;
+
+        if (
+            !company ||
+            !role ||
+            !date
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Company, role, and date are required",
+                });
+        }
+
+        const normalizedSourceType =
+            normalizeEnum(
+                sourceType,
+                "AUDIO"
+            );
+
+        if (
+            normalizedSourceType !==
+            "AUDIO" &&
+            normalizedSourceType !==
+            "VIDEO"
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Chunked interview source type must be AUDIO or VIDEO",
+                });
+        }
+
+        const files =
+            Array.isArray(
+                req.files
+            )
+                ? req.files
+                : [];
+
+        if (
+            files.length ===
+            0
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Interview audio chunks are required",
+                });
+        }
+
+        const normalizedRoundType =
+            normalizeEnum(
+                roundType,
+                "TECHNICAL"
+            );
+
+        const normalizedResult =
+            normalizeEnum(
+                result,
+                "PENDING"
+            );
+
+        const parsedDate =
+            new Date(
+                date
+            );
+
+        if (
+            Number.isNaN(
+                parsedDate.getTime()
+            )
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Invalid interview date",
+                });
+        }
+
+        const {
+            transcript,
+            chunkCount,
+        } =
+            await transcribeInterviewAudioChunks(
+                files
+            );
+
+        const analysis =
+            await analyzeInterviewReplay({
+                company:
+                    String(
+                        company
+                    ).trim(),
+
+                role:
+                    String(
+                        role
+                    ).trim(),
+
+                roundType:
+                    normalizedRoundType,
+
+                result:
+                    normalizedResult,
+
+                transcript,
+
+                questionsAsked:
+                    [],
+
+                topics:
+                    toStringArray(
+                        topics
+                    ),
+
+                conceptsMissed:
+                    toStringArray(
+                        conceptsMissed
+                    ),
+
+                whatWentWell:
+                    null,
+
+                whatWentWrong:
+                    null,
+
+                feedback:
+                    notes ||
+                    null,
+
+                confidenceScore:
+                    null,
+
+                communicationScore:
+                    null,
+
+                technicalScore:
+                    null,
+
+                previousWeakTopics:
+                    [],
+
+                questionReplays:
+                    [],
+            });
+
+        const questionsAsked =
+            analysis
+                .questionBreakdown
+                ?.map(
+                    (item) =>
+                        item.question
+                )
+                .filter(
+                    Boolean
+                ) ??
+            [];
+
+        const finalTopics =
+            Array.from(
+                new Set([
+                    ...toStringArray(
+                        topics
+                    ),
+
+                    ...analysis
+                        .repeatedRiskTopics,
+                ])
+            );
+
+        const finalMissedConcepts =
+            Array.from(
+                new Set([
+                    ...toStringArray(
+                        conceptsMissed
+                    ),
+
+                    ...analysis
+                        .missedConcepts,
+                ])
+            );
+
+        const interview =
+            await prisma
+                .interviewSession
+                .create({
+                    data: {
+                        userId,
+
+                        company:
+                            String(
+                                company
+                            ).trim(),
+
+                        role:
+                            String(
+                                role
+                            ).trim(),
+
+                        roundType:
+                            normalizedRoundType as any,
+
+                        date:
+                            parsedDate,
+
+                        result:
+                            normalizedResult as any,
+
+                        sourceType:
+                            normalizedSourceType as any,
+
+                        /*
+                         * Chunked media is not stored remotely.
+                         * AUDIO and VIDEO URLs intentionally
+                         * remain null.
+                         */
+                        transcript,
+
+                        notes:
+                            notes ||
+                            null,
+
+                        questionsAsked,
+
+                        topics:
+                            finalTopics,
+
+                        conceptsMissed:
+                            finalMissedConcepts,
+
+                        questionReplays:
+                            analysis
+                                .questionBreakdown
+                                ?.length >
+                                0
+                                ? {
+                                    create:
+                                        analysis
+                                            .questionBreakdown
+                                            .filter(
+                                                (
+                                                    item
+                                                ) =>
+                                                    item.question
+                                            )
+                                            .map(
+                                                (
+                                                    item
+                                                ) => ({
+                                                    question:
+                                                        item.question,
+
+                                                    userAnswer:
+                                                        item.candidateAnswer ||
+                                                        null,
+
+                                                    missedPoints:
+                                                        item
+                                                            .missedPoints
+                                                            ?.length >
+                                                            0
+                                                            ? item.missedPoints
+                                                            : item.likelyGap
+                                                                ? [
+                                                                    item.likelyGap,
+                                                                ]
+                                                                : [],
+
+                                                    interviewerFeedback:
+                                                        item.practiceTask ||
+                                                        null,
+
+                                                    confidenceScore:
+                                                        analysis.confidenceScore,
+
+                                                    status:
+                                                        "PARTIAL" as any,
+                                                })
+                                            ),
+                                }
+                                : undefined,
+
+                        confidenceScore:
+                            analysis.confidenceScore,
+
+                        communicationScore:
+                            analysis.communicationScore,
+
+                        technicalScore:
+                            analysis.technicalScore,
+
+                        overallScore:
+                            Math.round(
+                                analysis.estimatedReadinessScore /
+                                10
+                            ),
+
+                        aiSummary:
+                            analysis as any,
+
+                        nextActions:
+                            analysis.nextActions,
+
+                        actionPlan:
+                            analysis.nextActions.join(
+                                "\n"
+                            ),
+
+                        analysisStatus:
+                            "ANALYZED",
+                    },
+
+                    include: {
+                        questionReplays: {
+                            orderBy: {
+                                createdAt:
+                                    "asc",
+                            },
+                        },
+                    },
+                });
+
+        await recalculateInterviewReadiness(
+            userId
+        );
+
+        await publishInterviewAnalysisReadyNotification({
+            userId,
+
+            interviewId:
+                interview.id,
+
+            company:
+                interview.company,
+
+            role:
+                interview.role,
+
+            sourceType:
+                interview.sourceType,
+
+            analysisCompletedAt:
+                new Date(),
+        });
+
+        return res
+            .status(201)
+            .json({
+                message:
+                    `${chunkCount} audio chunks transcribed, combined, and analyzed successfully`,
+
+                chunkCount,
+
+                transcript,
+
+                analysis,
+
+                interview,
+            });
+    } catch (
+    error: unknown
+    ) {
+        if (
+            error instanceof
+            InterviewChunkValidationError
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        error.message,
+                });
+        }
+
+        console.error(
+            "createChunkedInterview error:",
+            error
+        );
+
+        const message =
+            error instanceof Error
+                ? error.message
+                : "Failed to process chunked interview audio";
+
+        return res
+            .status(500)
+            .json({
+                message,
             });
     }
 };

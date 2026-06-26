@@ -4,6 +4,8 @@ import {
 
 import {
     protect,
+    MAX_INTERVIEW_AUDIO_CHUNKS,
+    uploadInterviewAudioChunks,
 } from "../middlewares/auth.middleware";
 
 import {
@@ -16,6 +18,7 @@ import {
     getInterviews,
     getInterviewStats,
     updateInterview,
+    createChunkedInterview,
 } from "../controllers/interview.controller";
 
 import {
@@ -60,7 +63,14 @@ router.post(
     ),
     createVideoInterview
 );
-
+router.post(
+    "/chunks",
+    uploadInterviewAudioChunks.array(
+        "chunks",
+        MAX_INTERVIEW_AUDIO_CHUNKS
+    ),
+    createChunkedInterview
+);
 router.post(
     "/:id/analyze",
     analyzeInterviewWithAI

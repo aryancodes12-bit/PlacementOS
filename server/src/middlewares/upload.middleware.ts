@@ -148,4 +148,61 @@ export const uploadInterviewExtractedAudio =
                 )
             );
         },
+    }); export const MAX_INTERVIEW_AUDIO_CHUNKS =
+        100;
+
+/**
+ * Accepts multiple browser-generated audio chunks.
+ * Every chunk has its own 24 MB limit.
+ */
+export const uploadInterviewAudioChunks =
+    multer({
+        storage:
+            memoryStorage,
+
+        limits: {
+            fileSize:
+                INTERVIEW_AUDIO_UPLOAD_LIMIT_BYTES,
+
+            files:
+                MAX_INTERVIEW_AUDIO_CHUNKS,
+        },
+
+        fileFilter: (
+            _req,
+            file,
+            callback
+        ) => {
+            const normalizedMimeType =
+                file.mimetype
+                    .trim()
+                    .toLowerCase();
+
+            const hasAllowedMimeType =
+                extractedAudioMimeTypes.has(
+                    normalizedMimeType
+                );
+
+            const hasAllowedExtension =
+                extractedAudioExtensions.test(
+                    file.originalname
+                );
+
+            if (
+                hasAllowedMimeType ||
+                hasAllowedExtension
+            ) {
+                callback(
+                    null,
+                    true
+                );
+                return;
+            }
+
+            callback(
+                new Error(
+                    "Only interview audio chunk files are allowed"
+                )
+            );
+        },
     });
