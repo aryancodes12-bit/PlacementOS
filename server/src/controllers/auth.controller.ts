@@ -23,7 +23,10 @@ import {
 import {
     sendVerificationEmail,
 } from "../services/emailVerification.service";
-
+import {
+    notifyAdminOfLogin,
+    notifyAdminOfSignup,
+} from "../services/telegramAdminNotification.service";
 
 import type {
     AuthRequest,
@@ -287,7 +290,29 @@ export const register = async (
                     email: true,
                 },
             });
+        void notifyAdminOfSignup({
+            userId:
+                user.id,
 
+            name:
+                user.name,
+
+            email:
+                user.email,
+
+            authProvider:
+                "PASSWORD",
+
+            occurredAt:
+                new Date(),
+        }).catch((error: unknown) => {
+            console.error(
+                "[Telegram] Signup alert failed:",
+                error instanceof Error
+                    ? error.message
+                    : "Unknown error"
+            );
+        });
         try {
             await issueVerificationEmail(
                 user
@@ -393,7 +418,29 @@ export const login = async (
                 email: user.email,
             });
         }
+        void notifyAdminOfLogin({
+            userId:
+                user.id,
 
+            name:
+                user.name,
+
+            email:
+                user.email,
+
+            authProvider:
+                "PASSWORD",
+
+            occurredAt:
+                new Date(),
+        }).catch((error: unknown) => {
+            console.error(
+                "[Telegram] Login alert failed:",
+                error instanceof Error
+                    ? error.message
+                    : "Unknown error"
+            );
+        });
         return res.status(200).json({
             success: true,
             message:
@@ -685,7 +732,6 @@ export const firebaseGoogleAuth = async (
                     "This Google identity is already connected to another account.",
             });
         }
-
         let user =
             userByFirebaseUid ||
             (await prisma.user.findUnique({
@@ -693,6 +739,9 @@ export const firebaseGoogleAuth = async (
                     email,
                 },
             }));
+
+        const isNewGoogleUser =
+            !user;
 
         if (!user) {
             user =
@@ -756,6 +805,66 @@ export const firebaseGoogleAuth = async (
                             null,
                     },
                 });
+        }
+
+        if (
+            isNewGoogleUser
+        ) {
+            void notifyAdminOfSignup({
+                userId:
+                    user.id,
+
+                name:
+                    user.name,
+
+                email:
+                    user.email,
+
+                authProvider:
+                    "GOOGLE",
+
+                occurredAt:
+                    new Date(),
+            }).catch(
+                (
+                    error: unknown
+                ) => {
+                    console.error(
+                        "[Telegram] Google signup alert failed:",
+                        error instanceof Error
+                            ? error.message
+                            : "Unknown error"
+                    );
+                }
+            );
+        } else {
+            void notifyAdminOfLogin({
+                userId:
+                    user.id,
+
+                name:
+                    user.name,
+
+                email:
+                    user.email,
+
+                authProvider:
+                    "GOOGLE",
+
+                occurredAt:
+                    new Date(),
+            }).catch(
+                (
+                    error: unknown
+                ) => {
+                    console.error(
+                        "[Telegram] Google login alert failed:",
+                        error instanceof Error
+                            ? error.message
+                            : "Unknown error"
+                    );
+                }
+            );
         }
 
         return res.status(200).json({
