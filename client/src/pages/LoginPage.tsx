@@ -190,6 +190,33 @@ export const LoginPage = () => {
                 <div className="h-px flex-1 bg-white/[0.08]" />
             </div>
 
+            <div className="mb-5 rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-4 py-3 text-xs leading-6 text-slate-300">
+                <div className="flex items-start gap-2">
+                    <Mail
+                        size={15}
+                        className="mt-0.5 shrink-0 text-indigo-300"
+                        aria-hidden="true"
+                    />
+
+                    <p>
+                        Didn&apos;t receive the verification email? Please
+                        check your Spam/Junk folder. If you still can&apos;t
+                        find it, click{" "}
+                        <Link
+                            to={`/verify-email?email=${encodeURIComponent(
+                                form.email
+                                    .trim()
+                                    .toLowerCase()
+                            )}`}
+                            className="font-semibold text-indigo-200 underline underline-offset-4 transition hover:text-white"
+                        >
+                            Resend Verification Email
+                        </Link>
+                        .
+                    </p>
+                </div>
+            </div>
+
             <form
                 onSubmit={handleSubmit}
                 className="space-y-5"

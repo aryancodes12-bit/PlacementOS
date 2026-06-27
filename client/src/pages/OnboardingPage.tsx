@@ -15,25 +15,35 @@ import type {
 import {
 
     ArrowRight,
+    AlertTriangle,
     BarChart3,
+    BookOpen,
+    Bug,
     CalendarCheck2,
     CheckCircle2,
     ChevronDown,
     ChevronUp,
     ChevronRight,
     Code2,
+    Copyright,
+    Database,
     FileText,
     Gauge,
+    Info,
+    Lightbulb,
     LockKeyhole,
     Menu,
     Mic2,
     Play,
     RotateCcw,
+    Ruler,
     ShieldCheck,
     Sparkles,
     Target,
+    Trash2,
     TrendingUp,
     UploadCloud,
+    UserRound,
     Check,
     X,
     Zap,
@@ -46,6 +56,8 @@ import {
 import {
     useAuthStore,
 } from "../store/authStore";
+
+import termsPdfUrl from "../assets/PlacementOS_Terms_and_Conditions.pdf";
 
 interface RevealProps {
     children: ReactNode;
@@ -187,6 +199,103 @@ const navigationItems = [
     {
         label: "Privacy",
         href: "#privacy",
+    },
+    {
+        label: "Policies",
+        href: "#platform-policies",
+    },
+];
+
+const platformPolicyItems = [
+    {
+        icon: ShieldCheck,
+        title: "Privacy Policy",
+        description:
+            "Explains how account, profile, preparation, resume, interview, feedback, and readiness data are handled.",
+        action: "Read policy",
+        href: "/privacy",
+        kind: "route",
+    },
+    {
+        icon: BookOpen,
+        title: "Terms & Conditions",
+        description:
+            "Covers responsible use, account obligations, service availability, and limits of preparation guidance.",
+        action: "Read terms",
+        href: termsPdfUrl,
+        kind: "asset",
+    },
+    {
+        icon: AlertTriangle,
+        title: "AI Disclaimer",
+        description:
+            "AI analysis, scores, and recommendations are guidance for preparation decisions, not hiring guarantees or professional advice.",
+    },
+    {
+        icon: FileText,
+        title: "Supported File Types",
+        description:
+            "Resume analysis accepts text-based PDF resumes. Interview replay supports MP3, MP4, WAV, WebM, OGG, M4A, MOV, and PDF where relevant.",
+    },
+    {
+        icon: Ruler,
+        title: "Upload Limits",
+        description:
+            "General uploads are limited to 50 MB. Browser-extracted interview audio is limited to 24 MB per file or chunk, up to 100 chunks.",
+    },
+    {
+        icon: Trash2,
+        title: "Delete Account",
+        description:
+            "Authenticated users can permanently delete their account and stored PlacementOS database history from Settings.",
+        action: "Open settings",
+        href: "/settings",
+        kind: "route",
+    },
+    {
+        icon: Bug,
+        title: "Report a Bug",
+        description:
+            "Sign in to create a bug report with page, browser, and reproduction details from your PlacementOS account.",
+        action: "Report issue",
+        href: "/login",
+        kind: "route",
+    },
+    {
+        icon: Lightbulb,
+        title: "Request Feature",
+        description:
+            "Sign in to suggest new placement workflows, analytics, integrations, or UI improvements from the feedback form.",
+        action: "Suggest feature",
+        href: "/login",
+        kind: "route",
+    },
+    {
+        icon: UserRound,
+        title: "Meet the Developer",
+        description:
+            "PlacementOS is built by Aryan Jaiswal as a student-first AI placement preparation workspace.",
+        action: "Connect",
+        href: "https://www.linkedin.com/in/aryanjaiswal30/",
+        kind: "external",
+    },
+    {
+        icon: Info,
+        title: "About PlacementOS",
+        description:
+            "A unified operating system for DSA tracking, resume intelligence, interview replay, readiness scoring, and daily planning.",
+    },
+    {
+        icon: Database,
+        title: "Security & Data Policy",
+        description:
+            "Protected routes require authentication, sensitive account actions are user-controlled, and original interview video stays on your device.",
+    },
+    {
+        icon: Copyright,
+        title: "Copyright",
+        description:
+            "PlacementOS branding, interface, and platform content are protected by the current-year copyright notice in the footer.",
     },
 ];
 
@@ -2255,6 +2364,130 @@ export const OnboardingPage = () => {
                     </div>
                 </section>
 
+                <section
+                    id="platform-policies"
+                    className="border-y border-white/[0.06] bg-[#070b17] py-24"
+                >
+                    <div className="mx-auto max-w-7xl px-5 lg:px-8">
+                        <Reveal>
+                            <div className="mx-auto max-w-3xl text-center">
+                                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-400">
+                                    Platform policies
+                                </p>
+
+                                <h2 className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                                    The important details are visible before
+                                    you commit
+                                </h2>
+
+                                <p className="mt-5 text-base leading-7 text-slate-400">
+                                    PlacementOS uses AI to guide preparation,
+                                    so the onboarding page now surfaces legal,
+                                    data, file, support, and ownership details
+                                    in one place.
+                                </p>
+                            </div>
+                        </Reveal>
+
+                        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {platformPolicyItems.map(
+                                (
+                                    item,
+                                    index
+                                ) => {
+                                    const Icon =
+                                        item.icon;
+
+                                    const cardContent = (
+                                        <>
+                                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10">
+                                                <Icon
+                                                    size={19}
+                                                    className="text-indigo-300"
+                                                    aria-hidden="true"
+                                                />
+                                            </div>
+
+                                            <div className="min-w-0 flex-1">
+                                                <h3 className="text-sm font-bold text-white">
+                                                    {item.title}
+                                                </h3>
+
+                                                <p className="mt-2 text-xs leading-6 text-slate-400">
+                                                    {item.description}
+                                                </p>
+
+                                                {item.action &&
+                                                    item.href && (
+                                                        <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-300">
+                                                            {item.action}
+                                                            <ArrowRight
+                                                                size={13}
+                                                                aria-hidden="true"
+                                                            />
+                                                        </span>
+                                                    )}
+                                            </div>
+                                        </>
+                                    );
+
+                                    const className =
+                                        "group flex h-full min-w-0 gap-4 rounded-2xl border border-white/[0.07] bg-[#0b1020]/80 p-5 text-left transition hover:-translate-y-1 hover:border-indigo-400/25 hover:bg-[#0e1427]";
+
+                                    return (
+                                        <Reveal
+                                            key={item.title}
+                                            delay={
+                                                index * 35
+                                            }
+                                        >
+                                            {item.href &&
+                                                item.kind ===
+                                                    "route" ? (
+                                                <Link
+                                                    to={item.href}
+                                                    className={className}
+                                                >
+                                                    {cardContent}
+                                                </Link>
+                                            ) : item.href ? (
+                                                <a
+                                                    href={item.href}
+                                                    target={
+                                                        item.kind ===
+                                                            "external" ||
+                                                        item.kind ===
+                                                            "asset"
+                                                            ? "_blank"
+                                                            : undefined
+                                                    }
+                                                    rel={
+                                                        item.kind ===
+                                                            "external" ||
+                                                        item.kind ===
+                                                            "asset"
+                                                            ? "noreferrer"
+                                                            : undefined
+                                                    }
+                                                    className={className}
+                                                >
+                                                    {cardContent}
+                                                </a>
+                                            ) : (
+                                                <div
+                                                    className={className}
+                                                >
+                                                    {cardContent}
+                                                </div>
+                                            )}
+                                        </Reveal>
+                                    );
+                                }
+                            )}
+                        </div>
+                    </div>
+                </section>
+
                 <section className="py-24 border-y border-white/[0.06] bg-[#080c18]">
                     <div className="mx-auto max-w-7xl px-5 lg:px-8">
                         <Reveal>
@@ -2341,12 +2574,30 @@ export const OnboardingPage = () => {
                             className="flex flex-wrap gap-x-6 gap-y-3"
                             aria-label="Footer navigation"
                         >
-                            <Link
-                                to="/terms"
+                            <a
+                                href="#platform-policies"
                                 className="text-sm text-slate-500 transition hover:text-white"
                             >
-                                Terms
-                            </Link>
+                                About
+                            </a>
+
+                            {!isAuthenticated && (
+                                <Link
+                                    to="/login"
+                                    className="text-sm text-slate-500 transition hover:text-white"
+                                >
+                                    Login
+                                </Link>
+                            )}
+
+                            <a
+                                href={termsPdfUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-sm text-slate-500 transition hover:text-white"
+                            >
+                                Terms & Conditions
+                            </a>
 
                             <Link
                                 to="/privacy"
@@ -2356,6 +2607,13 @@ export const OnboardingPage = () => {
                             </Link>
 
                             <a
+                                href="#platform-policies"
+                                className="text-sm text-slate-500 transition hover:text-white"
+                            >
+                                AI Disclaimer
+                            </a>
+
+                            <a
                                 href="mailto:aryanjaiswal3080@gmail.com?subject=PlacementOS%20support"
                                 className="text-sm text-slate-500 transition hover:text-white"
                             >
@@ -2363,10 +2621,17 @@ export const OnboardingPage = () => {
                             </a>
 
                             <a
-                                href="#features"
+                                href="mailto:aryanjaiswal3080@gmail.com?subject=PlacementOS%20bug%20report"
                                 className="text-sm text-slate-500 transition hover:text-white"
                             >
-                                Features
+                                Report a Bug
+                            </a>
+
+                            <a
+                                href="mailto:aryanjaiswal3080@gmail.com?subject=PlacementOS%20feature%20request"
+                                className="text-sm text-slate-500 transition hover:text-white"
+                            >
+                                Request Feature
                             </a>
 
                             <a

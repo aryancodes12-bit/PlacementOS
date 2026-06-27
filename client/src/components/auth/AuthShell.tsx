@@ -17,6 +17,8 @@ import {
     BrandLogo,
 } from "../ui/BrandLogo";
 
+import termsPdfUrl from "../../assets/PlacementOS_Terms_and_Conditions.pdf";
+
 interface AuthShellProps {
     title: string;
     description: string;
@@ -158,19 +160,14 @@ export const AuthShell = ({
                         </div>
 
                         <div className="mt-6 flex justify-center gap-5 text-xs text-slate-500">
-                            <Link
-                                to="/terms"
+                            <a
+                                href={termsPdfUrl}
+                                target="_blank"
+                                rel="noreferrer"
                                 className="transition hover:text-white"
                             >
-                                Terms
-                            </Link>
-
-                            <Link
-                                to="/privacy"
-                                className="transition hover:text-white"
-                            >
-                                Privacy
-                            </Link>
+                                Terms & Conditions
+                            </a>
 
                             <a
                                 href="mailto:aryanjaiswal3080@gmail.com?subject=PlacementOS%20support"

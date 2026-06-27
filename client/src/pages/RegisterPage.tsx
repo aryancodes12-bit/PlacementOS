@@ -36,6 +36,8 @@ import {
     getAuthError,
 } from "../services/auth.service";
 
+import termsPdfUrl from "../assets/PlacementOS_Terms_and_Conditions.pdf";
+
 const EMAIL_REGEX =
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -159,7 +161,7 @@ export const RegisterPage = () => {
 
         if (!form.acceptedTerms) {
             setError(
-                "Accept the Terms and Privacy Policy to continue."
+                "Accept the Terms & Conditions to continue."
             );
             return;
         }
@@ -256,6 +258,33 @@ export const RegisterPage = () => {
                 </span>
 
                 <div className="h-px flex-1 bg-white/[0.08]" />
+            </div>
+
+            <div className="mb-5 rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-4 py-3 text-xs leading-6 text-slate-300">
+                <div className="flex items-start gap-2">
+                    <Mail
+                        size={15}
+                        className="mt-0.5 shrink-0 text-indigo-300"
+                        aria-hidden="true"
+                    />
+
+                    <p>
+                        Didn&apos;t receive the verification email? Please
+                        check your Spam/Junk folder. If you still can&apos;t
+                        find it, click{" "}
+                        <Link
+                            to={`/verify-email?email=${encodeURIComponent(
+                                form.email
+                                    .trim()
+                                    .toLowerCase()
+                            )}`}
+                            className="font-semibold text-indigo-200 underline underline-offset-4 transition hover:text-white"
+                        >
+                            Resend Verification Email
+                        </Link>
+                        .
+                    </p>
+                </div>
             </div>
 
             <form
@@ -524,19 +553,14 @@ export const RegisterPage = () => {
 
                     <span>
                         I agree to the{" "}
-                        <Link
-                            to="/terms"
+                        <a
+                            href={termsPdfUrl}
+                            target="_blank"
+                            rel="noreferrer"
                             className="text-indigo-300 hover:text-indigo-200"
                         >
-                            Terms
-                        </Link>{" "}
-                        and{" "}
-                        <Link
-                            to="/privacy"
-                            className="text-indigo-300 hover:text-indigo-200"
-                        >
-                            Privacy Policy
-                        </Link>
+                            Terms & Conditions
+                        </a>
                         .
                     </span>
                 </label>
