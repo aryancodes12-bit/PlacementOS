@@ -10,7 +10,7 @@ import {
     getAuth,
     getRedirectResult,
     signInWithPopup,
-    signInWithRedirect,
+
     signOut,
 } from "firebase/auth";
 
@@ -110,61 +110,15 @@ export const beginGoogleAuthentication =
         const provider =
             createGoogleProvider();
 
-        const useRedirect =
-            window.matchMedia(
-                "(max-width: 768px)"
-            ).matches;
-
-        if (useRedirect) {
-            sessionStorage.setItem(
-                GOOGLE_REDIRECT_KEY,
-                "true"
-            );
-
-            await signInWithRedirect(
+        const result =
+            await signInWithPopup(
                 auth,
                 provider
             );
 
-            return null;
-        }
-
-        try {
-            const result =
-                await signInWithPopup(
-                    auth,
-                    provider
-                );
-
-            return finishFirebaseAuthentication(
-                result.user
-            );
-        } catch (error) {
-            if (
-                error instanceof
-                FirebaseError &&
-                (
-                    error.code ===
-                    "auth/popup-blocked" ||
-                    error.code ===
-                    "auth/operation-not-supported-in-this-environment"
-                )
-            ) {
-                sessionStorage.setItem(
-                    GOOGLE_REDIRECT_KEY,
-                    "true"
-                );
-
-                await signInWithRedirect(
-                    auth,
-                    provider
-                );
-
-                return null;
-            }
-
-            throw error;
-        }
+        return finishFirebaseAuthentication(
+            result.user
+        );
     };
 
 export const hasPendingGoogleRedirect =
