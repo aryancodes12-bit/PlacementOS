@@ -8,7 +8,7 @@ PlacementOS connects DSA practice, resume intelligence, interview replay, readin
 
 
 </div>
----
+
 
 ## Product Preview
 
