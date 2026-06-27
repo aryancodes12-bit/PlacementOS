@@ -47,6 +47,114 @@ export interface ResumeAIAnalysis {
     actionPlan: string[];
 }
 
+type ResumeScoreKey =
+    | "atsScore"
+    | "roleFitScore"
+    | "keywordScore"
+    | "projectScore"
+    | "readabilityScore";
+
+interface ResumeQualitySignals {
+    wordCount: number;
+    sectionHeadings: string[];
+    hasContactInfo: boolean;
+    hasLinks: boolean;
+    hasEducation: boolean;
+    hasSkills: boolean;
+    hasProjects: boolean;
+    hasExperience: boolean;
+    hasCertifications: boolean;
+    quantifiedAchievementCount: number;
+    actionVerbCount: number;
+    technicalKeywordCount: number;
+    matchedProfileSkills: string[];
+    targetRoleKeywordCount: number;
+    estimatedProjectCount: number;
+}
+
+const SCORE_KEYS: ResumeScoreKey[] = [
+    "atsScore",
+    "roleFitScore",
+    "keywordScore",
+    "projectScore",
+    "readabilityScore",
+];
+
+const TECHNICAL_KEYWORDS = [
+    "javascript",
+    "typescript",
+    "java",
+    "python",
+    "c++",
+    "c#",
+    "react",
+    "next.js",
+    "node.js",
+    "express",
+    "spring",
+    "django",
+    "fastapi",
+    "mongodb",
+    "mysql",
+    "postgresql",
+    "redis",
+    "prisma",
+    "docker",
+    "kubernetes",
+    "aws",
+    "azure",
+    "gcp",
+    "git",
+    "github",
+    "rest",
+    "graphql",
+    "api",
+    "microservices",
+    "testing",
+    "jest",
+    "vitest",
+    "tailwind",
+    "html",
+    "css",
+    "sql",
+    "data structures",
+    "algorithms",
+    "machine learning",
+    "deployment",
+    "ci/cd",
+];
+
+const ACTION_VERBS = [
+    "built",
+    "developed",
+    "implemented",
+    "designed",
+    "created",
+    "optimized",
+    "improved",
+    "reduced",
+    "increased",
+    "deployed",
+    "integrated",
+    "automated",
+    "led",
+    "managed",
+    "collaborated",
+    "tested",
+    "debugged",
+    "architected",
+];
+
+const SECTION_PATTERNS: Record<string, RegExp> = {
+    Education: /^\s*(education|academic|qualification)s?\s*:?$/im,
+    Skills: /^\s*(technical\s+skills|skills|technologies|tech\s+stack)\s*:?$/im,
+    Projects: /^\s*(projects|academic\s+projects|personal\s+projects)\s*:?$/im,
+    Experience:
+        /^\s*(experience|work\s+experience|internship|internships|employment)\s*:?$/im,
+    Certifications:
+        /^\s*(certifications|certificates|courses|achievements)\s*:?$/im,
+};
+
 const clampNumber = (
     value: unknown,
     min: number,
@@ -73,6 +181,248 @@ const asStringArray = (value: unknown): string[] => {
     }
 
     return [];
+};
+
+const clampScore = (value: number) => clampNumber(value, 0, 100, 50);
+
+const unique = (values: string[]) => Array.from(new Set(values));
+
+const normalizeText = (text: string) => text.toLowerCase().replace(/\s+/g, " ");
+
+const escapeRegExp = (value: string) =>
+    value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const hasKeyword = (normalizedText: string, keyword: string) => {
+    const normalizedKeyword = keyword.trim().toLowerCase();
+
+    if (!normalizedKeyword) return false;
+
+    if (/^[a-z0-9]+$/i.test(normalizedKeyword)) {
+        return new RegExp(`\\b${escapeRegExp(normalizedKeyword)}\\b`).test(
+            normalizedText
+        );
+    }
+
+    return normalizedText.includes(normalizedKeyword);
+};
+
+const countKeywordHits = (text: string, keywords: string[]) => {
+    const normalizedText = normalizeText(text);
+
+    return unique(
+        keywords
+            .map((keyword) => keyword.trim().toLowerCase())
+            .filter((keyword) => hasKeyword(normalizedText, keyword))
+    ).length;
+};
+
+const getMatchedKeywords = (text: string, keywords: string[]) => {
+    const normalizedText = normalizeText(text);
+
+    return unique(
+        keywords
+            .map((keyword) => keyword.trim())
+            .filter((keyword) => keyword.length > 1)
+            .filter((keyword) => hasKeyword(normalizedText, keyword))
+    );
+};
+
+const getTargetRoleKeywords = (targetRole?: string | null) => {
+    const role = normalizeText(targetRole || "");
+
+    if (!role) return [];
+
+    const keywords = role
+        .split(/[^a-z0-9+#.]+/i)
+        .map((keyword) => keyword.trim())
+        .filter((keyword) => keyword.length > 2);
+
+    if (role.includes("full stack")) {
+        keywords.push("frontend", "backend", "react", "node", "api", "database");
+    }
+
+    if (role.includes("backend")) {
+        keywords.push("api", "database", "sql", "server", "node", "express");
+    }
+
+    if (role.includes("frontend")) {
+        keywords.push("react", "javascript", "typescript", "html", "css");
+    }
+
+    if (role.includes("data")) {
+        keywords.push("python", "sql", "machine learning", "analytics");
+    }
+
+    return unique(keywords);
+};
+
+const buildResumeQualitySignals = (input: {
+    resumeText: string;
+    targetRole?: string | null;
+    userSkills?: string[];
+}): ResumeQualitySignals => {
+    const resumeText = input.resumeText;
+    const normalizedText = normalizeText(resumeText);
+    const sectionHeadings = Object.entries(SECTION_PATTERNS)
+        .filter(([, pattern]) => pattern.test(resumeText))
+        .map(([section]) => section);
+    const quantifiedAchievementCount = (
+        resumeText.match(
+            /\b\d+(\.\d+)?\s?(%|\+|x|k|ms|s|sec|seconds|users?|requests?|apis?|projects?|problems?|stars?|gpa|cgpa|lpa|months?|weeks?)\b/gi
+        ) || []
+    ).length;
+    const actionVerbCount = countKeywordHits(resumeText, ACTION_VERBS);
+    const technicalKeywordCount = countKeywordHits(resumeText, TECHNICAL_KEYWORDS);
+    const matchedProfileSkills = getMatchedKeywords(
+        resumeText,
+        input.userSkills ?? []
+    );
+    const targetRoleKeywordCount = countKeywordHits(
+        resumeText,
+        getTargetRoleKeywords(input.targetRole)
+    );
+    const projectVerbCount = countKeywordHits(resumeText, [
+        "project",
+        "built",
+        "developed",
+        "implemented",
+        "deployed",
+        "github",
+    ]);
+
+    return {
+        wordCount: resumeText.split(/\s+/).filter(Boolean).length,
+        sectionHeadings,
+        hasContactInfo:
+            /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(resumeText) ||
+            /\b\+?\d[\d\s-]{8,}\d\b/.test(resumeText),
+        hasLinks:
+            normalizedText.includes("github") ||
+            normalizedText.includes("linkedin") ||
+            /https?:\/\//i.test(resumeText),
+        hasEducation: sectionHeadings.includes("Education"),
+        hasSkills: sectionHeadings.includes("Skills"),
+        hasProjects: sectionHeadings.includes("Projects"),
+        hasExperience: sectionHeadings.includes("Experience"),
+        hasCertifications: sectionHeadings.includes("Certifications"),
+        quantifiedAchievementCount,
+        actionVerbCount,
+        technicalKeywordCount,
+        matchedProfileSkills,
+        targetRoleKeywordCount,
+        estimatedProjectCount: Math.min(6, Math.max(0, projectVerbCount)),
+    };
+};
+
+const computeHeuristicScores = (
+    signals: ResumeQualitySignals
+): Pick<
+    ResumeAIAnalysis,
+    | "atsScore"
+    | "roleFitScore"
+    | "keywordScore"
+    | "projectScore"
+    | "readabilityScore"
+> => {
+    const hasGoodLength = signals.wordCount >= 250 && signals.wordCount <= 900;
+    const isTooShort = signals.wordCount < 180;
+    const isTooLong = signals.wordCount > 1100;
+    const structureScore =
+        Math.min(30, signals.sectionHeadings.length * 6) +
+        (signals.hasContactInfo ? 8 : 0) +
+        (signals.hasLinks ? 4 : 0);
+
+    return {
+        atsScore: clampScore(
+            28 +
+                structureScore +
+                (hasGoodLength ? 12 : isTooShort ? -8 : 4) +
+                Math.min(10, signals.quantifiedAchievementCount * 2) +
+                Math.min(8, signals.actionVerbCount)
+        ),
+        roleFitScore: clampScore(
+            30 +
+                Math.min(20, signals.technicalKeywordCount * 2) +
+                Math.min(16, signals.targetRoleKeywordCount * 4) +
+                Math.min(14, signals.matchedProfileSkills.length * 4) +
+                (signals.hasProjects ? 10 : 0) +
+                (signals.hasExperience ? 8 : 0)
+        ),
+        keywordScore: clampScore(
+            25 +
+                (signals.hasSkills ? 10 : 0) +
+                Math.min(38, signals.technicalKeywordCount * 3) +
+                Math.min(18, signals.matchedProfileSkills.length * 4) +
+                Math.min(9, signals.targetRoleKeywordCount * 3)
+        ),
+        projectScore: clampScore(
+            22 +
+                (signals.hasProjects ? 18 : 0) +
+                Math.min(24, signals.estimatedProjectCount * 5) +
+                Math.min(18, signals.quantifiedAchievementCount * 3) +
+                Math.min(10, signals.technicalKeywordCount)
+        ),
+        readabilityScore: clampScore(
+            36 +
+                Math.min(24, signals.sectionHeadings.length * 5) +
+                Math.min(14, signals.actionVerbCount * 2) +
+                (hasGoodLength ? 14 : 0) -
+                (isTooShort ? 8 : 0) -
+                (isTooLong ? 10 : 0)
+        ),
+    };
+};
+
+const getSignalBasedStrengths = (signals: ResumeQualitySignals) => {
+    const strengths: string[] = [];
+
+    if (signals.technicalKeywordCount >= 8) {
+        strengths.push("Resume includes a healthy set of technical keywords.");
+    }
+
+    if (signals.hasProjects && signals.estimatedProjectCount >= 2) {
+        strengths.push("Projects are visible enough for a recruiter to evaluate.");
+    }
+
+    if (signals.quantifiedAchievementCount > 0) {
+        strengths.push("Some bullets already include measurable evidence.");
+    }
+
+    if (signals.hasLinks) {
+        strengths.push("Profile links make project verification easier.");
+    }
+
+    return strengths.length > 0
+        ? strengths.slice(0, 3)
+        : ["Resume has extractable text and can be improved with clearer evidence."];
+};
+
+const getSignalBasedIssues = (signals: ResumeQualitySignals) => {
+    const issues: string[] = [];
+
+    if (signals.sectionHeadings.length < 4) {
+        issues.push("Important resume sections are missing or not clearly labeled.");
+    }
+
+    if (signals.quantifiedAchievementCount === 0) {
+        issues.push("Bullets lack measurable impact, scale, or outcome numbers.");
+    }
+
+    if (signals.technicalKeywordCount < 6) {
+        issues.push("Technical keywords are too thin for ATS matching.");
+    }
+
+    if (!signals.hasProjects) {
+        issues.push("Projects section is missing or not recognizable.");
+    }
+
+    if (!signals.hasContactInfo) {
+        issues.push("Contact information is missing or not easy to detect.");
+    }
+
+    return issues.length > 0
+        ? issues.slice(0, 4)
+        : ["Add stronger proof of ownership, scale, and technical depth."];
 };
 
 const parseKeywordGroups = (value: any): ResumeKeywordGroups => {
@@ -107,52 +457,145 @@ const parseProjectImprovements = (
     }));
 };
 
-const fallbackResumeAnalysis = (): ResumeAIAnalysis => ({
-    atsScore: 50,
-    roleFitScore: 50,
-    keywordScore: 50,
-    projectScore: 50,
-    readabilityScore: 50,
+const fallbackResumeAnalysis = (input?: {
+    resumeText: string;
+    targetRole?: string | null;
+    userSkills?: string[];
+}): ResumeAIAnalysis => {
+    const signals = input ? buildResumeQualitySignals(input) : null;
+    const scores = signals
+        ? computeHeuristicScores(signals)
+        : {
+              atsScore: 50,
+              roleFitScore: 50,
+              keywordScore: 50,
+              projectScore: 50,
+              readabilityScore: 50,
+          };
 
-    summary:
-        "Resume analysis could not be generated completely. Review formatting, skills, projects, and measurable impact manually.",
-    recruiterVerdict:
-        "The resume needs more structured information before it can be evaluated confidently.",
+    return {
+        ...scores,
 
-    topStrengths: [],
-    criticalIssues: ["AI response could not be parsed correctly."],
+        summary:
+            "Resume analysis was generated with local resume signals because the AI response could not be parsed completely. The highest-impact improvement is to make each major section show role-relevant skills, project depth, and measurable outcomes.",
+        recruiterVerdict:
+            scores.atsScore >= 75
+                ? "Borderline shortlist: the resume has usable structure, but still needs stronger proof and targeting."
+                : "Reject risk: the resume needs clearer structure, keywords, and evidence before it is placement-ready.",
 
-    missingKeywords: {
-        technical: [],
-        tools: [],
-        roleSpecific: [],
-    },
+        topStrengths: signals ? getSignalBasedStrengths(signals) : [],
+        criticalIssues: [
+            "AI response could not be parsed correctly.",
+            ...(signals ? getSignalBasedIssues(signals) : []),
+        ].slice(0, 4),
 
-    sectionFeedback: [],
-    projectImprovements: [],
+        missingKeywords: {
+            technical: ["data structures", "algorithms", "system design"],
+            tools: ["git", "testing", "deployment"],
+            roleSpecific: getTargetRoleKeywords(input?.targetRole).slice(0, 5),
+        },
 
-    suggestedBullets: [
-        "Add measurable impact to each project bullet.",
-        "Include target-role keywords in the skills and project sections.",
-        "Keep bullets concise and action-oriented.",
-    ],
-    actionPlan: [
-        "Fix resume structure and section ordering.",
-        "Add missing technical keywords.",
-        "Rewrite project bullets with impact, tools, and outcomes.",
-    ],
-});
+        sectionFeedback: [
+            {
+                section: "Skills",
+                score: scores.keywordScore,
+                diagnosis:
+                    "Skills were scored from detected technical keywords and profile-skill matches.",
+                fixes: [
+                    "Group skills by languages, frameworks, databases, tools, and fundamentals.",
+                    "Keep only skills that are also supported by projects, experience, or coursework.",
+                ],
+            },
+            {
+                section: "Projects",
+                score: scores.projectScore,
+                diagnosis:
+                    "Projects were scored from visible project signals, action verbs, technical keywords, and measurable outcomes.",
+                fixes: [
+                    "Rewrite project bullets with problem, tech stack, implementation detail, and outcome.",
+                    "Add real metrics only where you can verify them.",
+                ],
+            },
+        ],
+        projectImprovements: [
+            {
+                projectName: "Most relevant project",
+                problem:
+                    "Project impact or technical depth is not clear enough from the extracted resume text.",
+                improvement:
+                    "Add architecture, tools used, your ownership, and measurable result.",
+                rewrittenBullet:
+                    "Built [project feature] using [confirmed tech stack] to solve [problem], improving [add actual metric] through [implementation detail].",
+            },
+        ],
 
-const parseResumeJsonSafely = (text: string): ResumeAIAnalysis => {
+        suggestedBullets: [
+            "Built [feature] using [confirmed technology] to solve [specific problem], with impact measured by [add actual metric].",
+            "Implemented [technical component] for [project name], improving reliability, usability, or performance by [add actual metric].",
+            "Integrated [tool/API/database] in [project name] to support [specific user workflow or technical requirement].",
+        ],
+        actionPlan: [
+            "Fix resume structure and section ordering.",
+            "Add missing technical keywords that are truthful for the target role.",
+            "Rewrite project bullets with technical depth and measurable impact.",
+        ],
+    };
+};
+
+const extractJsonObject = (text: string) => {
+    const cleaned = text
+        .replace(/```json/g, "")
+        .replace(/```/g, "")
+        .trim();
+
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace = cleaned.lastIndexOf("}");
+
+    if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
+        return cleaned;
+    }
+
+    return cleaned.slice(firstBrace, lastBrace + 1);
+};
+
+const calibrateCompressedScores = (
+    analysis: ResumeAIAnalysis,
+    heuristicScores: ReturnType<typeof computeHeuristicScores>
+): ResumeAIAnalysis => {
+    const scores = SCORE_KEYS.map((key) => analysis[key]);
+    const spread = Math.max(...scores) - Math.min(...scores);
+
+    if (spread > 4) return analysis;
+
+    const modelMean =
+        scores.reduce((total, score) => total + score, 0) / scores.length;
+    const heuristicValues = SCORE_KEYS.map((key) => heuristicScores[key]);
+    const heuristicMean =
+        heuristicValues.reduce((total, score) => total + score, 0) /
+        heuristicValues.length;
+
+    return SCORE_KEYS.reduce(
+        (updatedAnalysis, key) => ({
+            ...updatedAnalysis,
+            [key]: clampScore(
+                modelMean + (heuristicScores[key] - heuristicMean) * 0.55
+            ),
+        }),
+        analysis
+    );
+};
+
+const parseResumeJsonSafely = (
+    text: string,
+    fallbackAnalysis = fallbackResumeAnalysis(),
+    heuristicScores?: ReturnType<typeof computeHeuristicScores>
+): ResumeAIAnalysis => {
     try {
-        const cleaned = text
-            .replace(/```json/g, "")
-            .replace(/```/g, "")
-            .trim();
+        const cleaned = extractJsonObject(text);
 
         const parsed = JSON.parse(cleaned);
 
-        return {
+        const analysis = {
             atsScore: clampNumber(parsed.atsScore, 0, 100, 50),
             roleFitScore: clampNumber(parsed.roleFitScore, 0, 100, 50),
             keywordScore: clampNumber(parsed.keywordScore, 0, 100, 50),
@@ -175,8 +618,12 @@ const parseResumeJsonSafely = (text: string): ResumeAIAnalysis => {
             suggestedBullets: asStringArray(parsed.suggestedBullets),
             actionPlan: asStringArray(parsed.actionPlan),
         };
+
+        return heuristicScores
+            ? calibrateCompressedScores(analysis, heuristicScores)
+            : analysis;
     } catch {
-        return fallbackResumeAnalysis();
+        return fallbackAnalysis;
     }
 };
 
@@ -207,6 +654,17 @@ export const analyzeResumeIntelligence = async (input: {
     const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 
     const resumeText = input.resumeText.slice(0, 12000);
+    const resumeSignals = buildResumeQualitySignals({
+        resumeText,
+        targetRole: input.targetRole,
+        userSkills: input.userSkills,
+    });
+    const fallbackAnalysis = fallbackResumeAnalysis({
+        resumeText,
+        targetRole: input.targetRole,
+        userSkills: input.userSkills,
+    });
+    const heuristicScores = computeHeuristicScores(resumeSignals);
 
     const prompt = {
         task:
@@ -220,22 +678,47 @@ export const analyzeResumeIntelligence = async (input: {
             market:
                 "Indian campus placements, internships, service-based companies, product companies, and startups.",
         },
+        resumeSignals,
         resumeText,
         scoringRules: {
             atsScore:
-                "0-100 score based on ATS readability, section structure, keywords, formatting, quantified impact, and recruiter clarity.",
+                "0-100 score based on ATS readability, section structure, contact details, links, keywords, formatting, quantified impact, and recruiter clarity.",
             roleFitScore:
-                "0-100 score based on how well the resume matches the target role.",
+                "0-100 score based on direct evidence that projects, skills, coursework, and experience match the target role.",
             keywordScore:
-                "0-100 score based on relevant technical keywords, tools, frameworks, databases, and role-specific terms.",
+                "0-100 score based on relevant technical keywords, tools, frameworks, databases, fundamentals, and role-specific terms that are actually supported in the resume.",
             projectScore:
                 "0-100 score based on project quality, complexity, outcomes, architecture, metrics, and clarity.",
             readabilityScore:
                 "0-100 score based on concise bullets, grammar, ordering, formatting, and easy scanning.",
         },
+        scoreBands: {
+            "0-39":
+                "Very weak: missing core sections, little role evidence, unreadable, or mostly empty content.",
+            "40-54":
+                "Weak: basic resume exists but lacks clear keywords, technical proof, metrics, or relevant projects.",
+            "55-69":
+                "Average campus resume: some sections and projects exist, but proof, depth, and targeting are limited.",
+            "70-84":
+                "Strong: clear structure, relevant skills, meaningful projects, some metrics, and good role alignment.",
+            "85-100":
+                "Exceptional: strong verified impact, rich technical depth, excellent role fit, clean ATS structure, and recruiter-ready bullets.",
+        },
+        calibrationInstructions: [
+            "Use resumeSignals as evidence, but do not rely on them blindly. The resume text is the source of truth.",
+            "Scores must be differentiated. Do not give the same number to every category unless the resume truly has identical evidence quality across all dimensions.",
+            "Avoid safe default scores such as 50, 60, 70, or 75 unless the evidence exactly fits that band.",
+            "First decide the score band from evidence, then choose an exact score inside that band.",
+            "A resume with no quantified achievements should rarely exceed 74 overall ATS score.",
+            "A resume with missing or weak projects should rarely exceed 65 projectScore.",
+            "A resume with generic skills not backed by projects should rarely exceed 60 keywordScore or roleFitScore.",
+            "A resume with missing contact info, unclear sections, or poor extraction should keep atsScore below 65.",
+            "High scores require evidence from the resume text: named technologies, implementation details, links, outcomes, metrics, internships, or achievements.",
+        ],
         outputRequirements: [
             "Return only valid JSON. No markdown. No text outside JSON.",
             "Be strict. Do not inflate scores.",
+            "Each numeric score must be justified by actual resume evidence and should vary according to the scoring category.",
             "Do not give high scores unless the resume has strong evidence, measurable impact, and role-relevant keywords.",
             "If projects lack metrics, deployment, users, architecture, or technical depth, lower projectScore.",
             "If skills are generic or not reflected in projects, lower keywordScore and roleFitScore.",
@@ -347,5 +830,5 @@ export const analyzeResumeIntelligence = async (input: {
 
     const text = response.choices[0]?.message?.content || "{}";
 
-    return parseResumeJsonSafely(text);
+    return parseResumeJsonSafely(text, fallbackAnalysis, heuristicScores);
 };
