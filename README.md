@@ -6,9 +6,7 @@
 
 PlacementOS connects DSA practice, resume intelligence, interview replay, readiness scoring, daily planning, and smart notifications into a single preparation workflow.
 
-
-</div>
-
+---
 
 ## Product Preview
 
@@ -861,3 +859,12 @@ docs/architecture/PlacementOS_Complete_Architecture_Blueprint.pdf
 [GitHub — aryancodes12-bit](https://github.com/aryancodes12-bit)
 
 Full-stack engineering · AI-assisted workflows · System design · Placement technology
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+Copyright (c) 2026 Aryan Jaiswal
+
