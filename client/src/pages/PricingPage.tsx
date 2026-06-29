@@ -7,7 +7,6 @@ import {
     HelpCircle,
     Loader2,
     Minus,
-    Quote,
     ShieldCheck,
     Sparkles,
     Zap,
@@ -153,31 +152,21 @@ const trustBadges = [
     "Demo SaaS payment flow",
 ];
 
-const stats = [
+const betaNotes = [
     {
-        value: "12",
-        label: "users upgraded this week",
+        title: "What you can use today",
+        description:
+            "Core preparation tools remain available for beta users while PlacementOS validates the learning workflow.",
     },
     {
-        value: "96%",
-        label: "demo checkout completion",
+        title: "What premium will add",
+        description:
+            "Advanced AI workflows, deeper readiness insights, and higher usage limits will be introduced after beta.",
     },
     {
-        value: "4.8/5",
-        label: "reviewer clarity score",
-    },
-];
-
-const testimonials = [
-    {
-        quote: "Premium makes the placement dashboard feel like a complete SaaS product.",
-        name: "Demo reviewer",
-        role: "Frontend evaluation",
-    },
-    {
-        quote: "The clear test mode messaging removes payment confusion immediately.",
-        name: "Campus mentor",
-        role: "Product walkthrough",
+        title: "How pricing will work",
+        description:
+            "Plan details will be announced before billing is enabled, so users can choose before anything changes.",
     },
 ];
 
@@ -473,28 +462,25 @@ export const PricingPage = () => {
 
                 <div className="space-y-5">
                     <section className="rounded-2xl border border-border bg-bg-secondary p-6">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Demo stats</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Beta access</p>
                         <div className="mt-5 space-y-4">
-                            {stats.map((stat) => (
-                                <div key={stat.label} className="rounded-xl border border-border bg-bg-tertiary p-4">
-                                    <p className="text-2xl font-bold text-text-primary">{stat.value}</p>
-                                    <p className="mt-1 text-sm text-text-tertiary">{stat.label}</p>
+                            {betaNotes.map((note) => (
+                                <div key={note.title} className="rounded-xl border border-border bg-bg-tertiary p-4">
+                                    <p className="text-sm font-semibold text-text-primary">{note.title}</p>
+                                    <p className="mt-2 text-sm leading-6 text-text-secondary">{note.description}</p>
                                 </div>
                             ))}
                         </div>
                     </section>
 
                     <section className="rounded-2xl border border-border bg-bg-secondary p-6">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Testimonials</p>
-                        <div className="mt-5 space-y-4">
-                            {testimonials.map((testimonial) => (
-                                <div key={testimonial.name} className="rounded-xl border border-border bg-bg-tertiary p-4">
-                                    <Quote size={16} className="mb-3 text-brand" />
-                                    <p className="text-sm text-text-secondary">{testimonial.quote}</p>
-                                    <p className="mt-3 text-sm font-semibold text-text-primary">{testimonial.name}</p>
-                                    <p className="text-xs text-text-tertiary">{testimonial.role}</p>
-                                </div>
-                            ))}
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Plan promise</p>
+                        <div className="mt-5 rounded-xl border border-border bg-bg-tertiary p-4">
+                            <p className="text-sm leading-6 text-text-secondary">
+                                The beta plan is designed to keep placement preparation practical and accessible.
+                                Premium will focus on heavier AI analysis, automation, and usage-intensive workflows
+                                once those features are ready for broader release.
+                            </p>
                         </div>
                     </section>
                 </div>
