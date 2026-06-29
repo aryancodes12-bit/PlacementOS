@@ -1,72 +1,15 @@
-import { useEffect, useState } from "react";
 import {
     BadgeCheck,
     BarChart3,
     Check,
     Crown,
     HelpCircle,
-    Loader2,
     Minus,
-    Quote,
     ShieldCheck,
     Sparkles,
     Zap,
 } from "lucide-react";
 import { AppLayout } from "../components/ui/AppLayout";
-import { paymentService } from "../services/payment.service";
-import { useAuthStore } from "../store/authStore";
-
-type SubscriptionPlan = "FREE" | "PREMIUM";
-
-type RazorpayPaymentResponse = {
-    razorpay_order_id: string;
-    razorpay_payment_id: string;
-    razorpay_signature: string;
-};
-
-type RazorpayCheckoutOptions = {
-    key: string;
-    amount: number;
-    currency: string;
-    name: string;
-    description: string;
-    order_id: string;
-    prefill: {
-        name: string;
-        email: string;
-    };
-    theme: {
-        color: string;
-    };
-    handler: (response: RazorpayPaymentResponse) => Promise<void>;
-};
-
-type RazorpayCheckout = {
-    open: () => void;
-};
-
-type RazorpayConstructor = new (options: RazorpayCheckoutOptions) => RazorpayCheckout;
-
-declare global {
-    interface Window {
-        Razorpay?: RazorpayConstructor;
-    }
-}
-
-const loadRazorpayScript = () => {
-    return new Promise<boolean>((resolve) => {
-        if (window.Razorpay) {
-            resolve(true);
-            return;
-        }
-
-        const script = document.createElement("script");
-        script.src = "https://checkout.razorpay.com/v1/checkout.js";
-        script.onload = () => resolve(true);
-        script.onerror = () => resolve(false);
-        document.body.appendChild(script);
-    });
-};
 
 const freeFeatures = [
     "DSA tracker",
@@ -148,55 +91,45 @@ const comparisonRows = [
 ];
 
 const trustBadges = [
-    "Razorpay test checkout",
-    "No real transactions",
-    "Demo SaaS payment flow",
+    "Free during public beta",
+    "No payment required",
+    "Premium coming later",
 ];
 
-const stats = [
+const betaNotes = [
     {
-        value: "12",
-        label: "users upgraded this week",
+        title: "What you can use today",
+        description:
+            "Core preparation tools remain available for beta users while PlacementOS validates the learning workflow.",
     },
     {
-        value: "96%",
-        label: "demo checkout completion",
+        title: "What premium will add",
+        description:
+            "Advanced AI workflows, deeper readiness insights, and higher usage limits will be introduced after beta.",
     },
     {
-        value: "4.8/5",
-        label: "reviewer clarity score",
-    },
-];
-
-const testimonials = [
-    {
-        quote: "Premium makes the placement dashboard feel like a complete SaaS product.",
-        name: "Demo reviewer",
-        role: "Frontend evaluation",
-    },
-    {
-        quote: "The clear test mode messaging removes payment confusion immediately.",
-        name: "Campus mentor",
-        role: "Product walkthrough",
+        title: "How pricing will work",
+        description:
+            "Plan details will be announced before billing is enabled, so users can choose before anything changes.",
     },
 ];
 
 const faqs = [
     {
-        question: "Will this charge real money?",
-        answer: "No. This page is wired for Razorpay test mode and clearly marked as a demo flow.",
+        question: "Is PlacementOS free right now?",
+        answer: "Yes. PlacementOS is currently free during public beta.",
     },
     {
-        question: "What changes after upgrading?",
-        answer: "The current visual flow shows Premium as a one-time demo plan with higher AI limits and advanced readiness insights.",
+        question: "When will Premium subscriptions launch?",
+        answer: "Premium subscriptions will be introduced later for advanced AI-powered workflows and higher usage limits.",
     },
     {
-        question: "Can recruiters safely test the button?",
-        answer: "Yes. The page explains that no real transactions are deducted while using Razorpay test keys.",
+        question: "Will beta users lose access without warning?",
+        answer: "No. Core beta access stays free, and paid plan details will be communicated before billing is enabled.",
     },
     {
-        question: "Is the comparison table live data?",
-        answer: "No. It is static frontend content for clarity during portfolio reviews and product demos.",
+        question: "What should I use now?",
+        answer: "Use the free beta plan to track DSA practice, manage preparation, upload resumes, and review interview progress.",
     },
 ];
 
@@ -223,112 +156,23 @@ const renderComparisonValue = (value: string) => {
 };
 
 export const PricingPage = () => {
-    const { user } = useAuthStore();
-
-    const [plan, setPlan] = useState<SubscriptionPlan>("FREE");
-    const [loading, setLoading] = useState(true);
-    const [paying, setPaying] = useState(false);
-
-    const handleUpgrade = async () => {
-        try {
-            setPaying(true);
-
-            const scriptLoaded = await loadRazorpayScript();
-
-            if (!scriptLoaded) {
-                alert("Razorpay checkout failed to load. Check your internet connection.");
-                return;
-            }
-
-            const { data } = await paymentService.createPremiumOrder();
-
-            const Razorpay = window.Razorpay;
-
-            if (!Razorpay) {
-                alert("Razorpay checkout failed to initialize.");
-                return;
-            }
-
-            const options: RazorpayCheckoutOptions = {
-                key: data.keyId,
-                amount: data.order.amount,
-                currency: data.order.currency,
-                name: "PlacementOS",
-                description: "PlacementOS Premium Plan",
-                order_id: data.order.id,
-                prefill: {
-                    name: user?.name ?? "",
-                    email: user?.email ?? "",
-                },
-                theme: {
-                    color: "#6366F1",
-                },
-                handler: async (response) => {
-                    try {
-                        await paymentService.verifyPayment(response);
-                        setPlan("PREMIUM");
-                        alert("Payment successful. Premium unlocked.");
-                    } catch (error) {
-                        console.error("Payment verification failed:", error);
-                        alert("Payment verification failed. Please contact support.");
-                    }
-                },
-            };
-
-            const razorpay = new Razorpay(options);
-            razorpay.open();
-        } catch (error) {
-            console.error("Failed to start payment:", error);
-            alert("Failed to start payment. Please try again.");
-        } finally {
-            setPaying(false);
-        }
-    };
-
-    useEffect(() => {
-        let isMounted = true;
-
-        const syncSubscription = async () => {
-            try {
-                const { data } = await paymentService.getSubscription();
-
-                if (!isMounted) {
-                    return;
-                }
-
-                setPlan(data.plan ?? "FREE");
-            } catch (error) {
-                console.error("Failed to fetch subscription:", error);
-            } finally {
-                if (isMounted) {
-                    setLoading(false);
-                }
-            }
-        };
-
-        void syncSubscription();
-
-        return () => {
-            isMounted = false;
-        };
-    }, []);
-
     return (
         <AppLayout
-            title="Premium"
-            description="Upgrade PlacementOS with premium AI placement preparation tools."
+            title="Pricing"
+            description="PlacementOS is free during public beta. Premium subscriptions are planned for later."
         >
-            <div className="mb-5 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">
+            <div className="mb-5 rounded-2xl border border-success/30 bg-success/10 px-5 py-4 text-sm text-success">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <p className="font-bold text-amber-50">Demo Mode - No real transactions</p>
-                        <p className="mt-1 text-amber-100/80">
-                            Razorpay checkout runs with test keys for portfolio review and recruiter demos.
+                        <p className="font-bold text-text-primary">Free during public beta</p>
+                        <p className="mt-1 text-text-secondary">
+                            PlacementOS is currently free during public beta. Premium subscriptions will be introduced
+                            later for advanced AI-powered workflows and higher usage limits.
                         </p>
                     </div>
-                    <span className="inline-flex w-fit items-center gap-2 rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-xs font-semibold text-amber-50">
+                    <span className="inline-flex w-fit items-center gap-2 rounded-full border border-success/30 bg-success/10 px-3 py-1 text-xs font-semibold text-success">
                         <ShieldCheck size={14} />
-                        Test checkout only
+                        No payment needed
                     </span>
                 </div>
             </div>
@@ -358,7 +202,7 @@ export const PricingPage = () => {
                         </div>
                     </div>
 
-                    <p className="mb-6 text-3xl font-bold text-text-primary">₹0</p>
+                    <p className="mb-6 text-3xl font-bold text-text-primary">Free</p>
 
                     <div className="space-y-3">
                         {freeFeatures.map((feature) => (
@@ -370,7 +214,7 @@ export const PricingPage = () => {
                     </div>
 
                     <div className="mt-6 rounded-xl border border-border bg-bg-tertiary px-4 py-3 text-sm text-text-tertiary">
-                        Current starter plan.
+                        Active for all beta users.
                     </div>
                 </div>
 
@@ -385,7 +229,7 @@ export const PricingPage = () => {
                                 <div className="flex items-center gap-2">
                                     <h2 className="text-lg font-bold text-text-primary">Premium</h2>
                                     <span className="rounded-full bg-brand-muted px-2 py-0.5 text-xs font-medium text-brand">
-                                        Recommended
+                                        Planned
                                     </span>
                                 </div>
                                 <p className="text-sm text-text-tertiary">For serious placement preparation.</p>
@@ -393,8 +237,10 @@ export const PricingPage = () => {
                         </div>
                     </div>
 
-                    <p className="mb-1 text-3xl font-bold text-text-primary">₹199</p>
-                    <p className="mb-6 text-sm text-text-tertiary">One-time test plan for demo SaaS flow.</p>
+                    <p className="mb-1 text-3xl font-bold text-text-primary">Coming soon</p>
+                    <p className="mb-6 text-sm text-text-tertiary">
+                        Pricing will be announced before paid access begins.
+                    </p>
 
                     <div className="space-y-3">
                         {premiumFeatures.map((feature) => (
@@ -406,30 +252,15 @@ export const PricingPage = () => {
                     </div>
 
                     <button
-                        onClick={handleUpgrade}
-                        disabled={loading || paying || plan === "PREMIUM"}
+                        disabled
                         className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                        {loading || paying ? (
-                            <>
-                                <Loader2 size={16} className="animate-spin" />
-                                Processing...
-                            </>
-                        ) : plan === "PREMIUM" ? (
-                            <>
-                                <Sparkles size={16} />
-                                Premium Active
-                            </>
-                        ) : (
-                            <>
-                                <Crown size={16} />
-                                Upgrade to Premium
-                            </>
-                        )}
+                        <Sparkles size={16} />
+                        Premium Coming Later
                     </button>
 
                     <p className="mt-3 text-center text-xs text-text-tertiary">
-                        Test mode only. No real money is deducted with Razorpay test keys.
+                        Beta users can keep using PlacementOS free while premium plans are being prepared.
                     </p>
                 </div>
             </div>
@@ -445,7 +276,7 @@ export const PricingPage = () => {
                         </div>
                         <span className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-bg-tertiary px-3 py-1 text-xs font-medium text-text-tertiary">
                             <BarChart3 size={14} />
-                            Static comparison
+                            Beta roadmap
                         </span>
                     </div>
 
@@ -473,28 +304,25 @@ export const PricingPage = () => {
 
                 <div className="space-y-5">
                     <section className="rounded-2xl border border-border bg-bg-secondary p-6">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Demo stats</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Beta access</p>
                         <div className="mt-5 space-y-4">
-                            {stats.map((stat) => (
-                                <div key={stat.label} className="rounded-xl border border-border bg-bg-tertiary p-4">
-                                    <p className="text-2xl font-bold text-text-primary">{stat.value}</p>
-                                    <p className="mt-1 text-sm text-text-tertiary">{stat.label}</p>
+                            {betaNotes.map((note) => (
+                                <div key={note.title} className="rounded-xl border border-border bg-bg-tertiary p-4">
+                                    <p className="text-sm font-semibold text-text-primary">{note.title}</p>
+                                    <p className="mt-2 text-sm leading-6 text-text-tertiary">{note.description}</p>
                                 </div>
                             ))}
                         </div>
                     </section>
 
                     <section className="rounded-2xl border border-border bg-bg-secondary p-6">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Testimonials</p>
-                        <div className="mt-5 space-y-4">
-                            {testimonials.map((testimonial) => (
-                                <div key={testimonial.name} className="rounded-xl border border-border bg-bg-tertiary p-4">
-                                    <Quote size={16} className="mb-3 text-brand" />
-                                    <p className="text-sm text-text-secondary">{testimonial.quote}</p>
-                                    <p className="mt-3 text-sm font-semibold text-text-primary">{testimonial.name}</p>
-                                    <p className="text-xs text-text-tertiary">{testimonial.role}</p>
-                                </div>
-                            ))}
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Plan promise</p>
+                        <div className="mt-5 rounded-xl border border-border bg-bg-tertiary p-4">
+                            <p className="text-sm leading-6 text-text-secondary">
+                                The beta plan is designed to keep placement preparation practical and accessible.
+                                Premium will focus on heavier AI analysis, automation, and usage-intensive workflows
+                                once those features are ready for broader release.
+                            </p>
                         </div>
                     </section>
                 </div>
@@ -507,7 +335,7 @@ export const PricingPage = () => {
                     </div>
                     <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">FAQ</p>
-                        <h2 className="text-xl font-bold text-text-primary">Premium demo questions</h2>
+                        <h2 className="text-xl font-bold text-text-primary">Pricing questions</h2>
                     </div>
                 </div>
 
