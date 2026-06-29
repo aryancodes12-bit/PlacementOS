@@ -1,12 +1,55 @@
 import { useEffect, useState } from "react";
-import { Check, Crown, Loader2, Sparkles, Zap } from "lucide-react";
+import {
+    BadgeCheck,
+    BarChart3,
+    Check,
+    Crown,
+    HelpCircle,
+    Loader2,
+    Minus,
+    Quote,
+    ShieldCheck,
+    Sparkles,
+    Zap,
+} from "lucide-react";
 import { AppLayout } from "../components/ui/AppLayout";
 import { paymentService } from "../services/payment.service";
 import { useAuthStore } from "../store/authStore";
 
+type SubscriptionPlan = "FREE" | "PREMIUM";
+
+type RazorpayPaymentResponse = {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+};
+
+type RazorpayCheckoutOptions = {
+    key: string;
+    amount: number;
+    currency: string;
+    name: string;
+    description: string;
+    order_id: string;
+    prefill: {
+        name: string;
+        email: string;
+    };
+    theme: {
+        color: string;
+    };
+    handler: (response: RazorpayPaymentResponse) => Promise<void>;
+};
+
+type RazorpayCheckout = {
+    open: () => void;
+};
+
+type RazorpayConstructor = new (options: RazorpayCheckoutOptions) => RazorpayCheckout;
+
 declare global {
     interface Window {
-        Razorpay: any;
+        Razorpay?: RazorpayConstructor;
     }
 }
 
@@ -25,23 +68,166 @@ const loadRazorpayScript = () => {
     });
 };
 
+const freeFeatures = [
+    "DSA tracker",
+    "Basic dashboard",
+    "Resume upload",
+    "Limited interview replay tracking",
+];
+
+const premiumFeatures = [
+    "Unlimited AI Daily Plan generation",
+    "Resume Intelligence with ATS insights",
+    "Interview Replay Intelligence",
+    "Company readiness analysis",
+    "Priority AI improvement tips",
+    "Premium SaaS-ready profile badge",
+];
+
+const comparisonRows = [
+    {
+        feature: "DSA Tracker and revision queue",
+        free: "included",
+        premium: "included",
+    },
+    {
+        feature: "Placement readiness dashboard",
+        free: "included",
+        premium: "included",
+    },
+    {
+        feature: "Full-stack roadmap",
+        free: "included",
+        premium: "included",
+    },
+    {
+        feature: "Basic AI Daily Plan",
+        free: "included",
+        premium: "included",
+    },
+    {
+        feature: "Resume Intelligence",
+        free: "Limited",
+        premium: "Higher limits",
+    },
+    {
+        feature: "Audio/video Interview Replay",
+        free: "Limited",
+        premium: "Higher limits",
+    },
+    {
+        feature: "Advanced question-level feedback",
+        free: "none",
+        premium: "included",
+    },
+    {
+        feature: "Resume version comparison",
+        free: "none",
+        premium: "included",
+    },
+    {
+        feature: "Complete readiness history",
+        free: "none",
+        premium: "included",
+    },
+    {
+        feature: "Advanced weakness analytics",
+        free: "none",
+        premium: "included",
+    },
+    {
+        feature: "Priority AI processing",
+        free: "none",
+        premium: "included",
+    },
+    {
+        feature: "Exportable preparation reports",
+        free: "none",
+        premium: "included",
+    },
+];
+
+const trustBadges = [
+    "Razorpay test checkout",
+    "No real transactions",
+    "Demo SaaS payment flow",
+];
+
+const stats = [
+    {
+        value: "12",
+        label: "users upgraded this week",
+    },
+    {
+        value: "96%",
+        label: "demo checkout completion",
+    },
+    {
+        value: "4.8/5",
+        label: "reviewer clarity score",
+    },
+];
+
+const testimonials = [
+    {
+        quote: "Premium makes the placement dashboard feel like a complete SaaS product.",
+        name: "Demo reviewer",
+        role: "Frontend evaluation",
+    },
+    {
+        quote: "The clear test mode messaging removes payment confusion immediately.",
+        name: "Campus mentor",
+        role: "Product walkthrough",
+    },
+];
+
+const faqs = [
+    {
+        question: "Will this charge real money?",
+        answer: "No. This page is wired for Razorpay test mode and clearly marked as a demo flow.",
+    },
+    {
+        question: "What changes after upgrading?",
+        answer: "The current visual flow shows Premium as a one-time demo plan with higher AI limits and advanced readiness insights.",
+    },
+    {
+        question: "Can recruiters safely test the button?",
+        answer: "Yes. The page explains that no real transactions are deducted while using Razorpay test keys.",
+    },
+    {
+        question: "Is the comparison table live data?",
+        answer: "No. It is static frontend content for clarity during portfolio reviews and product demos.",
+    },
+];
+
+const renderComparisonValue = (value: string) => {
+    if (value === "included") {
+        return (
+            <span className="inline-flex items-center justify-center gap-2 text-success">
+                <Check size={15} />
+                <span className="sr-only">Included</span>
+            </span>
+        );
+    }
+
+    if (value === "none") {
+        return (
+            <span className="inline-flex items-center justify-center gap-2 text-text-tertiary">
+                <Minus size={15} />
+                <span className="sr-only">Not included</span>
+            </span>
+        );
+    }
+
+    return <span className="text-text-secondary">{value}</span>;
+};
+
 export const PricingPage = () => {
     const { user } = useAuthStore();
 
-    const [plan, setPlan] = useState<"FREE" | "PREMIUM">("FREE");
+    const [plan, setPlan] = useState<SubscriptionPlan>("FREE");
     const [loading, setLoading] = useState(true);
     const [paying, setPaying] = useState(false);
-
-    const fetchSubscription = async () => {
-        try {
-            const { data } = await paymentService.getSubscription();
-            setPlan(data.plan ?? "FREE");
-        } catch (error) {
-            console.error("Failed to fetch subscription:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleUpgrade = async () => {
         try {
@@ -56,7 +242,14 @@ export const PricingPage = () => {
 
             const { data } = await paymentService.createPremiumOrder();
 
-            const options = {
+            const Razorpay = window.Razorpay;
+
+            if (!Razorpay) {
+                alert("Razorpay checkout failed to initialize.");
+                return;
+            }
+
+            const options: RazorpayCheckoutOptions = {
                 key: data.keyId,
                 amount: data.order.amount,
                 currency: data.order.currency,
@@ -70,11 +263,7 @@ export const PricingPage = () => {
                 theme: {
                     color: "#6366F1",
                 },
-                handler: async (response: {
-                    razorpay_order_id: string;
-                    razorpay_payment_id: string;
-                    razorpay_signature: string;
-                }) => {
+                handler: async (response) => {
                     try {
                         await paymentService.verifyPayment(response);
                         setPlan("PREMIUM");
@@ -86,7 +275,7 @@ export const PricingPage = () => {
                 },
             };
 
-            const razorpay = new window.Razorpay(options);
+            const razorpay = new Razorpay(options);
             razorpay.open();
         } catch (error) {
             console.error("Failed to start payment:", error);
@@ -97,7 +286,31 @@ export const PricingPage = () => {
     };
 
     useEffect(() => {
-        fetchSubscription();
+        let isMounted = true;
+
+        const syncSubscription = async () => {
+            try {
+                const { data } = await paymentService.getSubscription();
+
+                if (!isMounted) {
+                    return;
+                }
+
+                setPlan(data.plan ?? "FREE");
+            } catch (error) {
+                console.error("Failed to fetch subscription:", error);
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        void syncSubscription();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     return (
@@ -105,6 +318,33 @@ export const PricingPage = () => {
             title="Premium"
             description="Upgrade PlacementOS with premium AI placement preparation tools."
         >
+            <div className="mb-5 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p className="font-bold text-amber-50">Demo Mode - No real transactions</p>
+                        <p className="mt-1 text-amber-100/80">
+                            Razorpay checkout runs with test keys for portfolio review and recruiter demos.
+                        </p>
+                    </div>
+                    <span className="inline-flex w-fit items-center gap-2 rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-xs font-semibold text-amber-50">
+                        <ShieldCheck size={14} />
+                        Test checkout only
+                    </span>
+                </div>
+            </div>
+
+            <div className="mb-5 grid gap-3 md:grid-cols-3">
+                {trustBadges.map((badge) => (
+                    <div
+                        key={badge}
+                        className="flex items-center gap-3 rounded-2xl border border-border bg-bg-secondary px-4 py-3 text-sm font-medium text-text-secondary"
+                    >
+                        <BadgeCheck size={17} className="text-brand" />
+                        {badge}
+                    </div>
+                ))}
+            </div>
+
             <div className="grid gap-5 lg:grid-cols-2">
                 <div className="rounded-2xl border border-border bg-bg-secondary p-6">
                     <div className="mb-5 flex items-center gap-3">
@@ -121,12 +361,7 @@ export const PricingPage = () => {
                     <p className="mb-6 text-3xl font-bold text-text-primary">₹0</p>
 
                     <div className="space-y-3">
-                        {[
-                            "DSA tracker",
-                            "Basic dashboard",
-                            "Resume upload",
-                            "Limited interview replay tracking",
-                        ].map((feature) => (
+                        {freeFeatures.map((feature) => (
                             <div key={feature} className="flex items-center gap-2 text-sm text-text-secondary">
                                 <Check size={15} className="text-success" />
                                 {feature}
@@ -162,14 +397,7 @@ export const PricingPage = () => {
                     <p className="mb-6 text-sm text-text-tertiary">One-time test plan for demo SaaS flow.</p>
 
                     <div className="space-y-3">
-                        {[
-                            "Unlimited AI Daily Plan generation",
-                            "Resume Intelligence with ATS insights",
-                            "Interview Replay Intelligence",
-                            "Company readiness analysis",
-                            "Priority AI improvement tips",
-                            "Premium SaaS-ready profile badge",
-                        ].map((feature) => (
+                        {premiumFeatures.map((feature) => (
                             <div key={feature} className="flex items-center gap-2 text-sm text-text-secondary">
                                 <Check size={15} className="text-success" />
                                 {feature}
@@ -205,6 +433,101 @@ export const PricingPage = () => {
                     </p>
                 </div>
             </div>
+
+            <div className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
+                <section className="rounded-2xl border border-border bg-bg-secondary p-6">
+                    <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
+                                Included features
+                            </p>
+                            <h2 className="mt-2 text-xl font-bold text-text-primary">Free vs Premium</h2>
+                        </div>
+                        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-bg-tertiary px-3 py-1 text-xs font-medium text-text-tertiary">
+                            <BarChart3 size={14} />
+                            Static comparison
+                        </span>
+                    </div>
+
+                    <div className="overflow-hidden rounded-2xl border border-border">
+                        <div className="grid grid-cols-[1.4fr_0.65fr_0.75fr] bg-bg-tertiary text-xs font-semibold uppercase tracking-[0.12em] text-text-tertiary">
+                            <div className="px-4 py-3">Feature</div>
+                            <div className="px-4 py-3 text-center">Free</div>
+                            <div className="px-4 py-3 text-center">Premium</div>
+                        </div>
+
+                        <div className="divide-y divide-border">
+                            {comparisonRows.map((row) => (
+                                <div
+                                    key={row.feature}
+                                    className="grid grid-cols-[1.4fr_0.65fr_0.75fr] items-center text-sm"
+                                >
+                                    <div className="px-4 py-3 font-medium text-text-secondary">{row.feature}</div>
+                                    <div className="px-4 py-3 text-center">{renderComparisonValue(row.free)}</div>
+                                    <div className="px-4 py-3 text-center">{renderComparisonValue(row.premium)}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                <div className="space-y-5">
+                    <section className="rounded-2xl border border-border bg-bg-secondary p-6">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Demo stats</p>
+                        <div className="mt-5 space-y-4">
+                            {stats.map((stat) => (
+                                <div key={stat.label} className="rounded-xl border border-border bg-bg-tertiary p-4">
+                                    <p className="text-2xl font-bold text-text-primary">{stat.value}</p>
+                                    <p className="mt-1 text-sm text-text-tertiary">{stat.label}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    <section className="rounded-2xl border border-border bg-bg-secondary p-6">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Testimonials</p>
+                        <div className="mt-5 space-y-4">
+                            {testimonials.map((testimonial) => (
+                                <div key={testimonial.name} className="rounded-xl border border-border bg-bg-tertiary p-4">
+                                    <Quote size={16} className="mb-3 text-brand" />
+                                    <p className="text-sm text-text-secondary">{testimonial.quote}</p>
+                                    <p className="mt-3 text-sm font-semibold text-text-primary">{testimonial.name}</p>
+                                    <p className="text-xs text-text-tertiary">{testimonial.role}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <section className="mt-5 rounded-2xl border border-border bg-bg-secondary p-6">
+                <div className="mb-5 flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-muted text-brand">
+                        <HelpCircle size={18} />
+                    </div>
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">FAQ</p>
+                        <h2 className="text-xl font-bold text-text-primary">Premium demo questions</h2>
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                    {faqs.map((faq) => (
+                        <details
+                            key={faq.question}
+                            className="group rounded-xl border border-border bg-bg-tertiary px-4 py-3"
+                        >
+                            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-semibold text-text-primary">
+                                {faq.question}
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border text-text-tertiary transition group-open:rotate-45 group-open:text-brand">
+                                    <Check size={14} />
+                                </span>
+                            </summary>
+                            <p className="mt-3 max-w-3xl text-sm leading-6 text-text-tertiary">{faq.answer}</p>
+                        </details>
+                    ))}
+                </div>
+            </section>
         </AppLayout>
     );
 };
