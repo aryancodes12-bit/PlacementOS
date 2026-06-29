@@ -145,6 +145,43 @@ describe(
 
                             createdDate:
                                 "2026-06-24",
+
+                            plan: {
+                                greeting:
+                                    "Good morning.",
+
+                                totalTime:
+                                    "1 hour 30 min",
+
+                                focusMessage:
+                                    "Clear overdue graph revisions before starting new problems.",
+
+                                categories: [
+                                    {
+                                        name:
+                                            "DSA",
+
+                                        icon:
+                                            "code",
+
+                                        color:
+                                            "brand",
+
+                                        items: [
+                                            {
+                                                task:
+                                                    "Revise Number of Islands",
+
+                                                reason:
+                                                    "It is overdue.",
+
+                                                duration:
+                                                    "20 min",
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
                         }
                     );
 
@@ -163,7 +200,7 @@ describe(
 
                     message:
                         expect.stringContaining(
-                            "today’s focused preparation plan"
+                            "1 hour 30 min plan ready"
                         ),
 
                     link:
@@ -183,6 +220,17 @@ describe(
                             "daily-plan-generation",
                     },
                 });
+
+                expect(
+                    mocks.createNotification
+                ).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        message:
+                            expect.stringContaining(
+                                "Revise Number of Islands"
+                            ),
+                    })
+                );
 
                 expect(
                     mocks.toRealtimeNotification

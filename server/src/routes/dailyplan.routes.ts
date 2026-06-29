@@ -332,6 +332,7 @@ router.get(
             await publishDailyPlanReadyNotification({
                 userId,
                 createdDate,
+                plan,
             });
 
             return res

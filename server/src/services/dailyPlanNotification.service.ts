@@ -14,12 +14,111 @@ import {
 interface PublishDailyPlanReadyInput {
     userId: string;
     createdDate: string;
+    plan?: DailyPlanNotificationPlan;
 }
+
+interface DailyPlanNotificationPlan {
+    greeting?: unknown;
+    focusMessage?: unknown;
+    totalTime?: unknown;
+    categories?: Array<{
+        name?: unknown;
+        icon?: unknown;
+        color?: unknown;
+        items?: Array<{
+            task?: unknown;
+            reason?: unknown;
+            duration?: unknown;
+        }>;
+    }>;
+}
+
+const clampText = (
+    value: unknown,
+    fallback: string,
+    maxLength: number
+) => {
+    const text =
+        String(value || "")
+            .replace(/\s+/g, " ")
+            .trim();
+
+    if (!text) {
+        return fallback;
+    }
+
+    return text.length > maxLength
+        ? `${text
+            .slice(
+                0,
+                maxLength - 1
+            )
+            .trim()}.`
+        : text;
+};
+
+const getFirstPlanTask = (
+    plan: DailyPlanNotificationPlan | undefined
+) => {
+    return plan?.categories
+        ?.flatMap(
+            (category) =>
+                category.items || []
+        )
+        .map((item) =>
+            clampText(
+                item.task,
+                "",
+                90
+            )
+        )
+        .find(Boolean);
+};
+
+const buildDailyPlanNotificationMessage = (
+    plan: DailyPlanNotificationPlan | undefined
+) => {
+    const focusMessage =
+        clampText(
+            plan?.focusMessage,
+            "Today's focused preparation plan is ready.",
+            120
+        );
+
+    const totalTime =
+        typeof plan?.totalTime === "string"
+            ? clampText(
+                plan.totalTime,
+                "",
+                30
+            )
+            : "";
+
+    const firstTask =
+        getFirstPlanTask(plan);
+
+    const timePrefix =
+        totalTime
+            ? `${totalTime} plan ready. `
+            : "";
+
+    const taskSuffix =
+        firstTask
+            ? ` Start with: ${firstTask}.`
+            : "";
+
+    return clampText(
+        `${timePrefix}${focusMessage}${taskSuffix}`,
+        "Your focused preparation plan is ready. Open Daily Plan to start with the highest-priority task.",
+        240
+    );
+};
 
 export const publishDailyPlanReadyNotification =
     async ({
         userId,
         createdDate,
+        plan,
     }: PublishDailyPlanReadyInput) => {
         try {
             /*
@@ -42,7 +141,9 @@ export const publishDailyPlanReadyNotification =
                         "Your Daily AI Plan is ready",
 
                     message:
-                        "PlacementOS has generated today’s focused preparation plan using your current DSA, resume, interview, and readiness data.",
+                        buildDailyPlanNotificationMessage(
+                            plan
+                        ),
 
                     link:
                         "/daily-plan",
