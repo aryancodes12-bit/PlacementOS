@@ -3,8 +3,6 @@ import type {
     HTMLAttributes,
 } from "react";
 
-import logo from "../../assets/logo.jpeg";
-
 export type BrandLogoVariant =
     | "navbar"
     | "sidebar"
@@ -97,8 +95,10 @@ export const BrandLogo = ({
                 aria-hidden="true"
             >
                 <img
-                    src={logo}
+                    src="/placementos-logo-128.jpeg"
                     alt=""
+                    width={64}
+                    height={64}
                     loading={
                         priority
                             ? "eager"

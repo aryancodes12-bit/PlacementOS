@@ -385,7 +385,6 @@ const Logo = () => {
         <Link
             to="/"
             className="inline-flex items-center rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-            aria-label="PlacementOS home"
         >
             <BrandLogo
                 variant="navbar"
@@ -443,12 +442,12 @@ export const HeroScoreSimulator = () => {
                 <div className="rounded-[22px] border border-white/[0.07] bg-[#090d19] p-5 sm:p-6">
                     <div className="flex items-center justify-between border-b border-white/[0.07] pb-5">
                         <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
                                 Interactive Simulator
                             </p>
-                            <h3 className="mt-1 text-base font-bold text-white">
+                            <p className="mt-1 text-base font-bold text-white">
                                 Placement Readiness
-                            </h3>
+                            </p>
                         </div>
 
                         <div className="flex flex-col items-end">
@@ -456,11 +455,11 @@ export const HeroScoreSimulator = () => {
                                 <span className="text-4xl font-extrabold tracking-tight text-indigo-400">
                                     {readinessScore}
                                 </span>
-                                <span className="pb-1 text-sm text-slate-500">
+                                <span className="pb-1 text-sm text-slate-400">
                                     / 100
                                 </span>
                             </div>
-                            <span className="text-[10px] text-slate-500 mt-0.5">
+                            <span className="text-[10px] text-slate-400 mt-0.5">
                                 Weighted Score
                             </span>
                         </div>
@@ -1715,9 +1714,9 @@ export const StudentSuccessStories = () => {
                             {story.avatar}
                         </div>
                         <div className="min-w-0">
-                            <h4 className="truncate text-xs font-bold text-white">
+                            <h3 className="truncate text-xs font-bold text-white">
                                 {story.name}
-                            </h4>
+                            </h3>
                             <p className="truncate text-[10px] text-slate-500">
                                 {story.role} @ {story.company}
                             </p>
@@ -2443,7 +2442,7 @@ export const OnboardingPage = () => {
                                         >
                                             {item.href &&
                                                 item.kind ===
-                                                    "route" ? (
+                                                "route" ? (
                                                 <Link
                                                     to={item.href}
                                                     className={className}
@@ -2456,7 +2455,7 @@ export const OnboardingPage = () => {
                                                     target={
                                                         item.kind ===
                                                             "external" ||
-                                                        item.kind ===
+                                                            item.kind ===
                                                             "asset"
                                                             ? "_blank"
                                                             : undefined
@@ -2464,7 +2463,7 @@ export const OnboardingPage = () => {
                                                     rel={
                                                         item.kind ===
                                                             "external" ||
-                                                        item.kind ===
+                                                            item.kind ===
                                                             "asset"
                                                             ? "noreferrer"
                                                             : undefined
@@ -2564,7 +2563,7 @@ export const OnboardingPage = () => {
                         <div>
                             <Logo />
 
-                            <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">
+                            <p className="mt-3 max-w-md text-sm leading-6 text-slate-400">
                                 A personal placement operating system for
                                 structured, evidence-driven preparation.
                             </p>
@@ -2649,12 +2648,12 @@ export const OnboardingPage = () => {
                         </nav>
                     </div>
 
-                    <div className="flex flex-col justify-between gap-3 pt-6 text-xs text-slate-600 sm:flex-row text-left">
-                        <p>
+                    <div className="flex flex-col justify-between gap-3 pt-6 sm:flex-row text-left">
+                        <p className="text-xs text-slate-400">
                             © {new Date().getFullYear()} PlacementOS. Built for placement preparation.
                         </p>
 
-                        <p>
+                        <p className="text-xs text-slate-400">
                             Designed with accessibility, privacy, and
                             performance in mind.
                         </p>

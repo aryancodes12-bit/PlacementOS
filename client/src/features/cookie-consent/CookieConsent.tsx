@@ -299,7 +299,7 @@ export const CookieConsent = () => {
                                 onClick={
                                     handleAcceptAll
                                 }
-                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover active:scale-[0.98]"
+                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 active:scale-[0.98]"
                             >
                                 <Check size={15} />
                                 Accept all
@@ -419,7 +419,7 @@ export const CookieConsent = () => {
                                 onClick={
                                     handleAcceptAll
                                 }
-                                className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover active:scale-[0.98]"
+                                className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 active:scale-[0.98]"
                             >
                                 Accept all
                             </button>
