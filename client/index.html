@@ -2,39 +2,156 @@
 <html lang="en">
 
 <head>
+  <meta charset="UTF-8" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Primary SEO -->
+  <title>
+    PlacementOS — AI Placement Preparation Platform
+  </title>
+
+  <meta name="description"
+    content="Track DSA, analyze resumes, replay interviews, measure placement readiness, and follow personalized daily plans with PlacementOS." />
+
+  <meta name="keywords"
+    content="placement preparation, DSA tracker, resume analysis, interview preparation, ATS resume score, campus placements, placement readiness, AI interview analysis" />
+
+  <meta name="author" content="Aryan Jaiswal" />
+
+  <meta name="application-name" content="PlacementOS" />
+
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+
+  <link rel="canonical" href="https://placement-os-kappa.vercel.app/" />
+
+  <!-- Browser appearance -->
+  <meta name="theme-color" content="#050816" />
+
+  <meta name="color-scheme" content="dark" />
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+  <link rel="alternate icon" type="image/jpeg" href="/placementos-logo.jpeg" />
+
+  <!-- Open Graph: LinkedIn, WhatsApp, Facebook -->
+  <meta property="og:type" content="website" />
+
+  <meta property="og:site_name" content="PlacementOS" />
+
+  <meta property="og:title" content="PlacementOS — Prepare for Placements with Clarity" />
+
+  <meta property="og:description"
+    content="One connected workspace for DSA tracking, resume intelligence, interview replay, readiness scoring, and personalized daily planning." />
+
+  <meta property="og:url" content="https://placement-os-kappa.vercel.app/" />
+
+  <meta property="og:image" content="https://placement-os-kappa.vercel.app/placementos-logo.jpeg" />
+
+  <meta property="og:image:alt" content="PlacementOS — AI-assisted placement preparation platform" />
+
+  <meta property="og:locale" content="en_IN" />
+
+  <!-- X / Twitter -->
+  <meta name="twitter:card" content="summary" />
+
+  <meta name="twitter:title" content="PlacementOS — Prepare for Placements with Clarity" />
+
+  <meta name="twitter:description"
+    content="DSA tracking, resume intelligence, interview replay, readiness scoring, and personalized daily planning in one workspace." />
+
+  <meta name="twitter:image" content="https://placement-os-kappa.vercel.app/placementos-logo.jpeg" />
+
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
+
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
     rel="stylesheet" />
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/jpeg" href="/placementos-logo.jpeg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PlacementOS</title>
+
+  <!-- Structured data -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://placement-os-kappa.vercel.app/#website",
+          "url": "https://placement-os-kappa.vercel.app/",
+          "name": "PlacementOS",
+          "description": "An AI-assisted placement preparation platform for DSA, resumes, interviews, readiness scoring, and daily planning.",
+          "inLanguage": "en-IN"
+        },
+        {
+          "@type": "WebApplication",
+          "@id": "https://placement-os-kappa.vercel.app/#application",
+          "name": "PlacementOS",
+          "url": "https://placement-os-kappa.vercel.app/",
+          "description": "PlacementOS unifies DSA tracking, resume intelligence, interview replay, readiness scoring, daily planning, and preparation notifications.",
+          "applicationCategory": "EducationalApplication",
+          "operatingSystem": "Any operating system with a modern web browser",
+          "browserRequirements": "Requires JavaScript and a modern web browser",
+          "image": "https://placement-os-kappa.vercel.app/placementos-logo.jpeg",
+          "creator": {
+            "@type": "Person",
+            "name": "Aryan Jaiswal",
+            "url": "https://github.com/aryancodes12-bit"
+          },
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "INR",
+            "availability": "https://schema.org/InStock",
+            "description": "Free during public beta"
+          },
+          "featureList": [
+            "DSA problem and revision tracking",
+            "AI-assisted resume intelligence",
+            "Interview replay and structured feedback",
+            "Placement readiness scoring",
+            "Personalized daily preparation plans",
+            "Real-time preparation notifications"
+          ]
+        }
+      ]
+    }
+  </script>
 </head>
 
 <body>
   <noscript>
     <div style="
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-      background: #050816;
-      color: #ffffff;
-      font-family: system-ui, sans-serif;
-      text-align: center;
-    ">
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: #050816;
+        color: #ffffff;
+        font-family: system-ui, sans-serif;
+        text-align: center;
+      ">
       <div style="max-width: 520px;">
-        <h1>PlacementOS requires JavaScript</h1>
-        <p style="color: #94a3b8; line-height: 1.7;">
-          Enable JavaScript in your browser to access your
-          placement dashboard, preparation tools, and account.
+        <h1>
+          PlacementOS requires JavaScript
+        </h1>
+
+        <p style="
+            color: #94a3b8;
+            line-height: 1.7;
+          ">
+          Enable JavaScript in your browser to access
+          PlacementOS preparation tools, readiness insights,
+          and your personalized dashboard.
         </p>
       </div>
     </div>
   </noscript>
+
   <div id="root"></div>
+
   <script type="module" src="/src/main.tsx"></script>
 </body>
 
