@@ -51,53 +51,187 @@ const getReminderStatus = (
     );
 };
 
-const getPrimaryFocus = (
+const getReminderByType = (
+    reminders: ReminderItem[],
+    type: NotificationType
+) => {
+    return reminders.find(
+        (reminder) =>
+            reminder.type === type
+    );
+};
+
+const getMetadataNumber = (
+    reminder: ReminderItem | undefined,
+    key: string
+): number | null => {
+    const value =
+        reminder?.metadata[key];
+
+    return typeof value === "number"
+        ? value
+        : null;
+};
+
+const pluralize = (
+    count: number,
+    singular: string,
+    plural = `${singular}s`
+) => {
+    return count === 1
+        ? singular
+        : plural;
+};
+
+const buildDigestCoachCopy = (
     reminders: ReminderItem[]
-): string => {
-    if (
-        reminders.some(
-            (reminder) =>
-                reminder.type ===
-                NotificationType
-                    .DSA_REVISION_DUE
-        )
-    ) {
-        return "Clear your due DSA revision queue before starting new problems.";
+) => {
+    const dsaReminder =
+        getReminderByType(
+            reminders,
+            NotificationType.DSA_REVISION_DUE
+        );
+
+    const streakReminder =
+        getReminderByType(
+            reminders,
+            NotificationType.STREAK_RISK
+        );
+
+    const resumeReminder =
+        getReminderByType(
+            reminders,
+            NotificationType.RESUME_STALE
+        );
+
+    const interviewReminder =
+        getReminderByType(
+            reminders,
+            NotificationType.INTERVIEW_INACTIVE
+        );
+
+    if (dsaReminder) {
+        const dueCount =
+            getMetadataNumber(
+                dsaReminder,
+                "dueCount"
+            ) ?? 0;
+
+        const problemText =
+            dueCount > 0
+                ? `${dueCount} ${pluralize(
+                    dueCount,
+                    "problem"
+                )}`
+                : "your due queue";
+
+        return {
+            priorityTitle:
+                "Clear DSA revision first",
+
+            focusMessage:
+                `Start with ${problemText} due for spaced revision before adding new work.`,
+
+            nextStep:
+                "Revise the due item, write the mistake pattern, and mark the next revision date.",
+        };
     }
 
     if (
-        reminders.some(
-            (reminder) =>
-                reminder.type ===
-                NotificationType.STREAK_RISK
-        )
+        streakReminder &&
+        (resumeReminder || interviewReminder)
     ) {
-        return "Complete one focused preparation task today and protect your consistency.";
+        return {
+            priorityTitle:
+                "Protect today's streak",
+
+            focusMessage:
+                "Log one focused preparation action today, then handle the oldest open readiness gap.",
+
+            nextStep:
+                resumeReminder
+                    ? "Complete one resume edit that improves keywords, project clarity, or ATS evidence."
+                    : "Record or review one spoken answer so interview practice is active again.",
+        };
     }
 
-    if (
-        reminders.some(
-            (reminder) =>
-                reminder.type ===
-                NotificationType
-                    .RESUME_STALE
-        )
-    ) {
-        return "Review your latest resume and improve one measurable project or experience bullet.";
+    if (streakReminder) {
+        return {
+            priorityTitle:
+                "Protect today's streak",
+
+            focusMessage:
+                "Complete one measurable preparation task before the day ends.",
+
+            nextStep:
+                "Pick the smallest task that creates evidence: a solved note, a resume bullet, or a recorded answer.",
+        };
     }
 
-    if (
-        reminders.some(
-            (reminder) =>
-                reminder.type ===
-                NotificationType
-                    .INTERVIEW_INACTIVE
-        )
-    ) {
-        return "Practice one technical or behavioural answer out loud using a clear structure.";
+    if (resumeReminder) {
+        const ageDays =
+            getMetadataNumber(
+                resumeReminder,
+                "resumeAgeDays"
+            );
+
+        return {
+            priorityTitle:
+                ageDays
+                    ? "Refresh stale resume evidence"
+                    : "Add resume evidence",
+
+            focusMessage:
+                ageDays
+                    ? `Your resume is ${ageDays} ${pluralize(
+                        ageDays,
+                        "day"
+                    )} old; update one role-relevant project or keyword section.`
+                    : "Upload your resume so PlacementOS can score ATS, role fit, keywords, and projects.",
+
+            nextStep:
+                ageDays
+                    ? "Rewrite one project bullet with action, tech stack, metric, and impact."
+                    : "Upload a clean one-page PDF with education, skills, projects, and links.",
+        };
     }
 
-    return "Continue your current preparation plan and complete the highest-priority task first.";
+    if (interviewReminder) {
+        const inactiveDays =
+            getMetadataNumber(
+                interviewReminder,
+                "inactiveDays"
+            );
+
+        return {
+            priorityTitle:
+                inactiveDays
+                    ? "Restart interview practice"
+                    : "Create interview evidence",
+
+            focusMessage:
+                inactiveDays
+                    ? `Your last interview replay was ${inactiveDays} ${pluralize(
+                        inactiveDays,
+                        "day"
+                    )} ago; practice one structured answer today.`
+                    : "Record one mock or past interview so feedback can target real weaknesses.",
+
+            nextStep:
+                "Speak one project answer using problem, architecture, tradeoff, and measurable result.",
+        };
+    }
+
+    return {
+        priorityTitle:
+            "Stay on plan",
+
+        focusMessage:
+            "Continue your current preparation plan and complete the highest-priority task first.",
+
+        nextStep:
+            "Choose one task that leaves a concrete artifact for tomorrow's plan.",
+    };
 };
 
 export const sendDailyDigestEmail =
@@ -154,7 +288,12 @@ export const sendDailyDigestEmail =
             ).format(now);
 
         const subject =
-            `PlacementOS daily digest — ${digestDate}`;
+            `PlacementOS daily digest - ${digestDate}`;
+
+        const coachCopy =
+            buildDigestCoachCopy(
+                reminders
+            );
 
         await sendEmailJsTemplate({
             templateId,
@@ -190,6 +329,18 @@ export const sendDailyDigestEmail =
 
                 reminder_count:
                     reminders.length,
+
+                priority_title:
+                    coachCopy
+                        .priorityTitle,
+
+                priority_message:
+                    coachCopy
+                        .focusMessage,
+
+                next_step:
+                    coachCopy
+                        .nextStep,
 
                 streak_status:
                     getReminderStatus(
@@ -232,9 +383,8 @@ export const sendDailyDigestEmail =
                     ),
 
                 focus_message:
-                    getPrimaryFocus(
-                        reminders
-                    ),
+                    coachCopy
+                        .focusMessage,
 
                 dashboard_url:
                     `${clientUrl}/dashboard`,
