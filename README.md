@@ -6,6 +6,8 @@
 
 PlacementOS connects DSA practice, resume intelligence, interview replay, readiness scoring, daily planning, and smart notifications into a single preparation workflow.
 
+</div>
+
 ---
 
 ## Product Preview
@@ -47,25 +49,13 @@ PlacementOS connects DSA practice, resume intelligence, interview replay, readin
 
 ## Overview
 
-Engineering students usually prepare for placements using disconnected tools:
-
-- coding platforms for DSA;
-- document tools for resumes;
-- generic interview platforms;
-- spreadsheets for progress tracking;
-- calendars for reminders.
-
-Each tool records activity, but none maintains a unified understanding of the student's preparation state.
+Engineering students usually prepare for placements using disconnected tools: coding platforms for DSA, document tools for resumes, generic interview platforms, spreadsheets for progress tracking, and calendars for reminders. Each tool records activity, but none maintains a unified understanding of the student's preparation state.
 
 PlacementOS solves this coordination problem by treating preparation activity as connected evidence. DSA performance, resume quality, interview outcomes, revision history, target companies, and consistency signals contribute to one readiness model and one prioritized action system.
 
 ```mermaid
 flowchart LR
-    A[Preparation Evidence] --> B[Diagnosis]
-    B --> C[Readiness Signals]
-    C --> D[Prioritized Daily Actions]
-    D --> E[Practice and Revision]
-    E --> A
+    A[Preparation Evidence] --> B[Diagnosis] --> C[Readiness Signals] --> D[Prioritized Daily Actions] --> E[Practice and Revision] --> A
 ```
 
 The product is designed as a continuous feedback loop: every action updates the student's preparation model and influences what the system recommends next.
@@ -89,66 +79,15 @@ The product is designed as a continuous feedback loop: every action updates the 
 
 ## Key Capabilities
 
-### Authentication and Identity
+**Authentication and Identity** — Email and password authentication, Google authentication through Firebase, backend verification of Firebase identity tokens, email verification workflow, JWT access and refresh sessions, role-aware authorization, protected routes with user-scoped data access, and Telegram alerts for authentication events.
 
-- Email and password authentication
-- Google authentication through Firebase
-- Backend verification of Firebase identity tokens
-- Email verification workflow
-- JWT access and refresh sessions
-- Role-aware authorization
-- Protected routes and user-scoped data access
-- Telegram alerts for authentication events
+**DSA Tracker v2** — Manual problem tracking with topic and pattern classification, difficulty and completion status, platform links and company tags, solve count and revision scheduling, notes and learning history, weak-topic identification, pattern-coverage analytics, a revision queue, and readiness-score contribution.
 
-### DSA Tracker v2
+**Resume Intelligence** — Resume upload and storage, ATS-oriented analysis, structured improvement feedback, resume freshness tracking, role-fit and readiness signals, dashboard score integration, and real-time analysis-completion notifications.
 
-- Manual problem tracking
-- Topic and pattern classification
-- Difficulty and completion status
-- Platform links and company tags
-- Solve count and revision scheduling
-- Notes and learning history
-- Weak-topic identification
-- Pattern-coverage analytics
-- Revision queue
-- Readiness-score contribution
+**Interview Replay** — Manual, audio, and video interview input; browser-side video-to-audio extraction; adaptive single-file or chunked upload; sequential transcription; boundary-aware transcript reconstruction; structured AI analysis; question-level candidate-answer evaluation; expected-answer checklists; missed points and likely knowledge gaps; root-cause analysis; practice tasks and revision plans; and interview-readiness contribution.
 
-### Resume Intelligence
-
-- Resume upload and storage
-- ATS-oriented analysis
-- Structured improvement feedback
-- Resume freshness tracking
-- Role-fit and readiness signals
-- Dashboard score integration
-- Real-time analysis-completion notifications
-
-### Interview Replay
-
-- Manual, audio, and video interview input
-- Browser-side video-to-audio extraction
-- Adaptive single-file or chunked upload
-- Sequential transcription
-- Boundary-aware transcript reconstruction
-- Structured AI analysis
-- Question-level candidate-answer evaluation
-- Expected-answer checklists
-- Missed points and likely knowledge gaps
-- Root-cause analysis
-- Practice tasks and revision plans
-- Interview-readiness contribution
-
-### Daily Planning and Notifications
-
-- Personalized preparation plans
-- Bounded daily tasks
-- DSA, profile, resume, and interview actions
-- Selected-task preservation during regeneration
-- Real-time Socket.IO notifications
-- Unread notification state
-- User-controlled notification preferences
-- Timezone-aware digest configuration
-- Protected automation endpoint for scheduled reminder evaluation
+**Daily Planning and Notifications** — Personalized preparation plans with bounded daily tasks covering DSA, profile, resume, and interview actions; selected-task preservation during regeneration; real-time Socket.IO notifications; unread notification state; user-controlled notification preferences; timezone-aware digest configuration; and a protected automation endpoint for scheduled reminder evaluation.
 
 ---
 
@@ -157,15 +96,13 @@ The product is designed as a continuous feedback loop: every action updates the 
 PlacementOS converts activity from multiple domains into one materialized readiness model.
 
 ```mermaid
-flowchart TB
+flowchart LR
     DSA[DSA Performance] --> SCORE[Placement Readiness Score]
     RESUME[Resume Quality] --> SCORE
     INTERVIEW[Interview Performance] --> SCORE
     PROFILE[Profile Completion] --> SCORE
     STREAK[Preparation Consistency] --> SCORE
-
-    SCORE --> DB[(ReadinessScore)]
-    DB --> DASHBOARD[Fast Dashboard Reads]
+    SCORE --> DB[(ReadinessScore)] --> DASHBOARD[Fast Dashboard Reads]
     DB --> HISTORY[Readiness History]
 ```
 
@@ -180,61 +117,12 @@ PlacementOS uses a **domain-oriented modular-monolith architecture**.
 The frontend and backend are deployed independently, while the backend remains one Node.js application with explicit boundaries around authentication, preparation evidence, AI analysis, readiness aggregation, notifications, and external integrations.
 
 ```mermaid
-flowchart TB
-    USER([Student / Placement Candidate])
-
-    subgraph CLIENT["Frontend — Vercel"]
-        SPA["React 19 + TypeScript + Vite"]
-        ROUTES["React Router"]
-        STATE["Zustand + TanStack Query"]
-        HTTP["Axios API Client"]
-        SOCKET_CLIENT["Socket.IO Client"]
-        MEDIA["FFmpeg WebAssembly"]
-    end
-
-    subgraph SERVER["Backend — Render"]
-        API["Node.js + Express + TypeScript"]
-        MIDDLEWARE["Auth · Validation · CORS · Rate Limits · Upload Guards"]
-        CONTROLLERS["Controllers"]
-        SERVICES["Domain Services"]
-        REALTIME["Socket.IO Server"]
-    end
-
-    subgraph DATA["Persistence"]
-        PRISMA["Prisma ORM"]
-        POSTGRES[("Neon PostgreSQL")]
-    end
-
-    subgraph PROVIDERS["External Services"]
-        FIREBASE["Firebase Authentication"]
-        GROQ["Groq Transcription + AI Analysis"]
-        CLOUDINARY["Cloudinary"]
-        EMAIL["EmailJS"]
-        TELEGRAM["Telegram Bot API"]
-        RAZORPAY["Razorpay"]
-    end
-
-    USER --> SPA
-    SPA --> ROUTES
-    ROUTES --> STATE
-    STATE --> HTTP
-    SPA --> MEDIA
-    HTTP -- "HTTPS REST / multipart" --> API
-    SOCKET_CLIENT <-- "WebSocket / fallback" --> REALTIME
-
-    API --> MIDDLEWARE
-    MIDDLEWARE --> CONTROLLERS
-    CONTROLLERS --> SERVICES
-    SERVICES --> PRISMA
-    PRISMA --> POSTGRES
-
-    SERVICES --> FIREBASE
-    SERVICES --> GROQ
-    SERVICES --> CLOUDINARY
-    SERVICES --> EMAIL
-    SERVICES --> TELEGRAM
-    SERVICES --> RAZORPAY
-    SERVICES --> REALTIME
+flowchart LR
+    USER([Student / Placement Candidate]) --> SPA["React 19 + TypeScript + Vite (Vercel)"]
+    SPA -- "HTTPS REST / multipart" --> API["Node.js + Express + TypeScript (Render)"]
+    SPA <-- "WebSocket / fallback" --> REALTIME["Socket.IO Server"]
+    API --> PRISMA["Prisma ORM"] --> POSTGRES[("Neon PostgreSQL")]
+    API --> PROVIDERS["Firebase · Groq · Cloudinary · EmailJS · Telegram · Razorpay"]
 ```
 
 ### Live Deployment
@@ -259,22 +147,11 @@ docs/architecture/PlacementOS_Complete_Architecture_Blueprint.pdf
 
 ## Architectural Style
 
-The modular-monolith design was selected because PlacementOS has:
-
-- strongly connected relational data;
-- shared readiness calculations;
-- cross-domain workflows;
-- one primary engineering owner;
-- moderate current traffic;
-- no immediate requirement for independently scaled microservices.
-
-This structure avoids premature operational complexity while preserving clear extraction paths for future workers, queues, and distributed services.
+The modular-monolith design was selected because PlacementOS has strongly connected relational data, shared readiness calculations, cross-domain workflows, one primary engineering owner, moderate current traffic, and no immediate requirement for independently scaled microservices. This structure avoids premature operational complexity while preserving clear extraction paths for future workers, queues, and distributed services.
 
 ```mermaid
 flowchart LR
-    ROUTES[Routes] --> MIDDLEWARE[Middleware]
-    MIDDLEWARE --> CONTROLLERS[Controllers]
-    CONTROLLERS --> SERVICES[Domain Services]
+    ROUTES[Routes] --> MIDDLEWARE[Middleware] --> CONTROLLERS[Controllers] --> SERVICES[Domain Services]
     SERVICES --> PERSISTENCE[Prisma and PostgreSQL]
     SERVICES --> ADAPTERS[External Provider Adapters]
 ```
@@ -286,30 +163,9 @@ flowchart LR
 The frontend is a React single-page application built with TypeScript and Vite.
 
 ```mermaid
-flowchart TB
-    subgraph PRESENTATION["Presentation"]
-        PUBLIC["Public and Authentication Pages"]
-        SHELL["Protected Application Shell"]
-        MODULES["Dashboard · DSA · Resume · Interviews · Profile · Settings"]
-    end
-
-    subgraph APPLICATION["Application State"]
-        QUERY["TanStack Query"]
-        STORE["Zustand"]
-        API["Axios Client"]
-        SOCKET["Socket.IO Client"]
-    end
-
-    subgraph PLATFORM["Browser Capabilities"]
-        ROUTER["React Router"]
-        MEDIA["FFmpeg WebAssembly"]
-        STORAGE["Local and Session Storage"]
-    end
-
-    PUBLIC --> APPLICATION
-    SHELL --> APPLICATION
-    MODULES --> APPLICATION
-    APPLICATION --> PLATFORM
+flowchart LR
+    PRESENTATION["Public/Auth Pages, Protected Shell, Dashboard/DSA/Resume/Interviews/Profile/Settings Modules"] --> APPLICATION["TanStack Query, Zustand, Axios, Socket.IO Client"]
+    APPLICATION --> PLATFORM["React Router, FFmpeg WebAssembly, Local/Session Storage"]
 ```
 
 ### Frontend Responsibilities
@@ -327,15 +183,7 @@ flowchart TB
 
 ### Design System
 
-The UI follows a dark navy and charcoal visual system with:
-
-- indigo-violet accents;
-- rounded surfaces;
-- subtle borders and glows;
-- responsive spacing;
-- accessible focus states;
-- reduced-motion support;
-- explicit loading, success, and error feedback.
+The UI follows a dark navy and charcoal visual system with indigo-violet accents, rounded surfaces, subtle borders and glows, responsive spacing, accessible focus states, reduced-motion support, and explicit loading, success, and error feedback.
 
 ---
 
@@ -344,65 +192,17 @@ The UI follows a dark navy and charcoal visual system with:
 The backend is organized into layered modules with domain-specific services.
 
 ```mermaid
-flowchart TB
-    subgraph HTTP["HTTP and Real-Time Layer"]
-        EXPRESS["Express App"]
-        ROUTES["REST and Multipart Routes"]
-        HEALTH["Health Endpoints"]
-        SOCKET["Socket.IO Server"]
-    end
-
-    subgraph SECURITY["Middleware Layer"]
-        AUTH["Authentication and Authorization"]
-        VALIDATION["Validation"]
-        CORS["CORS"]
-        RATE["Rate Limiting"]
-        UPLOAD["Upload Guards"]
-        ERRORS["Error Mapping"]
-    end
-
-    subgraph APP["Application Layer"]
-        CONTROLLERS["Controllers"]
-        SERVICES["Domain Services"]
-    end
-
-    subgraph DOMAIN["Domain Modules"]
-        IDENTITY["Authentication and Profile"]
-        DSA["DSA Tracker"]
-        RESUME["Resume Intelligence"]
-        INTERVIEW["Interview Replay"]
-        READINESS["Readiness Engine"]
-        PLAN["Daily Plan"]
-        NOTIFICATIONS["Notifications"]
-        PAYMENTS["Payments"]
-        FEEDBACK["Feedback"]
-    end
-
-    subgraph INFRA["Infrastructure"]
-        PRISMA["Prisma Client"]
-        DATABASE[("PostgreSQL")]
-        PROVIDERS["External Provider Adapters"]
-    end
-
-    HTTP --> SECURITY
-    SECURITY --> CONTROLLERS
-    CONTROLLERS --> SERVICES
-    SERVICES --> DOMAIN
-    DOMAIN --> PRISMA
-    PRISMA --> DATABASE
-    DOMAIN --> PROVIDERS
+flowchart LR
+    HTTP["Express App, REST/Multipart Routes, Health Endpoints, Socket.IO"] --> SECURITY["Auth, Validation, CORS, Rate Limiting, Upload Guards, Error Mapping"]
+    SECURITY --> APP["Controllers + Services"]
+    APP --> DOMAIN["Identity · DSA · Resume · Interview · Readiness · Plan · Notifications · Payments · Feedback"]
+    DOMAIN --> INFRA["Prisma Client → PostgreSQL"]
+    DOMAIN --> PROVIDERS["External Provider Adapters"]
 ```
 
 ### Backend Design Principles
 
-- Controllers remain thin and delegate business rules to services.
-- User ownership is enforced through user-scoped queries.
-- Cross-domain readiness updates are centralized.
-- External providers are accessed through service boundaries.
-- AI output is validated and normalized before persistence.
-- Provider failures are mapped to stable HTTP responses.
-- Sensitive credentials remain server-side.
-- Interview processing is protected by retry, queue, and duplicate-work controls.
+Controllers remain thin and delegate business rules to services. User ownership is enforced through user-scoped queries. Cross-domain readiness updates are centralized. External providers are accessed through service boundaries. AI output is validated and normalized before persistence. Provider failures are mapped to stable HTTP responses. Sensitive credentials remain server-side. Interview processing is protected by retry, queue, and duplicate-work controls.
 
 ---
 
@@ -437,15 +237,11 @@ erDiagram
     USER ||--|| PROFILE : has
     USER ||--|| READINESS_SCORE : has
     USER ||--|| NOTIFICATION_PREFERENCE : configures
-
     USER ||--o{ DSA_PROBLEM : owns
     DSA_PROBLEM ||--o{ DSA_REVISION : schedules
-
     USER ||--o{ RESUME : uploads
-
     USER ||--o{ INTERVIEW_SESSION : records
     INTERVIEW_SESSION ||--o{ INTERVIEW_QUESTION_REPLAY : contains
-
     USER ||--o{ DAILY_PLAN : receives
     USER ||--o{ STREAK : maintains
     USER ||--o{ NOTIFICATION : receives
@@ -456,12 +252,7 @@ erDiagram
 
 ### Data-Modeling Principles
 
-- Every preparation record is tied to its owner.
-- One-to-one aggregates use stable upsert semantics.
-- Enum-backed fields constrain critical workflow states.
-- Readiness is materialized for predictable dashboard reads.
-- Interview AI output is stored as structured product data.
-- Prisma migrations preserve schema history across environments.
+Every preparation record is tied to its owner. One-to-one aggregates use stable upsert semantics. Enum-backed fields constrain critical workflow states. Readiness is materialized for predictable dashboard reads. Interview AI output is stored as structured product data. Prisma migrations preserve schema history across environments.
 
 ---
 
@@ -480,14 +271,12 @@ sequenceDiagram
 
     User->>Client: Sign in
     Client->>API: Credentials or Firebase ID token
-
     alt Google authentication
         API->>Firebase: Verify ID token
         Firebase-->>API: Verified identity
     else Email and password
         API->>API: Verify password hash
     end
-
     API->>DB: Lookup or create user
     DB-->>API: User and profile
     API->>API: Issue access and refresh tokens
@@ -500,50 +289,30 @@ The backend verifies Google identity server-side before issuing PlacementOS toke
 ### Interview Replay and AI Pipeline
 
 ```mermaid
-flowchart TD
-    INPUT[Manual, Audio, or Video Input] --> VALIDATE[Browser Metadata Validation]
-    VALIDATE --> VIDEO{Video?}
-
-    VIDEO -- Yes --> EXTRACT[FFmpeg Extracts Audio Locally]
-    VIDEO -- No --> AUDIO[Use Provided Audio]
-    EXTRACT --> SIZE[Evaluate Processed Audio Size]
-    AUDIO --> SIZE
-
+flowchart LR
+    INPUT[Manual/Audio/Video Input] --> VALIDATE[Browser Validation] --> VIDEO{Video?}
+    VIDEO -- Yes --> EXTRACT[FFmpeg Extracts Audio] --> SIZE[Evaluate Audio Size]
+    VIDEO -- No --> AUDIO[Use Provided Audio] --> SIZE
     SIZE --> CHUNK{Chunking Required?}
-    CHUNK -- No --> SINGLE[Single Multipart Upload]
-    CHUNK -- Yes --> PARTS[Generate Ordered Overlapping Chunks]
-
-    SINGLE --> SERVER[Backend Validation]
-    PARTS --> SERVER
-
-    SERVER --> TRANSCRIBE[Sequential Groq Transcription]
-    TRANSCRIBE --> COMBINE[Boundary-Aware Transcript Merge]
-    COMBINE --> ANALYZE[Structured AI Analysis]
-    ANALYZE --> PERSIST[Persist Session and Question Replays]
-    PERSIST --> SCORE[Recalculate Readiness]
-    SCORE --> EVENT[Emit Socket.IO Completion Event]
+    CHUNK -- No --> SINGLE[Single Upload] --> SERVER[Backend Validation]
+    CHUNK -- Yes --> PARTS[Ordered Overlapping Chunks] --> SERVER
+    SERVER --> TRANSCRIBE[Sequential Groq Transcription] --> COMBINE[Boundary-Aware Merge] --> ANALYZE[Structured AI Analysis]
+    ANALYZE --> PERSIST[Persist Session and Replays] --> SCORE[Recalculate Readiness] --> EVENT[Emit Socket.IO Event]
 ```
 
 ### Resume Analysis
 
 ```mermaid
 flowchart LR
-    UPLOAD[Resume Upload] --> VALIDATE[Multipart Validation]
-    VALIDATE --> STORAGE[Cloudinary Storage]
-    STORAGE --> ANALYZE[Text Extraction and AI Analysis]
-    ANALYZE --> RESULT[Structured Score and Recommendations]
-    RESULT --> DB[(Resume Record)]
-    DB --> READINESS[Readiness Recalculation]
-    READINESS --> NOTIFY[Real-Time Completion Notification]
+    UPLOAD[Resume Upload] --> VALIDATE[Multipart Validation] --> STORAGE[Cloudinary Storage] --> ANALYZE[Text Extraction and AI Analysis]
+    ANALYZE --> RESULT[Structured Score and Recommendations] --> DB[(Resume Record)] --> READINESS[Readiness Recalculation] --> NOTIFY[Real-Time Notification]
 ```
 
 ### Real-Time Notifications
 
 ```mermaid
 flowchart LR
-    EVENTS[Domain Completion Events] --> RECORD[Notification Record]
-    RECORD --> SOCKET[Socket.IO notification:new]
-    SOCKET --> BELL[Bell UI and Unread Count]
+    EVENTS[Domain Completion Events] --> RECORD[Notification Record] --> SOCKET[Socket.IO notification:new] --> BELL[Bell UI and Unread Count]
 ```
 
 ---
@@ -554,53 +323,20 @@ The Interview Replay pipeline is one of the most technically significant parts o
 
 ### Privacy-Aware Browser Processing
 
-Original video is intentionally not uploaded.
-
-For video input:
-
-1. The browser validates the media.
-2. FFmpeg WebAssembly loads only when needed.
-3. Audio is extracted locally.
-4. Audio is converted into a compressed transcription-compatible format.
-5. The original video remains on the user's device.
-
-This reduces:
-
-- backend bandwidth;
-- object-storage cost;
-- unnecessary exposure of personal video;
-- provider upload-limit failures.
+Original video is intentionally not uploaded. For video input, the browser validates the media, FFmpeg WebAssembly loads only when needed, audio is extracted locally and converted into a compressed transcription-compatible format, and the original video remains on the user's device. This reduces backend bandwidth, object-storage cost, unnecessary exposure of personal video, and provider upload-limit failures.
 
 ### Adaptive Upload Strategy
 
 ```mermaid
-flowchart TD
+flowchart LR
     SOURCE[Processed Audio] --> LIMIT{Within Safe Size Limit?}
-    LIMIT -- Yes --> ONE[Single Upload]
-    LIMIT -- No --> MANY[Overlapping Chunks]
-    MANY --> ORDER[Ordered Upload]
-    ORDER --> SERIAL[Sequential Transcription]
-    SERIAL --> MERGE[Transcript Merge]
-    ONE --> TRANSCRIBE[Transcription]
-    TRANSCRIBE --> FINAL[Final Transcript]
-    MERGE --> FINAL
+    LIMIT -- Yes --> ONE[Single Upload] --> TRANSCRIBE[Transcription] --> FINAL[Final Transcript]
+    LIMIT -- No --> MANY[Overlapping Chunks] --> ORDER[Ordered Upload] --> SERIAL[Sequential Transcription] --> MERGE[Transcript Merge] --> FINAL
 ```
 
 ### AI Output Contract
 
-The AI layer produces structured output containing:
-
-- overall and category-level scores;
-- strengths and weaknesses;
-- question-level candidate answers;
-- expected-answer points;
-- missed concepts;
-- likely root causes;
-- practice tasks;
-- short revision plans;
-- company-readiness guidance.
-
-Responses are parsed, normalized, and range-checked before persistence.
+The AI layer produces structured output containing overall and category-level scores, strengths and weaknesses, question-level candidate answers, expected-answer points, missed concepts, likely root causes, practice tasks, short revision plans, and company-readiness guidance. Responses are parsed, normalized, and range-checked before persistence.
 
 ---
 
@@ -644,24 +380,7 @@ Responses are parsed, normalized, and range-checked before persistence.
 
 ## Security and Privacy
 
-PlacementOS stores sensitive preparation data, including resumes, interview transcripts, scores, target companies, and profile information.
-
-Implemented controls include:
-
-- bcrypt password hashing;
-- JWT-protected API routes;
-- access and refresh token separation;
-- backend verification of Firebase tokens;
-- role-aware authorization;
-- user-scoped database queries;
-- production CORS restrictions;
-- request validation;
-- upload and duration limits;
-- rate limiting;
-- server-only provider credentials;
-- environment-variable-based secret management;
-- generic provider-error responses;
-- original-video exclusion by design.
+PlacementOS stores sensitive preparation data, including resumes, interview transcripts, scores, target companies, and profile information. Implemented controls include bcrypt password hashing, JWT-protected API routes, access and refresh token separation, backend verification of Firebase tokens, role-aware authorization, user-scoped database queries, production CORS restrictions, request validation, upload and duration limits, rate limiting, server-only provider credentials, environment-variable-based secret management, generic provider-error responses, and original-video exclusion by design.
 
 The media architecture intentionally sends only processed audio required for transcription.
 
@@ -669,48 +388,20 @@ The media architecture intentionally sends only processed audio required for tra
 
 ## Reliability and Failure Handling
 
-PlacementOS includes resilience mechanisms beyond standard CRUD behavior:
-
-- exponential backoff for retryable AI failures;
-- provider `Retry-After` handling;
-- explicit `429` and `503` response mapping;
-- serial transcription queue;
-- per-user interview-processing lock;
-- duplicate-notification prevention;
-- structured fallback parsing for malformed AI output;
-- health and database-health endpoints;
-- production deployment checks.
+PlacementOS includes resilience mechanisms beyond standard CRUD behavior: exponential backoff for retryable AI failures, provider `Retry-After` handling, explicit `429` and `503` response mapping, a serial transcription queue, a per-user interview-processing lock, duplicate-notification prevention, structured fallback parsing for malformed AI output, health and database-health endpoints, and production deployment checks.
 
 ### Current Scope
 
-The queue and processing lock are process-local and appropriate for the current single-instance backend.
-
-Future horizontal scaling should introduce:
-
-- distributed locks;
-- durable background jobs;
-- shared provider-rate coordination;
-- worker-based transcription and analysis;
-- structured execution history and metrics.
+The queue and processing lock are process-local and appropriate for the current single-instance backend. Future horizontal scaling should introduce distributed locks, durable background jobs, shared provider-rate coordination, worker-based transcription and analysis, and structured execution history and metrics.
 
 ---
 
 ## Production Deployment
 
 ```mermaid
-flowchart TB
-    GITHUB[GitHub main branch]
-
-    GITHUB --> VERCEL[Vercel]
-    VERCEL --> CLIENT[Build client with Vite]
-    CLIENT --> CDN[Deploy Static SPA]
-
-    GITHUB --> RENDER[Render]
-    RENDER --> INSTALL[Install Dependencies]
-    INSTALL --> PRISMA[Generate Prisma Client]
-    PRISMA --> MIGRATE[Apply Migrations]
-    MIGRATE --> BUILD[Compile TypeScript]
-    BUILD --> START[Start Express and Socket.IO]
+flowchart LR
+    GITHUB[GitHub main branch] --> VERCEL[Vercel: Build + Deploy SPA]
+    GITHUB --> RENDER[Render: Install → Prisma Generate → Migrate → Build → Start]
 ```
 
 | Component | Deployment |
@@ -732,38 +423,19 @@ PlacementOS/
 ├── client/
 │   ├── public/
 │   ├── src/
-│   │   ├── components/
-│   │   ├── features/
-│   │   ├── pages/
-│   │   ├── services/
-│   │   ├── store/
-│   │   ├── hooks/
-│   │   ├── layouts/
-│   │   ├── types/
-│   │   └── utils/
+│   │   ├── components/ features/ pages/ services/ store/ hooks/ layouts/ types/ utils/
 │   ├── vercel.json
 │   └── package.json
 │
 ├── server/
-│   ├── prisma/
-│   │   ├── migrations/
-│   │   └── schema.prisma
+│   ├── prisma/ migrations/ schema.prisma
 │   ├── src/
-│   │   ├── controllers/
-│   │   ├── routes/
-│   │   ├── middleware/
-│   │   ├── services/
-│   │   ├── validators/
-│   │   ├── prisma/
-│   │   ├── utils/
+│   │   ├── controllers/ routes/ middleware/ services/ validators/ prisma/ utils/
 │   │   ├── app.ts
 │   │   └── index.ts
 │   └── package.json
 │
-├── docs/
-│   └── architecture/
-│       └── PlacementOS_Complete_Architecture_Blueprint.pdf
-│
+├── docs/architecture/PlacementOS_Complete_Architecture_Blueprint.pdf
 └── README.md
 ```
 
@@ -786,57 +458,23 @@ PlacementOS/
 
 ## Current Limitations
 
-- Interview transcription and analysis remain request-bound.
-- Processing locks and the transcription queue are process-local.
-- Large multipart uploads still use memory-backed handling.
-- External-object deletion requires stronger reconciliation.
-- Readiness calibration needs long-term outcome validation.
-- Production observability currently relies mainly on application and platform logs.
-- External scheduling for notification automation is optional and not required for core product usage.
+Interview transcription and analysis remain request-bound. Processing locks and the transcription queue are process-local. Large multipart uploads still use memory-backed handling. External-object deletion requires stronger reconciliation. Readiness calibration needs long-term outcome validation. Production observability currently relies mainly on application and platform logs. External scheduling for notification automation is optional and not required for core product usage.
 
 ---
 
 ## Future Engineering Roadmap
 
-### Priority 0
+**Priority 0** — Add idempotency keys to upload and AI-analysis commands, add structured correlation IDs, enforce total multipart-byte limits, strengthen external-object deletion reconciliation, and expand end-to-end production tests.
 
-- Add idempotency keys to upload and AI-analysis commands
-- Add structured correlation IDs
-- Enforce total multipart-byte limits
-- Strengthen external-object deletion reconciliation
-- Expand end-to-end production tests
+**Priority 1** — Move transcription and analysis to durable background jobs, introduce distributed locks, add Redis-backed provider coordination, stream large uploads to object storage, add automation-run history and failure alerts, and add provider latency, retry, and success-rate metrics.
 
-### Priority 1
-
-- Move transcription and analysis to durable background jobs
-- Introduce distributed locks
-- Add Redis-backed provider coordination
-- Stream large uploads to object storage
-- Add automation-run history and failure alerts
-- Add provider latency, retry, and success-rate metrics
-
-### Priority 2
-
-- Version readiness formulas and AI prompt schemas
-- Add per-user AI usage accounting
-- Build an admin observability dashboard
-- Extract dedicated notification and media workers when load requires them
+**Priority 2** — Version readiness formulas and AI prompt schemas, add per-user AI usage accounting, build an admin observability dashboard, and extract dedicated notification and media workers when load requires them.
 
 ---
 
 ## Project Status
 
-PlacementOS is deployed as a production-style portfolio application with:
-
-- a live React frontend;
-- a deployed Node.js API;
-- managed PostgreSQL persistence;
-- Firebase-backed Google authentication;
-- AI-assisted resume and interview workflows;
-- real-time notifications;
-- responsive desktop and mobile interfaces;
-- production health checks;
-- automatic deployments from GitHub.
+PlacementOS is deployed as a production-style portfolio application with a live React frontend, a deployed Node.js API, managed PostgreSQL persistence, Firebase-backed Google authentication, AI-assisted resume and interview workflows, real-time notifications, responsive desktop and mobile interfaces, production health checks, and automatic deployments from GitHub.
 
 The project demonstrates engineering beyond a standard CRUD application through privacy-aware media processing, provider resilience, cross-domain scoring, real-time events, relational modeling, and structured AI workflows.
 
@@ -867,4 +505,3 @@ Full-stack engineering · AI-assisted workflows · System design · Placement te
 This project is licensed under the [MIT License](LICENSE).
 
 Copyright (c) 2026 Aryan Jaiswal
-
